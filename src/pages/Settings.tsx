@@ -18,7 +18,8 @@ import {
   AlertCircle, 
   FileText,
   KeyRound,
-  Trash2
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
 
@@ -43,7 +44,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [defaultInterestType, setDefaultInterestType] = useState<InterestType>(settings?.defaultInterestType || 'flat');
   const [defaultFrequency, setDefaultFrequency] = useState<RepaymentFrequency>(settings?.defaultFrequency || 'weekly');
   const [enablePenalties, setEnablePenalties] = useState(settings?.enablePenalties ?? true);
-  const [defaultPenaltyRate, setDefaultPenaltyRate] = useState(settings?.defaultPenaltyRate || 2);
+  const [defaultPenaltyRate, setDefaultPenaltyRate] = useState(settings?.defaultPenaltyRate || 2.5);
   const [autoLockMinutes, setAutoLockMinutes] = useState(settings?.autoLockMinutes || 5);
 
   // PIN change state
@@ -137,9 +138,18 @@ export const Settings: React.FC<SettingsProps> = ({
     reader.readAsText(file);
   };
 
+  // Reset all data completely (Fresh start with zero clients and zero loans)
+  const handleWipeAllData = async () => {
+    if (window.confirm('Are you sure you want to WIPE ALL DATA? This will delete all registered borrowers, loans, schedules, and payments so you can start fresh.')) {
+      await db.resetAllData();
+      onDataReset();
+      alert('All customer and loan data has been erased. The system is 100% fresh and clean!');
+    }
+  };
+
   // Reset and Seed Initial Ghanaian Sample Data
   const handleReloadDemoData = async () => {
-    if (window.confirm('Reset database and reload realistic Ghanaian sample Drivers & Traders?')) {
+    if (window.confirm('Reload realistic Ghanaian sample Drivers & Traders?')) {
       await seedInitialData(true);
       onDataReset();
       alert('Sample Ghanaian data reloaded successfully!');
@@ -301,11 +311,11 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </form>
 
-      {/* 3. Database Backup & Restore */}
+      {/* 3. Database Backup & Reset Center */}
       <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3">
         <h3 className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
           <Database className="w-4 h-4 text-sky-600" />
-          Offline Data Backup & Restore
+          Offline Data Backup & Clean Start
         </h3>
 
         <div className="grid grid-cols-2 gap-2">
@@ -333,13 +343,22 @@ export const Settings: React.FC<SettingsProps> = ({
           />
         </div>
 
-        {/* Reload Demo Data */}
+        {/* WIPE ALL DATA BUTTON (CLEAN FRESH START) */}
+        <button
+          onClick={handleWipeAllData}
+          className="w-full py-3 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white text-xs font-black rounded-xl flex items-center justify-center gap-1.5 transition shadow-md active:scale-95"
+        >
+          <Trash2 className="w-4 h-4 text-white" />
+          Wipe All Data (Fresh Clean Start)
+        </button>
+
+        {/* Optional Reload Sample Data */}
         <button
           onClick={handleReloadDemoData}
-          className="w-full py-3 bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 border-2 border-amber-300 text-amber-950 text-xs font-black rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs"
+          className="w-full py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 transition"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
-          Reload Realistic Ghanaian Sample Data
+          <RefreshCw className="w-3 h-3 text-slate-500" />
+          Load Sample Ghanaian Demo Data
         </button>
       </div>
 
