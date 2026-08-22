@@ -208,6 +208,8 @@ const MainApp: React.FC = () => {
           {activeTab === 'notifications' && (
             <Notifications
               notifications={notifications}
+              loans={loans}
+              customers={customers}
               onNavigate={handleNavigate}
               onOpenRecordPayment={handleOpenRecordPayment}
             />
