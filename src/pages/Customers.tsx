@@ -12,9 +12,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Upload
 } from 'lucide-react';
 import { formatGhanaPhone, maskGhanaCard } from '../utils/formatters';
+import { GoogleDriveBackupService } from '../services/googleDriveService';
 
 interface CustomersProps {
   customers: Customer[];
@@ -74,13 +76,28 @@ export const Customers: React.FC<CustomersProps> = ({
           <p className="text-xs text-slate-500 font-medium">{customers.length} registered borrowers</p>
         </div>
 
-        <button
-          onClick={onOpenAddCustomer}
-          type="button"
-          className="px-3.5 py-2 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition"
-        >
-          <Plus className="w-4 h-4" /> Add Client
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={async () => {
+              const res = await GoogleDriveBackupService.exportToGoogleDrive();
+              if (res.message) alert(res.message);
+            }}
+            type="button"
+            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95 text-xs font-black rounded-xl shadow-xs flex items-center gap-1 transition"
+            title="Transport all registered clients & photos to Google Drive"
+          >
+            <Upload className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Drive</span>
+          </button>
+
+          <button
+            onClick={onOpenAddCustomer}
+            type="button"
+            className="px-3.5 py-2 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition"
+          >
+            <Plus className="w-4 h-4" /> Add Client
+          </button>
+        </div>
       </div>
 
       {/* Search Input by Telephone, Ghana Card, Name */}

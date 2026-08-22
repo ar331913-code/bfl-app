@@ -22,6 +22,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
+import { GoogleDriveBackupService } from '../services/googleDriveService';
 
 interface SettingsProps {
   auditLogs: AuditLog[];
@@ -324,7 +325,7 @@ export const Settings: React.FC<SettingsProps> = ({
             className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 hover:from-sky-100 hover:to-blue-100 border-2 border-sky-200 text-sky-900 text-xs font-black flex flex-col items-center justify-center gap-1 transition shadow-xs"
           >
             <Download className="w-5 h-5 text-sky-600 mb-0.5" />
-            Export Full Backup (JSON)
+            Export Local Backup (JSON)
           </button>
 
           <button
@@ -342,6 +343,21 @@ export const Settings: React.FC<SettingsProps> = ({
             className="hidden"
           />
         </div>
+
+        {/* GOOGLE DRIVE & CLOUD TRANSPORT BUTTON (WITH PICTURES) */}
+        <button
+          onClick={async () => {
+            const res = await GoogleDriveBackupService.exportToGoogleDrive();
+            if (res.message) {
+              setSaveMessage(res.message);
+              setTimeout(() => setSaveMessage(null), 5000);
+            }
+          }}
+          className="w-full py-3.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition shadow-md active:scale-95 border border-emerald-300/40"
+        >
+          <Upload className="w-4 h-4 text-emerald-100" />
+          Transport All Clients & Photos to Google Drive
+        </button>
 
         {/* WIPE ALL DATA BUTTON (CLEAN FRESH START) */}
         <button
