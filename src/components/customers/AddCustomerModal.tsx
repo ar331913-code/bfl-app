@@ -135,15 +135,13 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   };
 
   const validateStep2 = () => {
-    const newErrors: Record<string, string> = {};
-    const cardTrimmed = ghanaCardNumber.trim();
-    if (!cardTrimmed || cardTrimmed === 'GHA-') {
-      newErrors.ghanaCardNumber = 'Ghana Card PIN is required';
-    } else if (!isValidGhanaCard(cardTrimmed)) {
-      newErrors.ghanaCardNumber = 'Format should match GHA-XXXXXXXXX-X';
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Non-blocking: card and photos are optional
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next.ghanaCardNumber;
+      return next;
+    });
+    return true;
   };
 
   const handleNext = () => {
@@ -476,53 +474,63 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           {/* STEP 2: GHANA CARD DETAILS & LIVE CAMERA CAPTURE */}
           {step === 2 && (
             <div className="space-y-4 animate-fade-in">
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-50 via-cyan-50 to-blue-50 border-2 border-sky-200 space-y-2">
+              {/* Ghana Card Field (Clean with no validity message) */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-sky-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <label className="text-xs font-black text-navy-950 uppercase tracking-wider flex items-center gap-1.5">
                     <CreditCard className="w-4 h-4 text-sky-600" />
-                    Ghana Card PIN (GHA-XXXXXXXXX-X) *
+                    Ghana Card PIN
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">Optional</span>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="e.g. GHA-712345678-9"
+                  value={ghanaCardNumber}
+                  onChange={(e) => handleCardInputChange(e.target.value)}
+                  className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-navy-950 shadow-xs"
+                />
+              </div>
+
+              {/* Photos & Documents Header with Skip Option */}
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <span className="text-xs font-black text-navy-950 uppercase tracking-wider block">
+                    Photos & Documents
                   </span>
-                  {isCardFormatValid ? (
-                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                      <CheckCircle2 className="w-3 h-3" /> Valid Card PIN
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                      Format: GHA-XXXXXXXXX-X
-                    </span>
-                  )}
+                  <span className="text-[10px] text-slate-400 font-medium">Optional — You can take photo or skip</span>
                 </div>
 
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="GHA-712345678-9"
-                    value={ghanaCardNumber}
-                    onChange={(e) => handleCardInputChange(e.target.value)}
-                    className="w-full text-sm font-mono font-black px-3.5 py-3 rounded-xl border-2 border-sky-300 focus:border-sky-600 focus:outline-none tracking-widest bg-white text-navy-950 shadow-inner"
-                  />
-                </div>
-
-                {errors.ghanaCardNumber && (
-                  <p className="text-[11px] text-rose-600 font-bold mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    {errors.ghanaCardNumber}
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="text-xs font-black text-sky-600 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1"
+                >
+                  Skip Photos ➡️
+                </button>
               </div>
 
               {/* Live Camera & Photos Section */}
               <div className="grid grid-cols-2 gap-3">
                 
                 {/* 1. Client Face Profile Photo */}
-                <div className="p-3 rounded-2xl border-2 border-sky-200 bg-white space-y-2 flex flex-col items-center text-center shadow-xs">
+                <div className="p-3 rounded-2xl border-2 border-slate-200 bg-white space-y-2 flex flex-col items-center text-center shadow-xs">
                   <div className="text-[11px] font-black text-navy-950 uppercase tracking-wider">
                     Profile Picture
                   </div>
 
                   {photoUrl ? (
-                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-sky-300">
+                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-sky-300 group">
                       <img src={photoUrl} alt="Client Face" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotoUrl('')}
+                        className="absolute bottom-1 right-1 p-1 bg-rose-600 text-white rounded-lg text-[9px] font-bold shadow-xs hover:bg-rose-700"
+                        title="Remove photo"
+                      >
+                        Remove
+                      </button>
                     </div>
                   ) : (
                     <div className="w-20 h-20 rounded-2xl bg-sky-50 border-2 border-dashed border-sky-300 flex items-center justify-center text-sky-400">
@@ -537,7 +545,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                       className="py-2 px-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-[10px] font-black rounded-xl shadow-xs flex items-center justify-center gap-1"
                     >
                       <Camera className="w-3.5 h-3.5" />
-                      Take Live Photo
+                      Take Photo
                     </button>
 
                     <button
@@ -559,14 +567,22 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 </div>
 
                 {/* 2. Ghana Card Front Document */}
-                <div className="p-3 rounded-2xl border-2 border-sky-200 bg-white space-y-2 flex flex-col items-center text-center shadow-xs">
+                <div className="p-3 rounded-2xl border-2 border-slate-200 bg-white space-y-2 flex flex-col items-center text-center shadow-xs">
                   <div className="text-[11px] font-black text-navy-950 uppercase tracking-wider">
-                    Ghana Card Front
+                    Card Document
                   </div>
 
                   {ghanaCardFrontUrl ? (
-                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-sky-300">
+                    <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-sky-300 group">
                       <img src={ghanaCardFrontUrl} alt="Card Front" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setGhanaCardFrontUrl('')}
+                        className="absolute bottom-1 right-1 p-1 bg-rose-600 text-white rounded-lg text-[9px] font-bold shadow-xs hover:bg-rose-700"
+                        title="Remove document"
+                      >
+                        Remove
+                      </button>
                     </div>
                   ) : (
                     <div className="w-20 h-20 rounded-2xl bg-blue-50 border-2 border-dashed border-blue-300 flex items-center justify-center text-blue-400">
@@ -581,7 +597,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                       className="py-2 px-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white text-[10px] font-black rounded-xl shadow-xs flex items-center justify-center gap-1"
                     >
                       <Camera className="w-3.5 h-3.5" />
-                      Snap Card Front
+                      Snap Card
                     </button>
 
                     <button

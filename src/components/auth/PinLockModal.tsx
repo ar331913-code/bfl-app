@@ -94,8 +94,8 @@ export const PinLockModal: React.FC = () => {
             <span>{error}</span>
           </div>
         ) : (
-          <p className="text-[11px] text-slate-500 mb-3 h-5 font-medium">
-            Enter 4-digit security PIN (Default: <strong className="text-sky-700 font-black">1234</strong>)
+          <p className="text-xs text-slate-600 mb-3 h-5 font-semibold">
+            Enter 4-digit security PIN to unlock
           </p>
         )}
 
