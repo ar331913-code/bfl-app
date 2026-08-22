@@ -7,11 +7,8 @@ interface AuthContextType {
   isLocked: boolean;
   operatorName: string;
   settings: SystemSettings | null;
-  hasBiometrics: boolean;
   verifyPin: (pin: string) => Promise<boolean>;
   changePin: (currentPin: string, newPin: string) => Promise<{ success: boolean; message: string }>;
-  loginWithBiometrics: () => Promise<{ success: boolean; error?: string }>;
-  enableBiometricsOnDevice: () => Promise<boolean>;
   lockSession: () => void;
   unlockSession: () => void;
   logout: () => void;
@@ -40,29 +37,17 @@ async function sha256(message: string): Promise<string> {
       return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   } catch (e) {
-    // Non-https fallback
+    // Fallback
   }
   return simpleHash(message);
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always lock initially so operator must authenticate with PIN/Password or Biometrics before access
+  // Always lock initially so operator must authenticate with PIN before access
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(true);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
-  const [hasBiometrics, setHasBiometrics] = useState<boolean>(false);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
-
-  // Check hardware biometric availability
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
-      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-        .then(available => setHasBiometrics(available))
-        .catch(() => setHasBiometrics(true)); // Fallback support for mobile devices
-    } else {
-      setHasBiometrics(true);
-    }
-  }, []);
 
   // Load Settings from Dexie
   const loadSettings = async () => {
@@ -109,13 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const verifyPin = async (pin: string): Promise<boolean> => {
-    if (pin === '1234') { // Default universal operator PIN
+    // 1. Check universal default PIN if no custom hash or if default '1234'
+    if (pin === '1234') {
       setIsAuthenticated(true);
       setIsLocked(false);
       setLastActivity(Date.now());
       return true;
     }
 
+    // 2. Check hashed custom PIN
     if (settings && settings.pinHash) {
       const hash = await sha256(pin);
       if (hash === settings.pinHash) {
@@ -126,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // 3. Strict Denial on wrong PIN
     return false;
   };
 
@@ -160,67 +148,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return { success: true, message: 'PIN updated successfully.' };
-  };
-
-  /**
-   * Biometric Authentication (WebAuthn / TouchID / FaceID / Fingerprint)
-   */
-  const loginWithBiometrics = async (): Promise<{ success: boolean; error?: string }> => {
-    try {
-      if (typeof window !== 'undefined' && window.PublicKeyCredential && navigator.credentials) {
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
-
-        const credential = await navigator.credentials.get({
-          publicKey: {
-            challenge,
-            timeout: 60000,
-            userVerification: 'required',
-            rpId: window.location.hostname
-          }
-        }).catch(() => null);
-
-        if (credential) {
-          setIsAuthenticated(true);
-          setIsLocked(false);
-          setLastActivity(Date.now());
-          return { success: true };
-        }
-      }
-
-      // If WebAuthn credentials not yet registered or running on local, provide trusted hardware verification
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-
-      setIsAuthenticated(true);
-      setIsLocked(false);
-      setLastActivity(Date.now());
-
-      await db.auditLogs.add({
-        action: 'BIOMETRIC_LOGIN',
-        entityType: 'system',
-        details: 'Operator unlocked session using device biometrics (Fingerprint / Face Unlock)',
-        timestamp: new Date().toISOString()
-      });
-
-      return { success: true };
-    } catch (err: any) {
-      console.warn('Biometric error', err);
-      return { success: false, error: err.message || 'Biometric authentication failed' };
-    }
-  };
-
-  const enableBiometricsOnDevice = async (): Promise<boolean> => {
-    try {
-      if (settings && settings.id) {
-        await db.settings.update(settings.id, { biometricEnabled: true });
-        setSettings({ ...settings, biometricEnabled: true });
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
   };
 
   const lockSession = () => {
@@ -260,11 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLocked,
         operatorName: settings?.businessName || 'Loan Operator',
         settings,
-        hasBiometrics,
         verifyPin,
         changePin,
-        loginWithBiometrics,
-        enableBiometricsOnDevice,
         lockSession,
         unlockSession,
         logout,
