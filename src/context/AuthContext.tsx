@@ -55,6 +55,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const list = await db.settings.toArray();
       if (list.length > 0) {
         setSettings(list[0]);
+      } else {
+        // Initialize default settings with hash of '1234'
+        const initialHash = await sha256('1234');
+        const defaultSettings: SystemSettings = {
+          operatorName: 'Loan Operator',
+          businessName: 'B-F-L Micro Credit',
+          businessPhone: '+233 24 412 3456',
+          businessAddress: 'Accra, Ghana',
+          defaultInterestRate: 10,
+          defaultInterestType: 'flat',
+          defaultFrequency: 'weekly',
+          defaultDurationValue: 8,
+          defaultDurationUnit: 'weeks',
+          enablePenalties: true,
+          defaultPenaltyRate: 2.5,
+          gracePeriodDays: 2,
+          autoLockMinutes: 5,
+          biometricEnabled: false,
+          pinHash: initialHash,
+          salt: 'bfl_salt_2026',
+          smsReminderTemplate: 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.'
+        };
+        const id = await db.settings.add(defaultSettings);
+        setSettings({ ...defaultSettings, id });
       }
     } catch (e) {
       console.warn('Failed to load settings', e);
@@ -94,23 +118,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const verifyPin = async (pin: string): Promise<boolean> => {
-    // 1. Check universal default PIN if no custom hash or if default '1234'
-    if (pin === '1234') {
-      setIsAuthenticated(true);
-      setIsLocked(false);
-      setLastActivity(Date.now());
-      return true;
-    }
-
-    // 2. Check hashed custom PIN
+    // 1. If custom pinHash is configured, ONLY verify against that hash!
     if (settings && settings.pinHash) {
-      const hash = await sha256(pin);
-      if (hash === settings.pinHash) {
+      const enteredHash = await sha256(pin);
+      if (enteredHash === settings.pinHash) {
         setIsAuthenticated(true);
         setIsLocked(false);
         setLastActivity(Date.now());
         return true;
       }
+      return false;
+    }
+
+    // 2. Default PIN '1234' only if no hash exists yet
+    if (pin === '1234') {
+      setIsAuthenticated(true);
+      setIsLocked(false);
+      setLastActivity(Date.now());
+      return true;
     }
 
     // 3. Strict Denial on wrong PIN
@@ -120,7 +145,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const changePin = async (currentPin: string, newPin: string): Promise<{ success: boolean; message: string }> => {
     if (!settings) return { success: false, message: 'Settings not loaded' };
     
-    const isCurrentValid = currentPin === '1234' || (await sha256(currentPin)) === settings.pinHash;
+    // Check if entered currentPin matches stored pinHash
+    let isCurrentValid = false;
+    if (settings.pinHash) {
+      const enteredCurrentHash = await sha256(currentPin);
+      isCurrentValid = enteredCurrentHash === settings.pinHash;
+    } else {
+      isCurrentValid = currentPin === '1234';
+    }
+
     if (!isCurrentValid) {
       return { success: false, message: 'Current PIN is incorrect.' };
     }
@@ -133,9 +166,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updated = { ...settings, pinHash: newHash };
     
     if (settings.id) {
-      await db.settings.update(settings.id, updated);
+      await db.settings.update(settings.id, { pinHash: newHash });
     } else {
-      await db.settings.add(updated);
+      const id = await db.settings.add(updated);
+      updated.id = id;
     }
 
     setSettings(updated);
@@ -147,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timestamp: new Date().toISOString()
     });
 
-    return { success: true, message: 'PIN updated successfully.' };
+    return { success: true, message: 'PIN updated successfully. Default PIN is now disabled.' };
   };
 
   const lockSession = () => {
