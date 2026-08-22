@@ -1,17 +1,26 @@
 {
   "short_name": "B-F-L",
-  "name": "B-F-L Loan Management System",
+  "name": "B-F-L Micro Loan Manager",
+  "description": "Professional microfinance and loan management system for drivers and market traders in Ghana.",
   "icons": [
     {
-      "src": "/logo.svg",
+      "src": "./logo.svg",
       "type": "image/svg+xml",
       "sizes": "192x192 512x512",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./icons.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any"
     }
   ],
-  "start_url": "/",
-  "background_color": "#064e3b",
-  "theme_color": "#064e3b",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#0369a1",
+  "theme_color": "#0284c7",
   "display": "standalone",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "categories": ["finance", "productivity", "business"]
 }
