@@ -235,6 +235,16 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           details: `Registered ${newCustomer.fullName} (${newCustomer.customerType}) with Ghana Card PIN ${newCustomer.ghanaCardNumber}`,
           timestamp: now
         });
+
+        // Auto-send Welcome SMS to new client
+        if ((settings?.autoSmsOnRegister ?? true) && newCustomer.primaryPhone) {
+          const welcomeMsg = SMSService.generateWelcomeSMS({
+            customer: newCustomer,
+            businessName: settings?.businessName,
+            businessPhone: settings?.businessPhone
+          });
+          SMSService.dispatchSMS(newCustomer.primaryPhone, welcomeMsg, settings);
+        }
       }
 
       onCustomerCreated(newCustomer);

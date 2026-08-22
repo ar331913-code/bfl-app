@@ -152,6 +152,18 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         if (lastPayment) {
           setCompletedPayment(lastPayment);
           onPaymentSuccess(lastPayment);
+
+          // Auto-dispatch SMS receipt
+          if ((settings?.autoSmsOnPayment ?? true) && currentCustomer?.primaryPhone && currentLoan) {
+            const receiptText = SMSService.generatePaymentReceiptSMS({
+              customer: currentCustomer,
+              loan: currentLoan,
+              payment: lastPayment,
+              businessName: settings?.businessName,
+              businessPhone: settings?.businessPhone
+            });
+            SMSService.dispatchSMS(currentCustomer.primaryPhone, receiptText, settings);
+          }
         }
       }
     } catch (err: any) {
@@ -177,7 +189,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       businessName: settings?.businessName,
       businessPhone: settings?.businessPhone
     });
-    SMSService.sendSMS(currentCustomer.primaryPhone, text);
+    SMSService.dispatchSMS(currentCustomer.primaryPhone, text, settings);
   };
 
   const handleShareWhatsApp = () => {

@@ -189,6 +189,15 @@ export interface SystemSettings {
   pinHash: string;
   salt: string;
   smsReminderTemplate: string;
+  
+  // Automated SMS Gateway
+  smsProvider?: 'native' | 'mnotify' | 'hubtel' | 'arkesel' | 'custom_webhook';
+  smsApiKey?: string;
+  smsSenderId?: string;
+  autoSmsOnRegister?: boolean;
+  autoSmsOnDisburse?: boolean;
+  autoSmsOnPayment?: boolean;
+  autoSmsOnOverdue?: boolean;
 }
 
 export interface CustomerFinancialSummary {

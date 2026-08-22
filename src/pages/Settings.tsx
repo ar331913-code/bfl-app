@@ -19,7 +19,8 @@ import {
   FileText,
   KeyRound,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
@@ -47,6 +48,14 @@ export const Settings: React.FC<SettingsProps> = ({
   const [enablePenalties, setEnablePenalties] = useState(settings?.enablePenalties ?? true);
   const [defaultPenaltyRate, setDefaultPenaltyRate] = useState(settings?.defaultPenaltyRate || 2.5);
   const [autoLockMinutes, setAutoLockMinutes] = useState(settings?.autoLockMinutes || 5);
+
+  // Automated SMS Gateway state
+  const [smsProvider, setSmsProvider] = useState<'native' | 'mnotify' | 'arkesel' | 'hubtel' | 'custom_webhook'>(settings?.smsProvider || 'native');
+  const [smsApiKey, setSmsApiKey] = useState(settings?.smsApiKey || '');
+  const [smsSenderId, setSmsSenderId] = useState(settings?.smsSenderId || 'BFL-LOANS');
+  const [autoSmsOnRegister, setAutoSmsOnRegister] = useState(settings?.autoSmsOnRegister ?? true);
+  const [autoSmsOnPayment, setAutoSmsOnPayment] = useState(settings?.autoSmsOnPayment ?? true);
+  const [autoSmsOnDisburse, setAutoSmsOnDisburse] = useState(settings?.autoSmsOnDisburse ?? true);
 
   // PIN change state
   const [currentPin, setCurrentPin] = useState('');
@@ -250,7 +259,121 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </form>
 
-      {/* 2. Security PIN Manager */}
+      {/* 2. Automated SMS Gateway Configuration */}
+      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
+            <MessageSquare className="w-4 h-4 text-sky-600" />
+            Automated SMS Gateway (Ghana)
+          </h3>
+          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+            {smsProvider === 'native' ? 'Free 1-Tap SIM SMS' : `${smsProvider.toUpperCase()} Cloud API`}
+          </span>
+        </div>
+
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Choose between <strong>Free 1-Tap SIM SMS</strong> (opens your phone's SMS app) or <strong>Automated Cloud SMS</strong> (sends background SMS directly via mNotify, Arkesel, or Hubtel with custom Sender ID).
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">SMS Delivery Mode</label>
+            <select
+              value={smsProvider}
+              onChange={(e) => setSmsProvider(e.target.value as any)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+            >
+              <option value="native">Free 1-Tap SIM (Device)</option>
+              <option value="mnotify">mNotify Ghana (Automated)</option>
+              <option value="arkesel">Arkesel SMS (Automated)</option>
+              <option value="hubtel">Hubtel SMS (Automated)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Sender ID (e.g. BFL-LOANS)</label>
+            <input
+              type="text"
+              maxLength={11}
+              placeholder="BFL-LOANS"
+              value={smsSenderId}
+              onChange={(e) => setSmsSenderId(e.target.value)}
+              className="w-full text-xs font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {smsProvider !== 'native' && (
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Gateway API Key</label>
+            <input
+              type="password"
+              placeholder="Enter your mNotify / Arkesel / Hubtel API key"
+              value={smsApiKey}
+              onChange={(e) => setSmsApiKey(e.target.value)}
+              className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* Automation Triggers */}
+        <div className="space-y-2 pt-1 border-t border-slate-100">
+          <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider block">
+            Instant Automation Triggers
+          </label>
+          
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoSmsOnRegister}
+              onChange={(e) => setAutoSmsOnRegister(e.target.checked)}
+              className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500"
+            />
+            <span>Auto-send Welcome SMS with Client ID on registration</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoSmsOnPayment}
+              onChange={(e) => setAutoSmsOnPayment(e.target.checked)}
+              className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500"
+            />
+            <span>Auto-send instant payment receipt SMS on recording payment</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoSmsOnDisburse}
+              onChange={(e) => setAutoSmsOnDisburse(e.target.checked)}
+              className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500"
+            />
+            <span>Auto-send disbursement schedule SMS on creating new loan</span>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            await updateSettings({
+              smsProvider,
+              smsApiKey,
+              smsSenderId,
+              autoSmsOnRegister,
+              autoSmsOnPayment,
+              autoSmsOnDisburse
+            });
+            setSaveMessage('Automated SMS Gateway settings saved!');
+            setTimeout(() => setSaveMessage(null), 3000);
+          }}
+          className="w-full py-2.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
+        >
+          <Check className="w-3.5 h-3.5" /> Save SMS Settings
+        </button>
+      </div>
+
+      {/* 3. Security PIN Manager */}
       <form onSubmit={handleChangePinSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3">
         <h3 className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
           <KeyRound className="w-4 h-4 text-sky-600" />
