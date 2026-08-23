@@ -22,6 +22,7 @@ import {
 import { isValidGhanaCard, formatGhanaCardInput } from '../../utils/formatters';
 import { CameraModal } from '../common/CameraModal';
 import { SMSService } from '../../services/smsService';
+import { CloudSyncService } from '../../services/cloudSyncService';
 import { useAuth } from '../../context/AuthContext';
 
 interface AddCustomerModalProps {
@@ -246,6 +247,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       }
 
       onCustomerCreated(newCustomer);
+      CloudSyncService.triggerBackgroundSync();
       onClose();
     } catch (err) {
       console.error('Failed to save customer', err);

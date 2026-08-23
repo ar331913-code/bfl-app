@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Bell, 
@@ -6,9 +6,14 @@ import {
   Smartphone, 
   Monitor, 
   Search,
-  ArrowLeft
+  ArrowLeft,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Check
 } from 'lucide-react';
 import { AppNotification } from '../../types';
+import { CloudSyncService } from '../../services/cloudSyncService';
 
 interface HeaderProps {
   activeTab: string;
@@ -34,6 +39,25 @@ export const Header: React.FC<HeaderProps> = ({
   const { lockSession, settings } = useAuth();
   const unreadCount = unreadNotifications.filter(n => !n.isRead).length;
 
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error' | 'offline'>('idle');
+  const [lastSyncTime, setLastSyncTime] = useState<string | undefined>(undefined);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = CloudSyncService.subscribe((status, lastSync) => {
+      setSyncStatus(status);
+      if (lastSync) setLastSyncTime(lastSync);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleManualSync = async () => {
+    setToastMessage('Syncing with Cloud...');
+    const result = await CloudSyncService.syncWithCloud(true);
+    setToastMessage(result.success ? 'Cloud Synced! ☁️' : 'Saved Locally (Offline)');
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
   const getPageTitle = () => {
     switch (activeTab) {
       case 'customers': return 'Clients';
@@ -49,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-950 via-emerald-950 to-slate-900 text-white shadow-xl border-b border-emerald-500/20 backdrop-blur-md">
-      <div className="max-w-md mx-auto px-3.5 py-3 flex items-center justify-between">
+      <div className="max-w-md mx-auto px-3.5 py-3 flex items-center justify-between relative">
         
         {/* Left Side: Back Arrow Button OR Brand Logo */}
         <div className="flex items-center gap-2">
@@ -96,6 +120,25 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Action Controls */}
         <div className="flex items-center gap-1">
           
+          {/* Cloud Sync Status Button */}
+          <button
+            onClick={handleManualSync}
+            type="button"
+            className="p-2 rounded-xl text-emerald-300 hover:text-white hover:bg-white/10 active:scale-95 transition relative group"
+            title={lastSyncTime ? `Cloud Synced at ${lastSyncTime}. Tap to refresh.` : 'Sync with Cloud across all devices'}
+          >
+            {syncStatus === 'syncing' ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+            ) : syncStatus === 'offline' ? (
+              <CloudOff className="w-4 h-4 text-slate-400" />
+            ) : (
+              <div className="relative">
+                <Cloud className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-slate-900"></span>
+              </div>
+            )}
+          </button>
+
           {/* Quick Search */}
           <button
             onClick={onOpenSearch}
@@ -141,6 +184,14 @@ export const Header: React.FC<HeaderProps> = ({
             <Lock className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Sync Toast Overlay */}
+        {toastMessage && (
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-3 py-1 bg-slate-900 text-emerald-300 border border-emerald-500/40 rounded-full text-[11px] font-bold shadow-xl animate-fade-in flex items-center gap-1.5 z-40 whitespace-nowrap">
+            <Check className="w-3 h-3 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
 
       </div>
     </header>

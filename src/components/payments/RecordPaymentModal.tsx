@@ -22,6 +22,7 @@ import { recordPayment } from '../../services/paymentService';
 import { formatCurrency, formatDate, formatGhanaPhone } from '../../utils/formatters';
 import { generatePaymentReceiptPDF } from '../../services/exportService';
 import { SMSService } from '../../services/smsService';
+import { CloudSyncService } from '../../services/cloudSyncService';
 import { useAuth } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
@@ -164,6 +165,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             });
             SMSService.dispatchSMS(currentCustomer.primaryPhone, receiptText, settings);
           }
+
+          CloudSyncService.triggerBackgroundSync();
         }
       }
     } catch (err: any) {

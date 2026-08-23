@@ -200,6 +200,12 @@ export interface SystemSettings {
   autoSmsOnDisburse?: boolean;
   autoSmsOnPayment?: boolean;
   autoSmsOnOverdue?: boolean;
+
+  // Multi-Device Cloud Synchronization
+  cloudSyncEnabled?: boolean;
+  cloudSyncOrgId?: string; // Organization / Tenant ID e.g. "BFL-GHANA-HQ"
+  cloudSyncEndpoint?: string; // Optional custom cloud sync URL
+  cloudLastSyncedAt?: string;
 }
 
 export interface CustomerFinancialSummary {

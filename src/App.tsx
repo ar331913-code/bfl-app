@@ -4,7 +4,7 @@ import { db } from './db';
 import { seedInitialData } from './db/seedData';
 import { checkAndUpdateLoanStatusesAndAlerts } from './services/notificationService';
 import { Customer, Loan } from './types';
-import { AuthProvider } from './context/AuthContext';
+import { CloudSyncService } from './services/cloudSyncService';
 
 // Layout
 import { Header } from './components/layout/Header';
@@ -13,7 +13,7 @@ import { WelcomeLanding } from './components/auth/WelcomeLanding';
 import { LoginModal } from './components/auth/LoginModal';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
-import { useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Modals
 import { AddCustomerModal } from './components/customers/AddCustomerModal';
@@ -65,15 +65,19 @@ const MainApp: React.FC = () => {
   const notifications = useLiveQuery(() => db.notifications.toArray(), []) || [];
   const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) || [];
 
-  // Seed on startup & run status checks
+  // Seed on startup, sync with cloud & run status checks
   useEffect(() => {
     async function init() {
       try {
         await seedInitialData(false);
-        // If still 0 customers, force seed so new testers see full functionality
+        // 1. Synchronize with Cloud across all devices
+        await CloudSyncService.syncWithCloud();
+
+        // 2. If still 0 customers, force seed so new testers see full functionality
         const count = await db.customers.count();
         if (count === 0) {
           await seedInitialData(true);
+          await CloudSyncService.syncWithCloud(true);
         }
         await checkAndUpdateLoanStatusesAndAlerts();
       } catch (e) {
@@ -83,6 +87,23 @@ const MainApp: React.FC = () => {
       }
     }
     init();
+
+    // Periodic 20-second background cloud sync for multi-device live updates
+    const syncInterval = setInterval(() => {
+      if (navigator.onLine) {
+        CloudSyncService.syncWithCloud().catch(err => console.warn('Background sync error:', err));
+      }
+    }, 20000);
+
+    const handleOnline = () => {
+      CloudSyncService.syncWithCloud().catch(err => console.warn('Online sync error:', err));
+    };
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   // Back Navigation Handler

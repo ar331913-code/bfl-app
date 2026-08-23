@@ -23,6 +23,7 @@ import {
 import { calculateLoan, generateRepaymentSchedulesForLoan } from '../../services/loanCalculator';
 import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard } from '../../utils/formatters';
 import { format, addWeeks } from 'date-fns';
+import { CloudSyncService } from '../../services/cloudSyncService';
 
 interface CreateLoanModalProps {
   isOpen: boolean;
@@ -216,6 +217,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       });
 
       onLoanCreated(newLoan);
+      CloudSyncService.triggerBackgroundSync();
       onClose();
     } catch (err) {
       console.error('Failed to create loan', err);
