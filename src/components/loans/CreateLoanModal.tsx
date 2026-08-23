@@ -70,6 +70,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [ownerApprovalOverride, setOwnerApprovalOverride] = useState<boolean>(false);
 
   // Load existing loans to verify no multiple active loans
   useEffect(() => {
@@ -151,8 +152,8 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       setError('Please select a customer.');
       return;
     }
-    if (customerActiveLoan) {
-      setError(`Cannot issue loan: ${selectedCustomer?.fullName} already has active loan ${customerActiveLoan.loanId}.`);
+    if (customerActiveLoan && !ownerApprovalOverride) {
+      setError(`Cannot issue loan: ${selectedCustomer?.fullName} already has active loan ${customerActiveLoan.loanId} (Balance: GH₵${customerActiveLoan.outstandingBalance.toFixed(2)}). Owner / Manager approval is required.`);
       return;
     }
     if (!calculation) {
@@ -165,7 +166,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
 
   const handleFinalApprove = async () => {
     if (!calculation || !selectedCustomer) return;
-    if (customerActiveLoan) return;
+    if (customerActiveLoan && !ownerApprovalOverride) return;
 
     setIsSubmitting(true);
 
@@ -289,7 +290,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               {/* Customer Selector Dropdown */}
               <select
                 value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCustomerId(e.target.value);
+                  setOwnerApprovalOverride(false);
+                  setError('');
+                }}
                 className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-navy-950"
               >
                 {filteredCustomers.map(c => {
@@ -305,18 +310,31 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </select>
             </div>
 
-            {/* BLOCK BANNER: Customer Already Has An Active Loan */}
+            {/* ALERT & OWNER OVERRIDE BANNER: Customer Already Has An Active Loan */}
             {customerActiveLoan && (
-              <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-900 text-xs space-y-1 animate-fade-in shadow-xs">
-                <div className="flex items-center gap-1.5 font-black text-rose-700">
-                  <Ban className="w-4 h-4 text-rose-600 shrink-0" />
-                  Loan Issue Blocked: Active Loan In Progress
+              <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-950 text-xs space-y-2 animate-fade-in shadow-xs">
+                <div className="flex items-center gap-1.5 font-black text-amber-800">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Alert: Borrower Has An Outstanding Active Loan</span>
                 </div>
-                <p className="text-[11px] text-rose-800 leading-snug font-medium">
-                  <strong>{selectedCustomer?.fullName}</strong> already has an ongoing loan (<strong>{customerActiveLoan.loanId}</strong>) with an outstanding balance of <strong className="text-rose-950 font-black">{formatCurrency(customerActiveLoan.outstandingBalance)}</strong>.
+                <p className="text-[11px] text-amber-900 leading-snug font-medium">
+                  <strong>{selectedCustomer?.fullName}</strong> has an ongoing loan (<strong>{customerActiveLoan.loanId}</strong>) with an unpaid balance of <strong className="text-rose-700 font-black">{formatCurrency(customerActiveLoan.outstandingBalance)}</strong>.
                 </p>
-                <div className="text-[10px] text-rose-600 font-bold pt-0.5">
-                  Clients must 100% settle their current loan balance before taking another loan.
+                <div className="pt-2 border-t border-amber-200">
+                  <label className="flex items-start gap-2.5 text-xs font-bold text-slate-900 cursor-pointer bg-white p-2.5 rounded-xl border-2 border-amber-300 hover:border-amber-400 transition shadow-xs">
+                    <input
+                      type="checkbox"
+                      checked={ownerApprovalOverride}
+                      onChange={(e) => setOwnerApprovalOverride(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <div className="text-slate-950 font-black">Owner / Manager Approval</div>
+                      <div className="text-[10px] text-slate-500 font-medium leading-tight">
+                        I authorize issuing a concurrent new loan to this borrower despite the unpaid previous balance.
+                      </div>
+                    </div>
+                  </label>
                 </div>
               </div>
             )}
