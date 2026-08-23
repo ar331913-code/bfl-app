@@ -102,20 +102,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 px-1">
           Quick Actions
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5">
           
           {/* Button 1: Register Client */}
           <button
             onClick={onOpenNewCustomer}
             type="button"
-            className="p-3.5 rounded-2xl bg-white border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
+            className="p-3 rounded-2xl bg-white border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50/50 shadow-sm active:scale-95 transition flex items-center gap-2.5 text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
-              <UserPlus className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
+              <UserPlus className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-black text-slate-900">Add Client</div>
-              <div className="text-[10px] text-slate-500 font-medium">New registration</div>
+            <div className="min-w-0">
+              <div className="text-xs font-black text-slate-900 leading-tight">Add Client</div>
+              <div className="text-[10px] text-slate-500 font-medium truncate">New borrower</div>
             </div>
           </button>
 
@@ -123,14 +123,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <button
             onClick={() => onOpenNewLoan()}
             type="button"
-            className="p-3.5 rounded-2xl bg-white border-2 border-teal-200 hover:border-teal-500 hover:bg-teal-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
+            className="p-3 rounded-2xl bg-white border-2 border-teal-200 hover:border-teal-500 hover:bg-teal-50/50 shadow-sm active:scale-95 transition flex items-center gap-2.5 text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
-              <Banknote className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
+              <Banknote className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-black text-slate-900">Give Loan</div>
-              <div className="text-[10px] text-slate-500 font-medium">Disburse funds</div>
+            <div className="min-w-0">
+              <div className="text-xs font-black text-slate-900 leading-tight">Give Loan</div>
+              <div className="text-[10px] text-slate-500 font-medium truncate">Disburse cash</div>
             </div>
           </button>
 
@@ -138,14 +138,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <button
             onClick={() => onOpenRecordPayment()}
             type="button"
-            className="p-3.5 rounded-2xl bg-white border-2 border-emerald-300 hover:border-emerald-600 bg-emerald-50/30 hover:bg-emerald-50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
+            className="p-3 rounded-2xl bg-white border-2 border-emerald-300 hover:border-emerald-600 bg-emerald-50/40 hover:bg-emerald-50 shadow-sm active:scale-95 transition flex items-center gap-2.5 text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
-              <DollarSign className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-sm group-hover:scale-105 transition">
+              <DollarSign className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-black text-slate-900">Collect Money</div>
-              <div className="text-[10px] text-emerald-700 font-bold">Record payment</div>
+            <div className="min-w-0">
+              <div className="text-xs font-black text-slate-900 leading-tight">Collect Pay</div>
+              <div className="text-[10px] text-emerald-700 font-bold truncate">Get money</div>
             </div>
           </button>
 
@@ -153,14 +153,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <button
             onClick={() => onNavigate('loans', { filter: 'overdue' })}
             type="button"
-            className="p-3.5 rounded-2xl bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
+            className="p-3 rounded-2xl bg-white border-2 border-rose-200 hover:border-rose-400 hover:bg-rose-50/50 shadow-sm active:scale-95 transition flex items-center gap-2.5 text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition">
+              <AlertTriangle className="w-4 h-4" />
             </div>
-            <div>
-              <div className="text-xs font-black text-slate-900">Owing / Late</div>
-              <div className="text-[10px] text-rose-600 font-bold">{overdueLoans.length} defaulters</div>
+            <div className="min-w-0">
+              <div className="text-xs font-black text-slate-900 leading-tight">Owing / Late</div>
+              <div className="text-[10px] text-rose-600 font-bold truncate">{overdueLoans.length} defaulters</div>
             </div>
           </button>
 

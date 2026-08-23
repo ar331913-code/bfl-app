@@ -56,7 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const list = await db.settings.toArray();
       if (list.length > 0) {
-        setSettings(list[0]);
+        const current = list[0];
+        if (current.businessName === 'B-F-L Micro Credit' || current.businessName === 'B-F-L Microfinance') {
+          current.businessName = 'B-F-L';
+          await db.settings.update(current.id!, { businessName: 'B-F-L' });
+        }
+        setSettings(current);
       } else {
         const defaultPasswordHash = await sha256('admin123');
         const defaultSettings: SystemSettings = {
