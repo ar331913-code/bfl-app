@@ -69,11 +69,10 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     async function init() {
       try {
-        await seedInitialData(false);
-        // 1. Synchronize with Cloud across all devices
+        // 1. FIRST Synchronize with Cloud across all devices
         await CloudSyncService.syncWithCloud();
 
-        // 2. If still 0 customers, force seed so new testers see full functionality
+        // 2. If still 0 customers after cloud sync, seed clean demo data
         const count = await db.customers.count();
         if (count === 0) {
           await seedInitialData(true);
@@ -83,26 +82,36 @@ const MainApp: React.FC = () => {
       } catch (e) {
         console.warn('Initialization error:', e);
       } finally {
-        setTimeout(() => setIsInitializing(false), 600);
+        setTimeout(() => setIsInitializing(false), 500);
       }
     }
     init();
 
-    // Periodic 20-second background cloud sync for multi-device live updates
+    // Periodic 10-second background cloud sync for multi-device live updates
     const syncInterval = setInterval(() => {
       if (navigator.onLine) {
         CloudSyncService.syncWithCloud().catch(err => console.warn('Background sync error:', err));
       }
-    }, 20000);
+    }, 10000);
 
-    const handleOnline = () => {
-      CloudSyncService.syncWithCloud().catch(err => console.warn('Online sync error:', err));
+    const handleOnlineOrFocus = () => {
+      if (navigator.onLine) {
+        CloudSyncService.syncWithCloud().catch(err => console.warn('Online sync error:', err));
+      }
     };
-    window.addEventListener('online', handleOnline);
+
+    window.addEventListener('online', handleOnlineOrFocus);
+    window.addEventListener('focus', handleOnlineOrFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        handleOnlineOrFocus();
+      }
+    });
 
     return () => {
       clearInterval(syncInterval);
-      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('online', handleOnlineOrFocus);
+      window.removeEventListener('focus', handleOnlineOrFocus);
     };
   }, []);
 

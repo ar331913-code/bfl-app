@@ -56,7 +56,11 @@ export const Settings: React.FC<SettingsProps> = ({
 
   // Cloud Synchronization state
   const [cloudSyncOrgId, setCloudSyncOrgId] = useState(settings?.cloudSyncOrgId || 'BFL-GHANA-MAIN');
-  const [cloudSyncEndpoint, setCloudSyncEndpoint] = useState(settings?.cloudSyncEndpoint || 'https://bfl-app-cloud-sync-default-rtdb.firebaseio.com');
+  const [cloudSyncEndpoint, setCloudSyncEndpoint] = useState(
+    (settings?.cloudSyncEndpoint && !settings.cloudSyncEndpoint.includes('bfl-app-cloud-sync-default-rtdb'))
+      ? settings.cloudSyncEndpoint 
+      : 'https://bfl-microfinance-default-rtdb.firebaseio.com'
+  );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
 
