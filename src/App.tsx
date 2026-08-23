@@ -9,8 +9,10 @@ import { AuthProvider } from './context/AuthContext';
 // Layout
 import { Header } from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
-import { PinLockModal } from './components/auth/PinLockModal';
+import { WelcomeLanding } from './components/auth/WelcomeLanding';
+import { LoginModal } from './components/auth/LoginModal';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
+import { useAuth } from './context/AuthContext';
 
 // Modals
 import { AddCustomerModal } from './components/customers/AddCustomerModal';
@@ -126,6 +128,18 @@ const MainApp: React.FC = () => {
 
   const canGoBack = activeTab !== 'dashboard' || isSearchOpen || isProfileOpen || isLoanDetailOpen || isAddCustomerOpen || isCreateLoanOpen || isRecordPaymentOpen;
   const overdueCount = loans.filter(l => l.status === 'overdue').length;
+
+  const { isAuthenticated, isLocked, showLanding, setShowLanding } = useAuth();
+
+  // 1. Show Welcome Page on startup
+  if (showLanding && (!isAuthenticated || isLocked)) {
+    return <WelcomeLanding onGetStarted={() => setShowLanding(false)} />;
+  }
+
+  // 2. Show Username & Password Login Screen if not authenticated
+  if (isLocked || !isAuthenticated) {
+    return <LoginModal />;
+  }
 
   return (
     <div className={`min-h-screen bg-slate-100 flex justify-center selection:bg-brand-500 selection:text-white ${
@@ -265,9 +279,6 @@ const MainApp: React.FC = () => {
           onNavigate={handleNavigate}
           overdueCount={overdueCount}
         />
-
-        {/* Global PIN Lock Modal */}
-        <PinLockModal />
 
         {/* Global Fast Search Modal */}
         <GlobalSearchModal

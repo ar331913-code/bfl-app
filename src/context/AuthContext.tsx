@@ -7,8 +7,10 @@ interface AuthContextType {
   isLocked: boolean;
   operatorName: string;
   settings: SystemSettings | null;
-  verifyPin: (pin: string) => Promise<boolean>;
-  changePin: (currentPin: string, newPin: string) => Promise<{ success: boolean; message: string }>;
+  showLanding: boolean;
+  setShowLanding: (show: boolean) => void;
+  login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  changeCredentials: (currentPassword: string, newUsername: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
   lockSession: () => void;
   unlockSession: () => void;
   logout: () => void;
@@ -43,9 +45,9 @@ async function sha256(message: string): Promise<string> {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Always lock initially so operator must authenticate with PIN before access
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(true);
+  const [showLanding, setShowLanding] = useState<boolean>(true);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
@@ -56,13 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (list.length > 0) {
         setSettings(list[0]);
       } else {
-        // Initialize default settings with hash of '1234'
-        const initialHash = await sha256('1234');
+        const defaultPasswordHash = await sha256('admin123');
         const defaultSettings: SystemSettings = {
-          operatorName: 'Loan Operator',
+          operatorName: 'Loan Administrator',
           businessName: 'B-F-L Micro Credit',
           businessPhone: '+233 24 412 3456',
           businessAddress: 'Accra, Ghana',
+          username: 'admin',
+          passwordHash: defaultPasswordHash,
           defaultInterestRate: 10,
           defaultInterestType: 'flat',
           defaultFrequency: 'weekly',
@@ -71,9 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           enablePenalties: true,
           defaultPenaltyRate: 2.5,
           gracePeriodDays: 2,
-          autoLockMinutes: 5,
+          autoLockMinutes: 10,
           biometricEnabled: false,
-          pinHash: initialHash,
           salt: 'bfl_salt_2026',
           smsReminderTemplate: 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.'
         };
@@ -97,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const timeoutMs = settings.autoLockMinutes * 60 * 1000;
       if (Date.now() - lastActivity > timeoutMs && !isLocked && isAuthenticated) {
         setIsLocked(true);
+        setShowLanding(false);
       }
     }, 15000);
 
@@ -117,56 +120,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const verifyPin = async (pin: string): Promise<boolean> => {
-    // 1. If custom pinHash is configured, ONLY verify against that hash!
-    if (settings && settings.pinHash) {
-      const enteredHash = await sha256(pin);
-      if (enteredHash === settings.pinHash) {
-        setIsAuthenticated(true);
-        setIsLocked(false);
-        setLastActivity(Date.now());
-        return true;
-      }
-      return false;
+  const login = async (enteredUser: string, enteredPass: string): Promise<{ success: boolean; message?: string }> => {
+    const trimmedUser = enteredUser.trim();
+    if (!trimmedUser || !enteredPass) {
+      return { success: false, message: 'Please enter both username and password.' };
     }
 
-    // 2. Default PIN '1234' only if no hash exists yet
-    if (pin === '1234') {
+    const currentUsername = settings?.username || 'admin';
+    const currentPassHash = settings?.passwordHash || (await sha256('admin123'));
+
+    const enteredPassHash = await sha256(enteredPass);
+
+    // Case-insensitive username check + secure password hash check
+    const isUserValid = trimmedUser.toLowerCase() === currentUsername.toLowerCase();
+    const isPassValid = enteredPassHash === currentPassHash;
+
+    if (isUserValid && isPassValid) {
       setIsAuthenticated(true);
       setIsLocked(false);
+      setShowLanding(false);
       setLastActivity(Date.now());
-      return true;
+      return { success: true };
     }
 
-    // 3. Strict Denial on wrong PIN
-    return false;
+    return { success: false, message: 'Invalid username or password. Access Denied.' };
   };
 
-  const changePin = async (currentPin: string, newPin: string): Promise<{ success: boolean; message: string }> => {
-    if (!settings) return { success: false, message: 'Settings not loaded' };
-    
-    // Check if entered currentPin matches stored pinHash
-    let isCurrentValid = false;
-    if (settings.pinHash) {
-      const enteredCurrentHash = await sha256(currentPin);
-      isCurrentValid = enteredCurrentHash === settings.pinHash;
-    } else {
-      isCurrentValid = currentPin === '1234';
+  const changeCredentials = async (
+    currentPassword: string,
+    newUsername: string,
+    newPassword?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!settings) return { success: false, message: 'Settings not loaded.' };
+
+    const currentPassHash = settings.passwordHash || (await sha256('admin123'));
+    const enteredCurrentHash = await sha256(currentPassword);
+
+    if (enteredCurrentHash !== currentPassHash) {
+      return { success: false, message: 'Current password is incorrect.' };
     }
 
-    if (!isCurrentValid) {
-      return { success: false, message: 'Current PIN is incorrect.' };
+    const trimmedNewUser = newUsername.trim();
+    if (!trimmedNewUser) {
+      return { success: false, message: 'Username cannot be empty.' };
     }
 
-    if (newPin.length < 4) {
-      return { success: false, message: 'New PIN must be at least 4 digits.' };
+    let nextPassHash = currentPassHash;
+    if (newPassword && newPassword.trim()) {
+      if (newPassword.length < 4) {
+        return { success: false, message: 'New password must be at least 4 characters.' };
+      }
+      nextPassHash = await sha256(newPassword);
     }
 
-    const newHash = await sha256(newPin);
-    const updated = { ...settings, pinHash: newHash };
-    
+    const updated = {
+      ...settings,
+      username: trimmedNewUser,
+      passwordHash: nextPassHash
+    };
+
     if (settings.id) {
-      await db.settings.update(settings.id, { pinHash: newHash });
+      await db.settings.update(settings.id, {
+        username: trimmedNewUser,
+        passwordHash: nextPassHash
+      });
     } else {
       const id = await db.settings.add(updated);
       updated.id = id;
@@ -175,27 +192,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSettings(updated);
 
     await db.auditLogs.add({
-      action: 'PIN_CHANGED',
+      action: 'CREDENTIALS_CHANGED',
       entityType: 'system',
-      details: 'Operator security PIN was successfully updated',
+      details: `Operator credentials updated for username: ${trimmedNewUser}`,
       timestamp: new Date().toISOString()
     });
 
-    return { success: true, message: 'PIN updated successfully. Default PIN is now disabled.' };
+    return { success: true, message: 'Credentials updated successfully!' };
   };
 
   const lockSession = () => {
     setIsLocked(true);
+    setShowLanding(false);
   };
 
   const unlockSession = () => {
     setIsLocked(false);
+    setShowLanding(false);
     setLastActivity(Date.now());
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setIsLocked(true);
+    setShowLanding(true);
   };
 
   const updateSettings = async (newSettings: Partial<SystemSettings>) => {
@@ -219,10 +239,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         isAuthenticated,
         isLocked,
-        operatorName: settings?.businessName || 'Loan Operator',
+        operatorName: settings?.businessName || 'Loan Administrator',
         settings,
-        verifyPin,
-        changePin,
+        showLanding,
+        setShowLanding,
+        login,
+        changeCredentials,
         lockSession,
         unlockSession,
         logout,

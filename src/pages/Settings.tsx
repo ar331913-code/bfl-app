@@ -34,7 +34,7 @@ export const Settings: React.FC<SettingsProps> = ({
   auditLogs,
   onDataReset
 }) => {
-  const { settings, updateSettings, changePin, lockSession } = useAuth();
+  const { settings, updateSettings, changeCredentials, lockSession } = useAuth();
 
   // Business settings state
   const [businessName, setBusinessName] = useState(settings?.businessName || 'B-F-L Micro Credit');
@@ -57,11 +57,12 @@ export const Settings: React.FC<SettingsProps> = ({
   const [autoSmsOnPayment, setAutoSmsOnPayment] = useState(settings?.autoSmsOnPayment ?? true);
   const [autoSmsOnDisburse, setAutoSmsOnDisburse] = useState(settings?.autoSmsOnDisburse ?? true);
 
-  // PIN change state
-  const [currentPin, setCurrentPin] = useState('');
-  const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [pinMessage, setPinMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Credentials change state (Username & Password)
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newUsername, setNewUsername] = useState(settings?.username || 'admin');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [credMessage, setCredMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // General message
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -86,26 +87,30 @@ export const Settings: React.FC<SettingsProps> = ({
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const handleChangePinSubmit = async (e: React.FormEvent) => {
+  const handleChangeCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin !== confirmPin) {
-      setPinMessage({ type: 'error', text: 'New PINs do not match.' });
+    if (!currentPassword) {
+      setCredMessage({ type: 'error', text: 'Please enter your current password.' });
       return;
     }
-    if (newPin.length < 4) {
-      setPinMessage({ type: 'error', text: 'PIN must be at least 4 digits.' });
+    if (newPassword && newPassword !== confirmPassword) {
+      setCredMessage({ type: 'error', text: 'New passwords do not match.' });
+      return;
+    }
+    if (newPassword && newPassword.length < 4) {
+      setCredMessage({ type: 'error', text: 'New password must be at least 4 characters.' });
       return;
     }
 
-    const res = await changePin(currentPin, newPin);
+    const res = await changeCredentials(currentPassword, newUsername, newPassword || undefined);
     if (res.success) {
-      setPinMessage({ type: 'success', text: res.message });
-      setCurrentPin('');
-      setNewPin('');
-      setConfirmPin('');
-      setTimeout(() => setPinMessage(null), 3000);
+      setCredMessage({ type: 'success', text: res.message });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setCredMessage(null), 3000);
     } else {
-      setPinMessage({ type: 'error', text: res.message });
+      setCredMessage({ type: 'error', text: res.message });
     }
   };
 
@@ -373,57 +378,67 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      {/* 3. Security PIN Manager */}
-      <form onSubmit={handleChangePinSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3">
+      {/* 3. Operator Security Credentials (Username & Password) */}
+      <form onSubmit={handleChangeCredentialsSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
         <h3 className="text-xs font-black uppercase tracking-wider text-sky-900 flex items-center gap-1.5">
           <KeyRound className="w-4 h-4 text-sky-600" />
-          Operator Security PIN
+          Operator Login Credentials (Username & Password)
         </h3>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Current PIN</label>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Current Password *</label>
             <input
               type="password"
-              maxLength={6}
-              placeholder="1234"
-              value={currentPin}
-              onChange={(e) => setCurrentPin(e.target.value)}
-              className="w-full text-xs font-mono font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none text-center"
+              placeholder="Enter current password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">New PIN</label>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Username</label>
             <input
-              type="password"
-              maxLength={6}
-              placeholder="••••"
-              value={newPin}
-              onChange={(e) => setNewPin(e.target.value)}
-              className="w-full text-xs font-mono font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none text-center"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Confirm PIN</label>
-            <input
-              type="password"
-              maxLength={6}
-              placeholder="••••"
-              value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value)}
-              className="w-full text-xs font-mono font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none text-center"
+              type="text"
+              placeholder="e.g. admin"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              className="w-full text-xs font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
         </div>
 
-        {pinMessage && (
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">New Password</label>
+            <input
+              type="password"
+              placeholder="Leave blank to keep same"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Confirm New Password</label>
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {credMessage && (
           <div className={`p-2.5 rounded-xl text-xs flex items-center gap-1.5 font-bold ${
-            pinMessage.type === 'success' ? 'bg-sky-50 text-sky-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            credMessage.type === 'success' ? 'bg-sky-50 text-sky-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}>
             <AlertCircle className="w-3.5 h-3.5" />
-            {pinMessage.text}
+            {credMessage.text}
           </div>
         )}
 
@@ -431,7 +446,7 @@ export const Settings: React.FC<SettingsProps> = ({
           type="submit"
           className="w-full py-3 bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 hover:from-sky-700 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
         >
-          Update Security PIN
+          Update Operator Credentials
         </button>
       </form>
 

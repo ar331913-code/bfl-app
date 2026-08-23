@@ -186,7 +186,9 @@ export interface SystemSettings {
   gracePeriodDays: number;
   autoLockMinutes: number;
   biometricEnabled: boolean;
-  pinHash: string;
+  pinHash?: string;
+  username?: string;
+  passwordHash?: string;
   salt: string;
   smsReminderTemplate: string;
   
