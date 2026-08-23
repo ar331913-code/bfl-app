@@ -6,10 +6,12 @@ export async function initDefaultSettings(): Promise<void> {
   const existingSettings = await db.settings.count();
   if (existingSettings === 0) {
     const defaultSettings: SystemSettings = {
-      operatorName: 'Loan Operator',
+      operatorName: 'Loan Administrator',
       businessName: 'B-F-L Micro Credit',
       businessPhone: '+233 24 412 3456',
       businessAddress: 'Accra, Ghana',
+      username: 'admin',
+      passwordHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', // SHA-256 for 'admin123'
       defaultInterestRate: 10,
       defaultInterestType: 'flat',
       defaultFrequency: 'weekly',
@@ -18,9 +20,8 @@ export async function initDefaultSettings(): Promise<void> {
       enablePenalties: true,
       defaultPenaltyRate: 2.5,
       gracePeriodDays: 2,
-      autoLockMinutes: 5,
+      autoLockMinutes: 10,
       biometricEnabled: false,
-      pinHash: '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', // SHA-256 for '1234'
       salt: 'bfl_salt_2026',
       smsReminderTemplate: 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.'
     };
@@ -31,17 +32,19 @@ export async function initDefaultSettings(): Promise<void> {
 export async function seedInitialData(force = false): Promise<void> {
   await initDefaultSettings();
 
-  // If force is not explicitly requested, keep the database fresh with zero records
-  if (!force) {
-    return;
+  const customerCount = await db.customers.count();
+  if (customerCount > 0 && !force) {
+    return; // Already populated
   }
 
-  // Clear if force seeding
-  await db.resetAllData();
+  if (force) {
+    await db.resetAllData();
+    await initDefaultSettings();
+  }
 
   const today = new Date();
 
-  // 2. Realistic Ghanaian Customers (Drivers and Traders)
+  // 1. Realistic Ghanaian Customers (Drivers and Traders with Photos)
   const customers: Customer[] = [
     {
       customerId: 'BFL-00001',
@@ -67,7 +70,7 @@ export async function seedInitialData(force = false): Promise<void> {
         phone: '0244998877'
       },
       status: 'active',
-      notes: 'Reliable trotro driver for 10+ years. High daily turnover.',
+      notes: 'Reliable trotro driver for 10+ years. Steady daily cash turnover.',
       createdAt: format(subDays(today, 60), 'yyyy-MM-dd HH:mm:ss'),
       updatedAt: format(subDays(today, 60), 'yyyy-MM-dd HH:mm:ss')
     },
@@ -99,8 +102,323 @@ export async function seedInitialData(force = false): Promise<void> {
       notes: 'Strong weekly cashflow. Never missed a weekly schedule.',
       createdAt: format(subDays(today, 45), 'yyyy-MM-dd HH:mm:ss'),
       updatedAt: format(subDays(today, 45), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      customerId: 'BFL-00003',
+      fullName: 'Kwame Yaw Mensah',
+      dateOfBirth: '1979-02-18',
+      gender: 'male',
+      customerType: 'driver',
+      primaryPhone: '0209876543',
+      residentialAddress: 'Plot 12, Ashaiman Middle East',
+      workAddress: 'Tema Station / Accra Central Taxi Rank',
+      ghanaCardNumber: 'GHA-629183740-1',
+      photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80',
+      driverDetails: {
+        vehicleType: 'Taxi (Hyundai i10)',
+        registrationNumber: 'GS 3102-19',
+        licenseNumber: 'DL-2012-TEM-5510',
+        stationLocation: 'Tema Community 1 - Accra Station'
+      },
+      emergencyContact: {
+        name: 'Yaa Mensah',
+        relationship: 'Sister',
+        phone: '0243110099'
+      },
+      status: 'active',
+      notes: 'Completed previous loan with 100% on-time repayment record.',
+      createdAt: format(subDays(today, 90), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 10), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      customerId: 'BFL-00004',
+      fullName: 'Grace Serwaa Osei',
+      dateOfBirth: '1987-08-09',
+      gender: 'female',
+      customerType: 'trader',
+      primaryPhone: '0277889900',
+      residentialAddress: 'House 88, Kasoa New Market',
+      workAddress: 'Kaneshie Market Complex Floor 1, Accra',
+      ghanaCardNumber: 'GHA-901827364-5',
+      photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=300&auto=format&fit=crop&q=80',
+      traderDetails: {
+        businessName: 'Grace Organic Cereals & Rice Bags',
+        businessType: 'Grain & Cereals Wholesale',
+        marketLocation: 'Kaneshie Market Complex',
+        stallNumber: 'Stand K-09'
+      },
+      emergencyContact: {
+        name: 'Samuel Osei',
+        relationship: 'Uncle',
+        phone: '0555223344'
+      },
+      status: 'active',
+      notes: 'High volume wholesale distributor.',
+      createdAt: format(subDays(today, 30), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 30), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      customerId: 'BFL-00005',
+      fullName: 'Ibrahim Salifu',
+      dateOfBirth: '1993-04-12',
+      gender: 'male',
+      customerType: 'driver',
+      primaryPhone: '0501122334',
+      residentialAddress: 'Nima Roundabout, House 42, Accra',
+      workAddress: 'Airport & Ridge Business District Route',
+      ghanaCardNumber: 'GHA-510293847-3',
+      photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&auto=format&fit=crop&q=80',
+      driverDetails: {
+        vehicleType: 'Ride-Hail / Taxi (Toyota Yaris)',
+        registrationNumber: 'GW 8820-22',
+        licenseNumber: 'DL-2018-ACC-4491',
+        stationLocation: 'Ridge - Airport City Route'
+      },
+      emergencyContact: {
+        name: 'Fatima Salifu',
+        relationship: 'Mother',
+        phone: '0244667788'
+      },
+      status: 'active',
+      notes: 'Clean driving record and steady corporate ride clientele.',
+      createdAt: format(subDays(today, 15), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 15), 'yyyy-MM-dd HH:mm:ss')
     }
   ];
 
   await db.customers.bulkAdd(customers);
+
+  // 2. Active, Completed & Overdue Loans
+  const loans: Loan[] = [
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      principalAmount: 3000,
+      interestRate: 10,
+      interestType: 'flat',
+      totalInterest: 300,
+      processingFee: 60,
+      totalRepayment: 3300,
+      repaymentFrequency: 'weekly',
+      durationValue: 6,
+      durationUnit: 'weeks',
+      startDate: format(subDays(today, 21), 'yyyy-MM-dd'),
+      firstRepaymentDate: format(subDays(today, 14), 'yyyy-MM-dd'),
+      maturityDate: format(addDays(today, 21), 'yyyy-MM-dd'),
+      installmentAmount: 550,
+      totalInstallments: 6,
+      totalPaid: 1100,
+      outstandingBalance: 2200,
+      penaltyRate: 2.5,
+      totalPenalties: 0,
+      status: 'active',
+      notes: 'Vehicle engine maintenance loan. 2 weekly installments paid on time.',
+      createdAt: format(subDays(today, 21), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 7), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      loanId: 'LN-2026-0002',
+      customerId: 'BFL-00002',
+      principalAmount: 5000,
+      interestRate: 8,
+      interestType: 'flat',
+      totalInterest: 400,
+      processingFee: 100,
+      totalRepayment: 5400,
+      repaymentFrequency: 'weekly',
+      durationValue: 8,
+      durationUnit: 'weeks',
+      startDate: format(subDays(today, 28), 'yyyy-MM-dd'),
+      firstRepaymentDate: format(subDays(today, 21), 'yyyy-MM-dd'),
+      maturityDate: format(addDays(today, 28), 'yyyy-MM-dd'),
+      installmentAmount: 675,
+      totalInstallments: 8,
+      totalPaid: 2025,
+      outstandingBalance: 3375,
+      penaltyRate: 2.5,
+      totalPenalties: 0,
+      status: 'active',
+      notes: 'Makola fabric stock expansion. 3 installments paid consistently.',
+      createdAt: format(subDays(today, 28), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 7), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      loanId: 'LN-2026-0003',
+      customerId: 'BFL-00003',
+      principalAmount: 2000,
+      interestRate: 10,
+      interestType: 'flat',
+      totalInterest: 200,
+      processingFee: 40,
+      totalRepayment: 2200,
+      repaymentFrequency: 'weekly',
+      durationValue: 4,
+      durationUnit: 'weeks',
+      startDate: format(subDays(today, 40), 'yyyy-MM-dd'),
+      firstRepaymentDate: format(subDays(today, 33), 'yyyy-MM-dd'),
+      maturityDate: format(subDays(today, 12), 'yyyy-MM-dd'),
+      installmentAmount: 550,
+      totalInstallments: 4,
+      totalPaid: 2200,
+      outstandingBalance: 0,
+      penaltyRate: 2.5,
+      totalPenalties: 0,
+      status: 'completed',
+      notes: 'Full repayment completed ahead of schedule.',
+      createdAt: format(subDays(today, 40), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(subDays(today, 12), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      loanId: 'LN-2026-0004',
+      customerId: 'BFL-00004',
+      principalAmount: 4000,
+      interestRate: 10,
+      interestType: 'flat',
+      totalInterest: 400,
+      processingFee: 80,
+      totalRepayment: 4400,
+      repaymentFrequency: 'weekly',
+      durationValue: 4,
+      durationUnit: 'weeks',
+      startDate: format(subDays(today, 25), 'yyyy-MM-dd'),
+      firstRepaymentDate: format(subDays(today, 18), 'yyyy-MM-dd'),
+      maturityDate: format(addDays(today, 3), 'yyyy-MM-dd'),
+      installmentAmount: 1100,
+      totalInstallments: 4,
+      totalPaid: 0,
+      outstandingBalance: 4455,
+      penaltyRate: 2.5,
+      totalPenalties: 55,
+      status: 'overdue',
+      notes: 'Missed installments due to goods delayed at port. Late penalty fee applied.',
+      createdAt: format(subDays(today, 25), 'yyyy-MM-dd HH:mm:ss'),
+      updatedAt: format(today, 'yyyy-MM-dd HH:mm:ss')
+    }
+  ];
+
+  await db.loans.bulkAdd(loans);
+
+  // 3. Repayment Schedules for LN-2026-0001
+  const schedules: RepaymentSchedule[] = [
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 1,
+      dueDate: format(subDays(today, 14), 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 550,
+      remainingBalance: 0,
+      status: 'paid',
+      lastPaymentDate: format(subDays(today, 14), 'yyyy-MM-dd'),
+      penaltyAmount: 0
+    },
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 2,
+      dueDate: format(subDays(today, 7), 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 550,
+      remainingBalance: 0,
+      status: 'paid',
+      lastPaymentDate: format(subDays(today, 7), 'yyyy-MM-dd'),
+      penaltyAmount: 0
+    },
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 3,
+      dueDate: format(today, 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 0,
+      remainingBalance: 550,
+      status: 'due_today',
+      penaltyAmount: 0
+    },
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 4,
+      dueDate: format(addDays(today, 7), 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 0,
+      remainingBalance: 550,
+      status: 'upcoming',
+      penaltyAmount: 0
+    },
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 5,
+      dueDate: format(addDays(today, 14), 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 0,
+      remainingBalance: 550,
+      status: 'upcoming',
+      penaltyAmount: 0
+    },
+    {
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      installmentNumber: 6,
+      dueDate: format(addDays(today, 21), 'yyyy-MM-dd'),
+      expectedAmount: 550,
+      principalComponent: 500,
+      interestComponent: 50,
+      amountPaid: 0,
+      remainingBalance: 550,
+      status: 'upcoming',
+      penaltyAmount: 0
+    }
+  ];
+
+  await db.repaymentSchedules.bulkAdd(schedules);
+
+  // 4. Sample Payments
+  const payments: Payment[] = [
+    {
+      paymentId: 'RCP-00001',
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      amountPaid: 550,
+      paymentDate: format(subDays(today, 14), 'yyyy-MM-dd HH:mm:ss'),
+      paymentMethod: 'momo',
+      referenceNumber: 'MM-984123-GH',
+      notes: 'MTN Mobile Money collection',
+      recordedBy: 'Administrator',
+      createdAt: format(subDays(today, 14), 'yyyy-MM-dd HH:mm:ss')
+    },
+    {
+      paymentId: 'RCP-00002',
+      loanId: 'LN-2026-0001',
+      customerId: 'BFL-00001',
+      amountPaid: 550,
+      paymentDate: format(subDays(today, 7), 'yyyy-MM-dd HH:mm:ss'),
+      paymentMethod: 'cash',
+      referenceNumber: 'CSH-00214',
+      notes: 'Cash collected at Circle Station',
+      recordedBy: 'Administrator',
+      createdAt: format(subDays(today, 7), 'yyyy-MM-dd HH:mm:ss')
+    }
+  ];
+
+  await db.payments.bulkAdd(payments);
+
+  // 5. Initial Audit Log
+  await db.auditLogs.add({
+    action: 'SYSTEM_INITIALIZED',
+    entityType: 'system',
+    details: 'System database initialized with Ghanaian microloan portfolio demo records.',
+    timestamp: new Date().toISOString()
+  });
 }

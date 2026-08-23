@@ -27,7 +27,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-sky-100 safe-bottom shadow-2xl">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 safe-bottom shadow-2xl">
       <div className="max-w-md mx-auto grid grid-cols-5 h-16">
         {navItems.map(item => {
           const Icon = item.icon;
@@ -38,12 +38,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => onNavigate(item.id)}
               type="button"
               className={`relative flex flex-col items-center justify-center py-1 transition-all duration-200 select-none ${
-                isActive ? 'text-sky-600 font-extrabold' : 'text-slate-400 hover:text-sky-800'
+                isActive ? 'text-emerald-700 font-extrabold' : 'text-slate-400 hover:text-emerald-800'
               }`}
             >
               <div className={`relative p-1 rounded-xl transition-all ${
                 isActive 
-                  ? 'bg-gradient-to-br from-sky-50 to-blue-100 text-sky-600 scale-110 shadow-xs border border-sky-200' 
+                  ? 'bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-700 scale-110 shadow-xs border border-emerald-200' 
                   : ''
               }`}>
                 <Icon className="w-5 h-5" />
@@ -53,11 +53,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-sky-700' : 'font-semibold'}`}>
+              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-emerald-800' : 'font-semibold'}`}>
                 {item.label}
               </span>
               {isActive && (
-                <div className="absolute bottom-1 w-8 h-1 bg-gradient-to-r from-sky-400 via-blue-500 to-cyan-400 rounded-full shadow-xs" />
+                <div className="absolute bottom-1 w-8 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 rounded-full shadow-xs" />
               )}
             </button>
           );

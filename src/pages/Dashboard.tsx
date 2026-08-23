@@ -73,14 +73,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-5 pb-24 animate-fade-in">
       
-      {/* 1. Gradient Light Blue Quick Action Bar */}
+      {/* 1. Quick Action Bar */}
       <div className="grid grid-cols-4 gap-2">
         <button
           onClick={onOpenNewCustomer}
           type="button"
-          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-sky-200 shadow-sm hover:border-sky-400 hover:bg-sky-50/60 active:scale-95 transition group"
+          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-emerald-200 shadow-sm hover:border-emerald-400 hover:bg-emerald-50/60 active:scale-95 transition group"
         >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-400 via-sky-500 to-blue-600 text-white flex items-center justify-center mb-1.5 shadow-md shadow-sky-500/20 group-hover:scale-105 transition">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-700 text-white flex items-center justify-center mb-1.5 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
             <PlusCircle className="w-6 h-6" />
           </div>
           <span className="text-[11px] font-black text-slate-800 leading-tight">Add Client</span>
@@ -89,9 +89,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <button
           onClick={() => onOpenNewLoan()}
           type="button"
-          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-blue-200 shadow-sm hover:border-blue-400 hover:bg-blue-50/60 active:scale-95 transition group"
+          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-teal-200 shadow-sm hover:border-teal-400 hover:bg-teal-50/60 active:scale-95 transition group"
         >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-blue-700 text-white flex items-center justify-center mb-1.5 shadow-md shadow-blue-500/20 group-hover:scale-105 transition">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500 via-emerald-600 to-slate-800 text-white flex items-center justify-center mb-1.5 shadow-md shadow-teal-500/20 group-hover:scale-105 transition">
             <Banknote className="w-6 h-6" />
           </div>
           <span className="text-[11px] font-black text-slate-800 leading-tight">Issue Loan</span>
@@ -100,9 +100,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <button
           onClick={() => onOpenRecordPayment()}
           type="button"
-          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-cyan-200 shadow-sm hover:border-cyan-400 hover:bg-cyan-50/60 active:scale-95 transition group"
+          className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-emerald-200 shadow-sm hover:border-emerald-400 hover:bg-emerald-50/60 active:scale-95 transition group"
         >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-emerald-600 text-white flex items-center justify-center mb-1.5 shadow-md shadow-cyan-500/20 group-hover:scale-105 transition">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-800 text-white flex items-center justify-center mb-1.5 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
             <DollarSign className="w-6 h-6" />
           </div>
           <span className="text-[11px] font-black text-slate-800 leading-tight">Collect Pay</span>
@@ -113,28 +113,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
           type="button"
           className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border-2 border-rose-200 shadow-sm hover:border-rose-400 hover:bg-rose-50/60 active:scale-95 transition group"
         >
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-red-600 text-white flex items-center justify-center mb-1.5 shadow-md shadow-rose-500/20 group-hover:scale-105 transition">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-500 via-red-600 to-rose-700 text-white flex items-center justify-center mb-1.5 shadow-md shadow-rose-500/20 group-hover:scale-105 transition">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <span className="text-[11px] font-black text-slate-800 leading-tight">Overdue</span>
         </button>
       </div>
 
-      {/* 2. Hero Financial Summary Cards (Gradient Light Blue / Sky Theme) */}
+      {/* 2. Hero Financial Summary Cards (Emerald & Deep Slate Theme) */}
       <div className="grid grid-cols-2 gap-3">
         
         {/* Total Outstanding Hero Card */}
-        <div className="col-span-2 bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700 rounded-3xl p-5 text-white shadow-xl shadow-blue-500/15 border border-sky-300/30 relative overflow-hidden">
+        <div className="col-span-2 bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-emerald-950/20 border border-emerald-500/30 relative overflow-hidden">
           {/* Subtle light glowing circles */}
-          <div className="absolute top-0 right-0 -mr-6 -mt-6 w-36 h-36 bg-cyan-300/25 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 -ml-6 -mb-6 w-32 h-32 bg-sky-200/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute top-0 right-0 -mr-6 -mt-6 w-36 h-36 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -ml-6 -mb-6 w-32 h-32 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="flex items-center justify-between text-sky-100 text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="flex items-center justify-between text-emerald-300 text-xs font-bold uppercase tracking-wider mb-2">
             <span className="flex items-center gap-1.5">
-              <Wallet className="w-4 h-4 text-cyan-200" />
+              <Wallet className="w-4 h-4 text-emerald-400" />
               Active Portfolio Outstanding
             </span>
-            <span className="bg-white/20 text-white border border-white/30 text-[10px] px-2.5 py-0.5 rounded-full font-black backdrop-blur-xs">
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] px-2.5 py-0.5 rounded-full font-black backdrop-blur-xs">
               {activeLoans.length} Active Loans
             </span>
           </div>
@@ -143,22 +143,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {formatCurrency(totalOutstanding)}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/20 text-xs">
-            <div className="bg-white/10 p-2.5 rounded-2xl backdrop-blur-xs border border-white/15">
-              <div className="text-sky-200 text-[11px] font-semibold">Total Lent</div>
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/15 text-xs">
+            <div className="bg-white/5 p-2.5 rounded-2xl backdrop-blur-xs border border-white/10">
+              <div className="text-slate-400 text-[11px] font-semibold">Total Lent</div>
               <div className="font-black text-white text-sm">{formatCurrency(totalLent)}</div>
             </div>
-            <div className="bg-white/10 p-2.5 rounded-2xl backdrop-blur-xs border border-white/15">
-              <div className="text-cyan-200 text-[11px] font-semibold">Total Collected</div>
+            <div className="bg-white/5 p-2.5 rounded-2xl backdrop-blur-xs border border-white/10">
+              <div className="text-emerald-400 text-[11px] font-semibold">Total Collected</div>
               <div className="font-black text-white text-sm">{formatCurrency(totalCollected)}</div>
             </div>
           </div>
         </div>
 
-        {/* Due Today Card (Pastel Sky/Amber Gradient) */}
+        {/* Due Today Card */}
         <div 
           onClick={() => onNavigate('loans', { filter: 'due_today' })}
-          className="bg-gradient-to-br from-amber-50 via-sky-50 to-amber-100/50 border-2 border-amber-300 rounded-3xl p-4 cursor-pointer hover:shadow-lg transition active:scale-98 shadow-sm group"
+          className="bg-gradient-to-br from-amber-50 via-orange-50/30 to-amber-100/50 border-2 border-amber-300 rounded-3xl p-4 cursor-pointer hover:shadow-lg transition active:scale-98 shadow-sm group"
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1">
@@ -176,10 +176,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Overdue Card (Pastel Sky/Rose Gradient) */}
+        {/* Overdue Card */}
         <div 
           onClick={() => onNavigate('loans', { filter: 'overdue' })}
-          className="bg-gradient-to-br from-rose-50 via-sky-50 to-rose-100/50 border-2 border-rose-300 rounded-3xl p-4 cursor-pointer hover:shadow-lg transition active:scale-98 shadow-sm group"
+          className="bg-gradient-to-br from-rose-50 via-red-50/30 to-rose-100/50 border-2 border-rose-300 rounded-3xl p-4 cursor-pointer hover:shadow-lg transition active:scale-98 shadow-sm group"
         >
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-black uppercase tracking-wider text-rose-900 flex items-center gap-1">
@@ -197,37 +197,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Total Customers (Gradient Light Sky Blue) */}
+        {/* Total Customers */}
         <div 
           onClick={() => onNavigate('customers')}
-          className="bg-gradient-to-br from-sky-50 via-cyan-50 to-blue-50 border-2 border-sky-200 rounded-3xl p-4 shadow-sm cursor-pointer hover:shadow-lg transition group"
+          className="bg-gradient-to-br from-emerald-50 via-teal-50 to-slate-50 border-2 border-emerald-200 rounded-3xl p-4 shadow-sm cursor-pointer hover:shadow-lg transition group"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-sky-900">Borrowers</span>
-            <Users className="w-4 h-4 text-sky-600" />
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-950">Borrowers</span>
+            <Users className="w-4 h-4 text-emerald-700" />
           </div>
-          <div className="text-xl font-black text-sky-950">
+          <div className="text-xl font-black text-slate-900">
             {totalCustomers}
           </div>
-          <div className="text-[11px] font-bold text-sky-700 mt-1">
+          <div className="text-[11px] font-bold text-emerald-800 mt-1">
             {customers.filter(c => c.customerType === 'driver').length} Drivers • {customers.filter(c => c.customerType === 'trader').length} Traders
           </div>
         </div>
 
-        {/* Completed Loans (Gradient Light Cyan) */}
+        {/* Completed Loans */}
         <div 
           onClick={() => onNavigate('loans', { filter: 'completed' })}
-          className="bg-gradient-to-br from-cyan-50 via-teal-50 to-sky-50 border-2 border-cyan-200 rounded-3xl p-4 shadow-sm cursor-pointer hover:shadow-lg transition group"
+          className="bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50 border-2 border-slate-200 rounded-3xl p-4 shadow-sm cursor-pointer hover:shadow-lg transition group"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-teal-900">Settled</span>
-            <CheckCircle2 className="w-4 h-4 text-teal-600" />
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-900">Paid Off</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-xl font-black text-teal-950">
+          <div className="text-xl font-black text-slate-900">
             {completedLoans.length}
           </div>
-          <div className="text-[11px] font-bold text-teal-700 mt-1">
-            100% Fully Settled
+          <div className="text-[11px] font-bold text-emerald-700 mt-1">
+            100% Repaid
           </div>
         </div>
 

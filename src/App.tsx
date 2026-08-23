@@ -11,6 +11,7 @@ import { Header } from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
 import { WelcomeLanding } from './components/auth/WelcomeLanding';
 import { LoginModal } from './components/auth/LoginModal';
+import { LoadingSpinner } from './components/common/LoadingSpinner';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { useAuth } from './context/AuthContext';
 
@@ -35,6 +36,7 @@ const MainApp: React.FC = () => {
   const [navHistory, setNavHistory] = useState<string[]>(['dashboard']);
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
   // Modal States
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState<boolean>(false);
@@ -66,8 +68,19 @@ const MainApp: React.FC = () => {
   // Seed on startup & run status checks
   useEffect(() => {
     async function init() {
-      await seedInitialData();
-      await checkAndUpdateLoanStatusesAndAlerts();
+      try {
+        await seedInitialData(false);
+        // If still 0 customers, force seed so new testers see full functionality
+        const count = await db.customers.count();
+        if (count === 0) {
+          await seedInitialData(true);
+        }
+        await checkAndUpdateLoanStatusesAndAlerts();
+      } catch (e) {
+        console.warn('Initialization error:', e);
+      } finally {
+        setTimeout(() => setIsInitializing(false), 600);
+      }
     }
     init();
   }, []);
@@ -130,6 +143,11 @@ const MainApp: React.FC = () => {
   const overdueCount = loans.filter(l => l.status === 'overdue').length;
 
   const { isAuthenticated, isLocked, showLanding, setShowLanding } = useAuth();
+
+  // 0. Show Branded Loader during initial boot
+  if (isInitializing) {
+    return <LoadingSpinner message="Initializing Ghana Loan Portfolio..." />;
+  }
 
   // 1. Show Welcome Page on startup
   if (showLanding && (!isAuthenticated || isLocked)) {
