@@ -56,6 +56,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
   // Cloud Synchronization state
   const [cloudSyncOrgId, setCloudSyncOrgId] = useState(settings?.cloudSyncOrgId || 'BFL-GHANA-MAIN');
+  const [cloudSyncEndpoint, setCloudSyncEndpoint] = useState(settings?.cloudSyncEndpoint || 'https://bfl-app-cloud-sync-default-rtdb.firebaseio.com');
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
 
@@ -91,7 +92,8 @@ export const Settings: React.FC<SettingsProps> = ({
       enablePenalties,
       defaultPenaltyRate,
       autoLockMinutes,
-      cloudSyncOrgId
+      cloudSyncOrgId,
+      cloudSyncEndpoint
     });
 
     setSaveMessage('System settings saved successfully!');
@@ -102,9 +104,7 @@ export const Settings: React.FC<SettingsProps> = ({
     setIsCloudSyncing(true);
     setCloudSyncMessage(null);
     try {
-      if (cloudSyncOrgId !== settings?.cloudSyncOrgId) {
-        await updateSettings({ cloudSyncOrgId });
-      }
+      await updateSettings({ cloudSyncOrgId, cloudSyncEndpoint });
       const res = await CloudSyncService.syncWithCloud(true);
       setCloudSyncMessage(res.message);
     } catch (err: any) {
@@ -224,17 +224,32 @@ export const Settings: React.FC<SettingsProps> = ({
           All client registrations, loans, schedules, and payments are automatically saved to <strong>Google Firebase Cloud</strong>. When you or your agents open the app on another phone or computer with the same <strong>Organization Sync Key</strong>, everything updates in real time!
         </p>
 
-        <div>
-          <label className="text-[11px] font-bold text-emerald-200 block mb-1">
-            Firebase Organization Sync Key
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. BFL-GHANA-MAIN"
-            value={cloudSyncOrgId}
-            onChange={(e) => setCloudSyncOrgId(e.target.value)}
-            className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-white/10 text-white focus:border-emerald-400 focus:outline-none placeholder:text-slate-500"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label className="text-[11px] font-bold text-emerald-200 block mb-1">
+              Firebase Organization Sync Key
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. BFL-GHANA-MAIN"
+              value={cloudSyncOrgId}
+              onChange={(e) => setCloudSyncOrgId(e.target.value)}
+              className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-white/10 text-white focus:border-emerald-400 focus:outline-none placeholder:text-slate-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-emerald-200 block mb-1">
+              Firebase Database Endpoint URL
+            </label>
+            <input
+              type="text"
+              placeholder="https://your-project.firebaseio.com"
+              value={cloudSyncEndpoint}
+              onChange={(e) => setCloudSyncEndpoint(e.target.value)}
+              className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-white/10 text-white focus:border-emerald-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
+            />
+          </div>
         </div>
 
         {cloudSyncMessage && (
