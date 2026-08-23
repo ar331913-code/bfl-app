@@ -76,7 +76,7 @@ export const LoginModal: React.FC = () => {
           </div>
 
           <h2 className="text-lg font-black text-slate-900 tracking-tight">
-            {settings?.businessName || 'B-F-L Microfinance'}
+            {settings?.businessName || 'B-F-L'}
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             Enter your credentials to access system

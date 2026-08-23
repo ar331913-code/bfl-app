@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const defaultPasswordHash = await sha256('admin123');
         const defaultSettings: SystemSettings = {
           operatorName: 'Loan Administrator',
-          businessName: 'B-F-L Micro Credit',
+          businessName: 'B-F-L',
           businessPhone: '+233 24 412 3456',
           businessAddress: 'Accra, Ghana',
           username: 'admin',

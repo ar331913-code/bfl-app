@@ -103,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-300 font-medium leading-none">
-                  {settings?.businessName || 'Microfinance'}
+                  {settings?.businessName || 'Loan Manager'}
                 </p>
               </div>
             </div>
