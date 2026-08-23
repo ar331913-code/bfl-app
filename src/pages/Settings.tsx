@@ -207,26 +207,26 @@ export const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* 1. Multi-Device Cloud Synchronization Hub */}
+      {/* 1. Multi-Device Google Firebase Cloud Synchronization */}
       <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white shadow-xl border border-emerald-500/30 space-y-3.5 relative overflow-hidden">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
             <Cloud className="w-4 h-4 text-emerald-400" />
-            Multi-Device Cloud Synchronization
+            Google Firebase Cloud Database
           </h3>
           <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Online + Offline Sync
+            Firebase Cloud Active
           </span>
         </div>
 
         <p className="text-[11px] text-slate-300 leading-relaxed">
-          Use the same <strong>Shared Business Key</strong> on any phone, tablet, or laptop. All customer records, loans, photos, and payments automatically sync across all devices in real-time.
+          All client registrations, loans, schedules, and payments are automatically saved to <strong>Google Firebase Cloud</strong>. When you or your agents open the app on another phone or computer with the same <strong>Organization Sync Key</strong>, everything updates in real time!
         </p>
 
         <div>
           <label className="text-[11px] font-bold text-emerald-200 block mb-1">
-            Shared Organization Sync Key
+            Firebase Organization Sync Key
           </label>
           <input
             type="text"
