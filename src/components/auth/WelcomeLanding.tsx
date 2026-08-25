@@ -7,7 +7,7 @@ interface WelcomeLandingProps {
 
 export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between p-6 overflow-hidden selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white flex flex-col justify-between p-6 overflow-hidden selection:bg-sky-500 selection:text-white">
       
       {/* Top Header */}
       <header className="max-w-xs mx-auto w-full flex items-center justify-center pt-4">

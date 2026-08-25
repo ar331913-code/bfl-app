@@ -757,9 +757,9 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-950 uppercase tracking-wider">
-                    <Store className="w-4 h-4 text-emerald-600" /> Trader & Business Particulars
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-200 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-blue-950 uppercase tracking-wider">
+                    <Store className="w-4 h-4 text-sky-600" /> Trader & Business Particulars
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -770,7 +770,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                         placeholder="e.g. Mansa Wax Wholesale"
                         value={businessName}
                         onChange={(e) => setBusinessName(e.target.value)}
-                        className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+                        className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
                       />
                     </div>
                     <div>
@@ -780,7 +780,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                         placeholder="e.g. Shop D-14"
                         value={stallNumber}
                         onChange={(e) => setStallNumber(e.target.value)}
-                        className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+                        className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
                       />
                     </div>
                   </div>
@@ -792,7 +792,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                       placeholder="e.g. Makola Market Central"
                       value={marketLocation}
                       onChange={(e) => setMarketLocation(e.target.value)}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
                     />
                   </div>
                 </div>

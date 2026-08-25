@@ -499,7 +499,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
         {momoTestMessage && (
           <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-fade-in ${
-            momoTestMessage.success ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            momoTestMessage.success ? 'bg-sky-50 text-blue-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}>
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{momoTestMessage.text}</span>

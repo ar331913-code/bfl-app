@@ -419,7 +419,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                     `Thank you for choosing ${settings?.businessName || 'B-F-L'}!`;
                   window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
                 }}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-2"
               >
                 <span>Share MoMo Receipt via WhatsApp</span>
               </button>
@@ -506,7 +506,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                       type="checkbox"
                       checked={ownerApprovalOverride}
                       onChange={(e) => setOwnerApprovalOverride(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+                      className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-sky-500"
                     />
                     <div>
                       <div className="text-slate-950 font-black">Owner / Manager Approval</div>
@@ -809,7 +809,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Total Interest:</span>
-                <span className="font-bold text-emerald-700">+{formatCurrency(calculation?.totalInterest)}</span>
+                <span className="font-bold text-blue-700">+{formatCurrency(calculation?.totalInterest)}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Processing Fee:</span>
