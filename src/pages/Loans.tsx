@@ -25,13 +25,18 @@ interface LoansProps {
 
 export const Loans: React.FC<LoansProps> = ({
   loans,
-  initialFilter = 'all',
+  initialFilter = 'active',
   onSelectLoan,
   onOpenNewLoan,
   onOpenRecordPayment
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter);
+
+  // Sync initialFilter prop if navigation passes a specific filter (e.g. from Dashboard)
+  React.useEffect(() => {
+    setStatusFilter(initialFilter);
+  }, [initialFilter]);
 
   const activeLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted');
   const dueTodayLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'due_today');
@@ -61,7 +66,9 @@ export const Loans: React.FC<LoansProps> = ({
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-base sm:text-lg font-black text-slate-950 truncate">Loan Portfolio</h1>
-          <p className="text-xs text-slate-500 font-medium truncate">{activeLoans.length} active microloans</p>
+          <p className="text-xs text-slate-500 font-medium truncate">
+            {activeLoans.length} active borrower{activeLoans.length === 1 ? '' : 's'} with loans to repay
+          </p>
         </div>
 
         <button
@@ -86,14 +93,14 @@ export const Loans: React.FC<LoansProps> = ({
         />
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs - Active Loans is first and default */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
         {[
-          { id: 'all', label: 'All', count: loans.length },
-          { id: 'active', label: 'Active', count: activeLoans.length },
+          { id: 'active', label: 'Active Loans', count: activeLoans.length },
           { id: 'due_today', label: 'Due Today', count: dueTodayLoans.length },
           { id: 'overdue', label: 'Overdue', count: overdueLoans.length },
-          { id: 'completed', label: 'Paid Off', count: completedLoans.length },
+          { id: 'completed', label: 'Paid Off History', count: completedLoans.length },
+          { id: 'all', label: 'All Records', count: loans.length },
         ].map(tab => (
           <button
             key={tab.id}
@@ -118,8 +125,18 @@ export const Loans: React.FC<LoansProps> = ({
       {filteredLoans.length === 0 ? (
         <div className="p-8 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 space-y-2">
           <Banknote className="w-8 h-8 text-slate-300 mx-auto" />
-          <div className="text-xs font-bold text-slate-500">No loans found</div>
-          <p className="text-[11px] text-slate-400">Try adjusting your search or issue a new loan.</p>
+          <div className="text-xs font-bold text-slate-500">
+            {statusFilter === 'active' 
+              ? 'No active loans owing' 
+              : statusFilter === 'completed'
+              ? 'No paid off loans recorded'
+              : 'No loans found'}
+          </div>
+          <p className="text-[11px] text-slate-400">
+            {statusFilter === 'active'
+              ? 'All borrowers are fully settled! Tap "Give Loan" to disburse a new loan.'
+              : 'Try adjusting your search or filter tab.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">

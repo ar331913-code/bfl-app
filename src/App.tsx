@@ -55,7 +55,7 @@ const MainApp: React.FC = () => {
   const [paymentLoanId, setPaymentLoanId] = useState<string | undefined>(undefined);
   const [paymentInstallmentId, setPaymentInstallmentId] = useState<number | undefined>(undefined);
 
-  const [loanInitialFilter, setLoanInitialFilter] = useState<string>('all');
+  const [loanInitialFilter, setLoanInitialFilter] = useState<string>('active');
 
   // Reactive Data from IndexedDB
   const customers = useLiveQuery(() => db.customers.toArray(), []) || [];
@@ -140,8 +140,8 @@ const MainApp: React.FC = () => {
 
   // Forward Navigation Handler
   const handleNavigate = (tab: string, extra?: any) => {
-    if (tab === 'loans' && extra?.filter) {
-      setLoanInitialFilter(extra.filter);
+    if (tab === 'loans') {
+      setLoanInitialFilter(extra?.filter || 'active');
     }
     setNavHistory(prev => (prev[prev.length - 1] !== tab ? [...prev, tab] : prev));
     setActiveTab(tab);
