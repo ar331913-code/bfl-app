@@ -183,7 +183,7 @@ export const Reports: React.FC<ReportsProps> = ({
       </div>
 
       {/* Period Selector Tabs */}
-      <div className="grid grid-cols-4 gap-1.5 bg-sky-100/70 p-1.5 rounded-2xl border border-sky-200">
+      <div className="grid grid-cols-4 gap-1.5 bg-sky-50 p-1.5 rounded-2xl border border-sky-100">
         {[
           { id: 'today', label: 'Today' },
           { id: 'week', label: '7 Days' },
@@ -195,7 +195,7 @@ export const Reports: React.FC<ReportsProps> = ({
             onClick={() => setReportPeriod(p.id as any)}
             className={`py-2 rounded-xl text-xs font-black transition ${
               reportPeriod === p.id 
-                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md' 
+                ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white shadow-md' 
                 : 'text-slate-600 hover:text-sky-900'
             }`}
           >
@@ -208,21 +208,21 @@ export const Reports: React.FC<ReportsProps> = ({
       <div className="grid grid-cols-2 gap-3">
         
         {/* Collections in Period */}
-        <div className="p-4 rounded-3xl bg-gradient-to-br from-cyan-50 via-sky-50 to-teal-50 border-2 border-cyan-200 shadow-sm">
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 border-2 border-sky-200 shadow-sm">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-black text-cyan-900 uppercase tracking-wider">Collections</span>
-            <DollarSign className="w-4 h-4 text-cyan-600" />
+            <span className="text-[11px] font-black text-blue-900 uppercase tracking-wider">Collections</span>
+            <DollarSign className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-xl font-black text-cyan-950">
+          <div className="text-xl font-black text-blue-950">
             {formatCurrency(totalCollectedInPeriod)}
           </div>
-          <div className="text-[11px] text-cyan-800 mt-1 font-semibold">
+          <div className="text-[11px] text-blue-800 mt-1 font-semibold">
             {filteredPayments.length} transactions
           </div>
         </div>
 
         {/* Disbursements in Period */}
-        <div className="p-4 rounded-3xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 border-2 border-sky-200 shadow-sm">
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50 to-sky-50 border-2 border-blue-200 shadow-sm">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-black text-blue-900 uppercase tracking-wider">Disbursed</span>
             <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -236,7 +236,7 @@ export const Reports: React.FC<ReportsProps> = ({
         </div>
 
         {/* Gross Interest Earned */}
-        <div className="p-4 rounded-3xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 shadow-sm">
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 border-2 border-blue-200 shadow-sm">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-black text-indigo-900 uppercase tracking-wider">Margin (Int + Fee)</span>
             <BarChart3 className="w-4 h-4 text-indigo-600" />
@@ -250,15 +250,15 @@ export const Reports: React.FC<ReportsProps> = ({
         </div>
 
         {/* Portfolio Recovery Rate */}
-        <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-2 border-emerald-200 shadow-sm">
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 border-2 border-sky-200 shadow-sm">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-black text-emerald-900 uppercase tracking-wider">Recovery Rate</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-[11px] font-black text-blue-900 uppercase tracking-wider">Recovery Rate</span>
+            <CheckCircle2 className="w-4 h-4 text-blue-600" />
           </div>
-          <div className="text-xl font-black text-emerald-950">
+          <div className="text-xl font-black text-blue-950">
             {recoveryRate}%
           </div>
-          <div className="text-[11px] text-emerald-800 mt-1 font-semibold">
+          <div className="text-[11px] text-blue-800 mt-1 font-semibold">
             Collection efficiency
           </div>
         </div>
@@ -274,7 +274,7 @@ export const Reports: React.FC<ReportsProps> = ({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-gradient-to-br from-blue-50 to-sky-50 rounded-2xl border-2 border-blue-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
               <Car className="w-5 h-5" />
             </div>
             <div>
@@ -285,8 +285,8 @@ export const Reports: React.FC<ReportsProps> = ({
             </div>
           </div>
 
-          <div className="p-3 bg-gradient-to-br from-cyan-50 to-emerald-50 rounded-2xl border-2 border-emerald-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+          <div className="p-3 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl border-2 border-sky-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
               <Store className="w-5 h-5" />
             </div>
             <div>

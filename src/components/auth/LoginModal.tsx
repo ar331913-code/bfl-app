@@ -62,16 +62,16 @@ export const LoginModal: React.FC = () => {
             <span>Welcome</span>
           </button>
 
-          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+          <span className="text-[10px] font-black uppercase tracking-wider text-blue-800 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">
             Secure Login
           </span>
         </div>
 
         {/* Brand Icon & Heading */}
         <div className="flex flex-col items-center text-center mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-700 p-0.5 shadow-lg shadow-emerald-500/20 mb-2 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 p-0.5 shadow-lg shadow-sky-500/20 mb-2 flex items-center justify-center">
             <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center text-white">
-              <Lock className="w-6 h-6 text-emerald-400" />
+              <Lock className="w-6 h-6 text-sky-400" />
             </div>
           </div>
 
@@ -102,7 +102,7 @@ export const LoginModal: React.FC = () => {
                   setUsername(e.target.value);
                   if (error) setError('');
                 }}
-                className="w-full text-xs font-semibold pl-10 pr-3.5 py-3 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-slate-50 focus:bg-white text-slate-900 transition"
+                className="w-full text-xs font-semibold pl-10 pr-3.5 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-slate-50 focus:bg-white text-slate-900 transition"
               />
             </div>
           </div>
@@ -123,7 +123,7 @@ export const LoginModal: React.FC = () => {
                   setPassword(e.target.value);
                   if (error) setError('');
                 }}
-                className="w-full text-xs font-semibold pl-10 pr-10 py-3 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-slate-50 focus:bg-white text-slate-900 transition"
+                className="w-full text-xs font-semibold pl-10 pr-10 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-slate-50 focus:bg-white text-slate-900 transition"
               />
               <button
                 type="button"
@@ -148,7 +148,7 @@ export const LoginModal: React.FC = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-600 hover:to-teal-700 active:scale-98 text-white text-xs font-black rounded-2xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
+            className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-98 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
           >
             <LogIn className="w-4 h-4" />
             <span>{isSubmitting ? 'Signing in...' : 'Sign In to Dashboard'}</span>
@@ -157,7 +157,7 @@ export const LoginModal: React.FC = () => {
 
         {/* Security Note */}
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-medium text-center">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
           <span>Local Device SHA-256 Authentication</span>
         </div>
 

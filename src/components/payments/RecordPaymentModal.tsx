@@ -22,6 +22,7 @@ import { generatePaymentReceiptPDF } from '../../utils/pdfGenerator';
 import { SMSService } from '../../services/smsService';
 import { CloudSyncService } from '../../services/cloudSyncService';
 import { useAuth } from '../../context/AuthContext';
+import { checkAndUpdateLoanStatusesAndAlerts } from '../../services/notificationService';
 import { db } from '../../db';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
@@ -51,12 +52,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // Form State
-  const [selectedLoanId, setSelectedLoanId] = useState<string>(
-    preselectedLoanId || (loans.length > 0 ? loans[0].loanId : '')
-  );
-  const [selectedInstallmentId, setSelectedInstallmentId] = useState<number | undefined>(
-    preselectedInstallmentId
-  );
+  const [selectedLoanId, setSelectedLoanId] = useState<string>('');
+  const [selectedInstallmentId, setSelectedInstallmentId] = useState<number | undefined>(undefined);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('momo');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
@@ -72,6 +69,53 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [completedPayment, setCompletedPayment] = useState<Payment | null>(null);
   const [updatedLoanState, setUpdatedLoanState] = useState<Loan | null>(null);
 
+  // When modal is opened or preselected props change, cleanly reset all state
+  useEffect(() => {
+    if (isOpen) {
+      setCompletedPayment(null);
+      setUpdatedLoanState(null);
+      setIsConfirming(false);
+      setIsSubmitting(false);
+      setError('');
+      setNotes('');
+      setReferenceNumber('');
+      setPaymentDate(todayStr);
+
+      const activeLoans = loans.filter(l => l.status !== 'completed' && (l.outstandingBalance || 0) > 0.01);
+      
+      let targetLoanId = '';
+      if (preselectedLoanId && loans.some(l => l.loanId === preselectedLoanId)) {
+        targetLoanId = preselectedLoanId;
+      } else if (activeLoans.length > 0) {
+        targetLoanId = activeLoans[0].loanId;
+      } else if (loans.length > 0) {
+        targetLoanId = loans[0].loanId;
+      }
+
+      setSelectedLoanId(targetLoanId);
+
+      const targetLoan = loans.find(l => l.loanId === targetLoanId);
+      const targetLoanSchedules = schedules
+        .filter(s => s.loanId === targetLoanId && s.remainingBalance > 0.01)
+        .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+      if (preselectedInstallmentId && targetLoanSchedules.some(s => s.id === preselectedInstallmentId)) {
+        setSelectedInstallmentId(preselectedInstallmentId);
+        const sched = targetLoanSchedules.find(s => s.id === preselectedInstallmentId);
+        setAmountPaid(sched ? sched.remainingBalance : 0);
+      } else if (targetLoanSchedules.length > 0) {
+        setSelectedInstallmentId(targetLoanSchedules[0].id);
+        setAmountPaid(targetLoanSchedules[0].remainingBalance);
+      } else if (targetLoan) {
+        setSelectedInstallmentId(undefined);
+        setAmountPaid(targetLoan.outstandingBalance);
+      } else {
+        setSelectedInstallmentId(undefined);
+        setAmountPaid(0);
+      }
+    }
+  }, [isOpen, preselectedLoanId, preselectedInstallmentId, loans, schedules]);
+
   const currentLoan = loans.find(l => l.loanId === selectedLoanId);
   const currentCustomer = customers.find(c => c.customerId === currentLoan?.customerId);
 
@@ -79,26 +123,25 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
     .filter(s => s.loanId === selectedLoanId && s.remainingBalance > 0.01)
     .sort((a, b) => a.installmentNumber - b.installmentNumber);
 
-  // Auto-fill amount based on selected loan / installment
-  useEffect(() => {
-    if (preselectedLoanId) {
-      setSelectedLoanId(preselectedLoanId);
-    }
-  }, [preselectedLoanId]);
+  const handleLoanChange = (newLoanId: string) => {
+    setSelectedLoanId(newLoanId);
+    setSelectedInstallmentId(undefined);
+    setError('');
 
-  useEffect(() => {
-    if (preselectedInstallmentId) {
-      setSelectedInstallmentId(preselectedInstallmentId);
-      const targetSched = schedules.find(s => s.id === preselectedInstallmentId);
-      if (targetSched) {
-        setAmountPaid(targetSched.remainingBalance);
-      }
-    } else if (loanSchedules.length > 0) {
-      setAmountPaid(loanSchedules[0].remainingBalance);
-    } else if (currentLoan) {
-      setAmountPaid(currentLoan.outstandingBalance);
+    const targetLoan = loans.find(l => l.loanId === newLoanId);
+    const targetLoanSchedules = schedules
+      .filter(s => s.loanId === newLoanId && s.remainingBalance > 0.01)
+      .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+    if (targetLoanSchedules.length > 0) {
+      setSelectedInstallmentId(targetLoanSchedules[0].id);
+      setAmountPaid(targetLoanSchedules[0].remainingBalance);
+    } else if (targetLoan) {
+      setAmountPaid(targetLoan.outstandingBalance);
+    } else {
+      setAmountPaid(0);
     }
-  }, [selectedLoanId, preselectedInstallmentId]);
+  };
 
   if (!isOpen) return null;
 
@@ -172,6 +215,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           }
 
           CloudSyncService.triggerBackgroundSync();
+          await checkAndUpdateLoanStatusesAndAlerts();
         }
       }
     } catch (err: any) {
@@ -232,14 +276,14 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] border border-slate-200">
         
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white flex items-center justify-between border-b border-emerald-500/30">
+        <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-800 text-white flex items-center justify-between border-b border-sky-400/20">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="p-2 rounded-xl bg-white/15 text-emerald-300 shrink-0">
+            <div className="p-2 rounded-xl bg-white/15 text-sky-300 shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-black text-white truncate">Record Repayment</h2>
-              <p className="text-[11px] text-emerald-200 truncate">Receive Cash or MoMo</p>
+              <p className="text-[11px] text-sky-200 truncate">Receive Cash or MoMo</p>
             </div>
           </div>
           <button 
@@ -254,7 +298,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         {completedPayment && currentCustomer && activeLoanObj ? (
           /* 1. SUCCESS RECEIPT VIEW */
           <div className="p-5 text-center space-y-4 animate-fade-in flex-1 overflow-y-auto">
-            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+            <div className="w-14 h-14 bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center mx-auto shadow-lg shadow-sky-500/20">
               <CheckCircle2 className="w-8 h-8 text-white" />
             </div>
 
@@ -263,15 +307,15 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <div className="text-2xl sm:text-3xl font-black text-slate-950 mt-0.5">
                 {formatCurrency(completedPayment.amountPaid)}
               </div>
-              <div className="text-xs text-emerald-700 font-mono font-bold mt-1">
+              <div className="text-xs text-blue-700 font-mono font-bold mt-1">
                 Receipt #{completedPayment.paymentId}
               </div>
             </div>
 
             {/* Loan Status Banner if Completed */}
             {(activeLoanObj.status === 'completed' || activeLoanObj.outstandingBalance <= 0.01) && (
-              <div className="p-3 bg-emerald-100 border-2 border-emerald-300 rounded-2xl text-emerald-950 text-xs font-black flex items-center justify-center gap-1.5 shadow-xs">
-                <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+              <div className="p-3 bg-sky-100 border-2 border-sky-300 rounded-2xl text-blue-950 text-xs font-black flex items-center justify-center gap-1.5 shadow-xs">
+                <Sparkles className="w-4 h-4 text-blue-700 shrink-0" />
                 <span>LOAN IS 100% FULLY PAID OFF! 🎉</span>
               </div>
             )}
@@ -288,13 +332,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
               <div className="flex justify-between items-center gap-2">
                 <span className="text-slate-500 font-medium">Payment Mode:</span>
-                <span className="font-bold uppercase text-emerald-800">{completedPayment.paymentMethod}</span>
+                <span className="font-bold uppercase text-blue-800">{completedPayment.paymentMethod}</span>
               </div>
               <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-200">
                 <span className="text-slate-500 font-medium">Remaining Balance:</span>
                 {(activeLoanObj.status === 'completed' || activeLoanObj.outstandingBalance <= 0.01) ? (
-                  <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="bg-sky-100 text-blue-800 text-xs font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
                     GH₵0.00 (Settled)
                   </span>
                 ) : (
@@ -308,16 +352,16 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <button
                 type="button"
                 onClick={handleSendSMSReceipt}
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-2"
               >
-                <MessageSquare className="w-4 h-4 text-emerald-200" />
+                <MessageSquare className="w-4 h-4 text-sky-200" />
                 Send Instant SMS Receipt
               </button>
 
               <button
                 type="button"
                 onClick={handleShareWhatsApp}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-4 h-4" /> Share via WhatsApp
               </button>
@@ -348,26 +392,35 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1">Select Loan *</label>
               <select
                 value={selectedLoanId}
-                onChange={(e) => setSelectedLoanId(e.target.value)}
-                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white text-slate-950"
+                onChange={(e) => handleLoanChange(e.target.value)}
+                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
               >
-                {loans.filter(l => l.status !== 'completed').map(l => (
+                {loans.filter(l => l.status !== 'completed' && (l.outstandingBalance || 0) > 0.01).map(l => (
                   <option key={l.loanId} value={l.loanId}>
-                    {l.loanId} — {l.customerName} (Bal: {formatCurrency(l.outstandingBalance)})
+                    {l.loanId} — {l.customerName} (Owing: {formatCurrency(l.outstandingBalance)})
+                  </option>
+                ))}
+                {loans.filter(l => l.status === 'completed' || (l.outstandingBalance || 0) <= 0.01).map(l => (
+                  <option key={l.loanId} value={l.loanId} disabled>
+                    {l.loanId} — {l.customerName} (100% Settled)
                   </option>
                 ))}
               </select>
             </div>
 
             {currentLoan && (
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 flex justify-between items-center text-xs">
-                <div>
-                  <span className="text-slate-500 font-medium">Borrower: </span>
-                  <strong className="text-slate-950">{currentCustomer?.fullName}</strong>
+              <div className="p-3.5 bg-gradient-to-br from-sky-50 to-blue-50 rounded-2xl border border-sky-200 text-xs space-y-1.5 shadow-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Borrower:</span>
+                  <strong className="text-slate-950 font-black">{currentCustomer?.fullName || currentLoan.customerName}</strong>
                 </div>
-                <div>
-                  <span className="text-slate-500 font-medium">Owed: </span>
-                  <strong className="text-rose-700 font-black">{formatCurrency(currentLoan.outstandingBalance)}</strong>
+                <div className="flex justify-between items-center text-[11px] text-slate-600 font-semibold pt-1 border-t border-sky-200/60">
+                  <span>Total Loan: <strong>{formatCurrency(currentLoan.totalRepayment)}</strong></span>
+                  <span>Already Paid: <strong className="text-blue-700">{formatCurrency(currentLoan.totalPaid)}</strong></span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-sky-200/60">
+                  <span className="text-slate-700 font-bold uppercase tracking-wider text-[10px]">Still Owing:</span>
+                  <strong className="text-rose-700 font-black text-sm">{formatCurrency(currentLoan.outstandingBalance)}</strong>
                 </div>
               </div>
             )}
@@ -386,7 +439,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                       if (s) setAmountPaid(s.remainingBalance);
                     }
                   }}
-                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white text-slate-950"
+                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
                 >
                   <option value="">Auto-allocate across oldest unpaid schedules</option>
                   {loanSchedules.map(s => (
@@ -411,7 +464,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   value={amountPaid || ''}
                   onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
                   placeholder="0.00"
-                  className="w-full text-base font-black pl-12 pr-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white text-slate-950"
+                  className="w-full text-base font-black pl-12 pr-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
                 />
               </div>
             </div>
@@ -431,7 +484,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                     onClick={() => setPaymentMethod(method.id as PaymentMethod)}
                     className={`py-2 rounded-xl text-xs font-black transition border-2 ${
                       paymentMethod === method.id 
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-xs' 
+                        ? 'border-blue-600 bg-sky-50 text-blue-950 shadow-xs' 
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -449,7 +502,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 placeholder="e.g. 2389482939"
-                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white text-slate-950"
+                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
               />
             </div>
 
@@ -460,7 +513,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white text-slate-950"
+                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
               />
             </div>
 
@@ -474,7 +527,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+                className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
               >
                 Review Repayment Entry
                 <ArrowRight className="w-4 h-4" />
@@ -500,7 +553,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 gap-2">
                 <span className="text-slate-500 font-medium">Amount Received:</span>
-                <span className="font-black text-emerald-700 text-base">{formatCurrency(amountPaid)}</span>
+                <span className="font-black text-blue-700 text-base">{formatCurrency(amountPaid)}</span>
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 gap-2">
                 <span className="text-slate-500 font-medium">Method:</span>
@@ -509,7 +562,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               {referenceNumber && (
                 <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 gap-2">
                   <span className="text-slate-500 font-medium">Ref ID:</span>
-                  <span className="font-mono font-bold text-emerald-800">{referenceNumber}</span>
+                  <span className="font-mono font-bold text-blue-800">{referenceNumber}</span>
                 </div>
               )}
               <div className="flex justify-between items-center gap-2">
@@ -533,7 +586,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleFinalSubmit}
-                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Confirm & Issue Receipt

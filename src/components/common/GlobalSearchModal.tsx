@@ -123,7 +123,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-50 to-blue-100 flex items-center justify-center font-bold text-sky-700 text-xs shrink-0 border border-sky-200">
-                        {cust.customerType === 'driver' ? <Car className="w-5 h-5 text-blue-600" /> : <Store className="w-5 h-5 text-emerald-600" />}
+                        {cust.customerType === 'driver' ? <Car className="w-5 h-5 text-blue-600" /> : <Store className="w-5 h-5 text-sky-600" />}
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-black text-navy-950 flex items-center gap-1.5 truncate group-hover:text-sky-700 transition">

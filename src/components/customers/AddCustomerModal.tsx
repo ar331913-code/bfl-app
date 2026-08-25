@@ -277,7 +277,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200">
         
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 text-white flex items-center justify-between border-b border-sky-400/30">
+        <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-800 text-white flex items-center justify-between border-b border-sky-400/30">
           <div className="flex items-center gap-2">
             <button 
               onClick={() => {
@@ -322,9 +322,9 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               }}
               className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition cursor-pointer ${
                 step === s.num 
-                  ? 'bg-sky-600 text-white shadow-xs' 
+                  ? 'bg-blue-600 text-white shadow-xs' 
                   : step > s.num
-                  ? 'bg-sky-100 text-sky-800'
+                  ? 'bg-sky-100 text-blue-800'
                   : 'bg-slate-200 text-slate-500'
               }`}
             >
@@ -359,8 +359,8 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                       <Car className="w-4 h-4" />
                     </div>
                     <div className="text-left">
-                      <div className="text-xs font-black">Driver</div>
-                      <div className="text-[10px] text-slate-400">Trotro / Taxi / Ride</div>
+                      <div className="text-xs font-black">Commercial Driver</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Trotro / Taxi / Okada</div>
                     </div>
                   </button>
 
@@ -369,16 +369,16 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     onClick={() => setCustomerType('trader')}
                     className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition active:scale-95 ${
                       customerType === 'trader'
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-sm'
+                        ? 'border-sky-600 bg-sky-50 text-blue-950 shadow-sm'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${customerType === 'trader' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${customerType === 'trader' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                       <Store className="w-4 h-4" />
                     </div>
                     <div className="text-left">
-                      <div className="text-xs font-black">Trader</div>
-                      <div className="text-[10px] text-slate-400">Market Stall / Shop</div>
+                      <div className="text-xs font-black">Market Trader</div>
+                      <div className="text-[10px] text-slate-500 font-medium">Shop / Stall Owner</div>
                     </div>
                   </button>
                 </div>

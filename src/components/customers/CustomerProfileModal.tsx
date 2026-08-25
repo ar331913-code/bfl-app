@@ -63,8 +63,8 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
 
   // Filter records for this customer
   const customerLoans = loans.filter(l => l.customerId === customer.customerId);
-  const activeLoans = customerLoans.filter(l => l.status !== 'completed' && l.status !== 'defaulted');
-  const overdueLoans = customerLoans.filter(l => l.status === 'overdue');
+  const activeLoans = customerLoans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted');
+  const overdueLoans = customerLoans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue');
 
   const totalBorrowed = customerLoans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
   const totalRepaid = customerLoans.reduce((sum, l) => sum + (l.totalPaid || 0), 0);
@@ -73,8 +73,8 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   // Repayment Score calculation
   let punctualityScore: 'A+' | 'A' | 'B' | 'C' | 'High Risk' = 'A+';
   if (overdueLoans.length > 0) punctualityScore = 'High Risk';
-  else if (customerLoans.length === 0) punctualityScore = 'A';
-  else if (totalOutstanding === 0 && customerLoans.length > 0) punctualityScore = 'A+';
+  else if (customerLoans.length === 0 || totalOutstanding <= 0.01) punctualityScore = 'A+';
+  else punctualityScore = 'A';
 
   // WhatsApp link generator
   const cleanPhone = customer.primaryPhone.replace(/\D/g, '');
@@ -115,7 +115,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] border border-slate-200">
         
         {/* Profile Header Banner */}
-        <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 text-white p-5 relative border-b border-sky-400/30">
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-800 text-white p-5 relative border-b border-sky-400/30">
           
           {/* Top Bar with Back Arrow & Close */}
           <div className="flex items-center justify-between mb-3">
@@ -151,16 +151,16 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black text-white tracking-tight">{customer.fullName}</h2>
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ${
-                  punctualityScore === 'High Risk' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'
+                  punctualityScore === 'High Risk' ? 'bg-rose-500 text-white' : 'bg-sky-500 text-white'
                 }`}>
                   {punctualityScore} Rating
                 </span>
               </div>
               
               <div className="flex items-center gap-2 text-xs text-sky-100 mt-0.5">
-                <span className="font-mono font-bold text-amber-200">{customer.customerId}</span>
+                <span className="font-mono font-bold text-sky-200">{customer.customerId}</span>
                 <span>•</span>
-                <span className="capitalize font-black text-cyan-200">{customer.customerType}</span>
+                <span className="capitalize font-black text-sky-200">{customer.customerType}</span>
               </div>
 
               {/* Fast Communication Buttons (Call, WhatsApp, Direct SMS) */}
@@ -175,14 +175,14 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black rounded-xl flex items-center gap-1 shadow-xs active:scale-95 transition"
+                  className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-black rounded-xl flex items-center gap-1 shadow-xs active:scale-95 transition"
                 >
                   <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                 </a>
                 <button
                   type="button"
                   onClick={() => setShowSMSModal(true)}
-                  className="px-2.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-white text-[11px] font-black rounded-xl flex items-center gap-1 shadow-xs active:scale-95 transition"
+                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black rounded-xl flex items-center gap-1 shadow-xs active:scale-95 transition"
                 >
                   <MessageSquare className="w-3.5 h-3.5" /> Send SMS
                 </button>
@@ -200,23 +200,23 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Lent</div>
               <div className="text-xs font-black text-navy-950 mt-0.5">{formatCurrency(totalBorrowed)}</div>
             </div>
-            <div className="p-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl text-center">
+            <div className="p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl text-center">
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Repaid</div>
-              <div className="text-xs font-black text-emerald-800 mt-0.5">{formatCurrency(totalRepaid)}</div>
+              <div className="text-xs font-black text-blue-800 mt-0.5">{formatCurrency(totalRepaid)}</div>
             </div>
             <div className={`p-3 rounded-2xl text-center border ${
-              totalOutstanding > 0 ? 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200' : 'bg-slate-50 border-slate-200'
+              totalOutstanding > 0.01 ? 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200' : 'bg-sky-50/60 border-sky-200'
             }`}>
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Owing</div>
-              <div className={`text-xs font-black mt-0.5 ${totalOutstanding > 0 ? 'text-rose-700' : 'text-slate-600'}`}>
-                {formatCurrency(totalOutstanding)}
+              <div className={`text-xs font-black mt-0.5 ${totalOutstanding > 0.01 ? 'text-rose-700' : 'text-blue-700'}`}>
+                {totalOutstanding > 0.01 ? formatCurrency(totalOutstanding) : 'GH₵0.00 (Cleared)'}
               </div>
             </div>
           </div>
 
           {/* Quick Action: New Loan or Active Warning */}
           <div>
-            {activeLoans.length > 0 ? (
+            {totalOutstanding > 0.01 ? (
               <div className="p-3 bg-rose-50 border-2 border-rose-200 rounded-2xl text-rose-900 text-xs flex items-center justify-between">
                 <div>
                   <div className="font-black text-rose-700">Active Loan in Progress</div>
@@ -317,9 +317,9 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
           )}
 
           {customer.customerType === 'trader' && customer.traderDetails && (
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 space-y-2 text-xs">
-              <div className="font-black text-emerald-950 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Store className="w-4 h-4 text-emerald-600" /> Trader Particulars
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-200 space-y-2 text-xs">
+              <div className="font-black text-blue-950 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                <Store className="w-4 h-4 text-sky-600" /> Trader Particulars
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
@@ -328,7 +328,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-500 block">Market Stall:</span>
-                  <span className="font-bold text-emerald-900">{customer.traderDetails.stallNumber || 'Open Market'}</span>
+                  <span className="font-bold text-blue-900">{customer.traderDetails.stallNumber || 'Open Market'}</span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-slate-500 block">Market Location:</span>

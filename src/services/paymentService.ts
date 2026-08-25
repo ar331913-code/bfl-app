@@ -58,13 +58,36 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
   }
 
   // 2. Fetch Repayment Schedules for this loan in order
-  const schedules = await db.repaymentSchedules
+  let schedules = await db.repaymentSchedules
     .where('loanId')
     .equals(loanId)
     .sortBy('installmentNumber');
 
+  // If loan has no schedules (e.g. legacy or seed data), generate fallback schedules
   if (!schedules.length) {
-    return { success: false, loanCompleted: false, message: 'No repayment schedule found for this loan.' };
+    const totalInst = loan.totalInstallments || 1;
+    const instAmt = loan.installmentAmount || Math.round((loan.totalRepayment / totalInst) * 100) / 100;
+    const fallbackSchedules: RepaymentSchedule[] = [];
+    for (let i = 1; i <= totalInst; i++) {
+      fallbackSchedules.push({
+        loanId,
+        customerId,
+        installmentNumber: i,
+        dueDate: loan.maturityDate || format(new Date(), 'yyyy-MM-dd'),
+        expectedAmount: instAmt,
+        principalComponent: Math.round((loan.principalAmount / totalInst) * 100) / 100,
+        interestComponent: Math.round(((loan.totalInterest || 0) / totalInst) * 100) / 100,
+        amountPaid: 0,
+        remainingBalance: instAmt,
+        status: 'upcoming',
+        penaltyAmount: 0
+      });
+    }
+    await db.repaymentSchedules.bulkAdd(fallbackSchedules);
+    schedules = await db.repaymentSchedules
+      .where('loanId')
+      .equals(loanId)
+      .sortBy('installmentNumber');
   }
 
   let remainingPaymentAmount = amountPaid;
@@ -78,7 +101,7 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
       if (targetSched && targetSched.remainingBalance > 0) {
         const payToTarget = Math.min(remainingPaymentAmount, targetSched.remainingBalance);
         targetSched.amountPaid = Math.round((targetSched.amountPaid + payToTarget) * 100) / 100;
-        targetSched.remainingBalance = Math.round((targetSched.remainingBalance - payToTarget) * 100) / 100;
+        targetSched.remainingBalance = Math.max(0, Math.round((targetSched.remainingBalance - payToTarget) * 100) / 100);
         targetSched.lastPaymentDate = paymentDate;
         targetSched.status = targetSched.remainingBalance <= 0.01 ? 'paid' : 'partially_paid';
         
@@ -95,7 +118,7 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
 
         const alloc = Math.min(remainingPaymentAmount, sched.remainingBalance);
         sched.amountPaid = Math.round((sched.amountPaid + alloc) * 100) / 100;
-        sched.remainingBalance = Math.round((sched.remainingBalance - alloc) * 100) / 100;
+        sched.remainingBalance = Math.max(0, Math.round((sched.remainingBalance - alloc) * 100) / 100);
         sched.lastPaymentDate = paymentDate;
         sched.status = sched.remainingBalance <= 0.01 ? 'paid' : 'partially_paid';
 
@@ -104,24 +127,36 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
       }
     }
 
-    // Update Loan Balances
-    const newTotalPaid = Math.round((loan.totalPaid + amountPaid) * 100) / 100;
-    const newOutstanding = Math.max(0, Math.round((loan.totalRepayment - newTotalPaid) * 100) / 100);
+    // Update Loan Balances including any penalties
+    const totalLoanPenalties = schedules.reduce((sum, s) => sum + (s.penaltyAmount || 0), 0) || loan.totalPenalties || 0;
+    const totalPayable = Math.round((loan.totalRepayment + totalLoanPenalties) * 100) / 100;
+    const newTotalPaid = Math.min(totalPayable, Math.round((loan.totalPaid + amountPaid) * 100) / 100);
+    const newOutstanding = Math.max(0, Math.round((totalPayable - newTotalPaid) * 100) / 100);
 
     isLoanNowFullySettled = newOutstanding <= 0.01;
 
-    let newStatus = loan.status;
+    let newStatus: Loan['status'] = loan.status;
     if (isLoanNowFullySettled) {
       newStatus = 'completed';
-    } else if (newTotalPaid > 0) {
-      // Check if any schedule is still overdue
-      const hasOverdue = schedules.some(s => s.status === 'overdue' && s.remainingBalance > 0.01);
-      newStatus = hasOverdue ? 'overdue' : 'active';
+    } else {
+      // Check remaining unpaid schedules to see if any are overdue or due today
+      const hasOverdue = schedules.some(s => s.remainingBalance > 0.01 && s.status === 'overdue');
+      const hasDueToday = schedules.some(s => s.remainingBalance > 0.01 && s.status === 'due_today');
+      if (hasOverdue) {
+        newStatus = 'overdue';
+      } else if (hasDueToday) {
+        newStatus = 'due_today';
+      } else if (newTotalPaid > 0) {
+        newStatus = 'active';
+      } else {
+        newStatus = 'active';
+      }
     }
 
     const updatedLoanData: Partial<Loan> = {
       totalPaid: newTotalPaid,
-      outstandingBalance: newOutstanding,
+      outstandingBalance: isLoanNowFullySettled ? 0 : newOutstanding,
+      totalPenalties: totalLoanPenalties,
       status: newStatus,
       updatedAt: paymentDate
     };
@@ -175,7 +210,7 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
     loanCompleted: isLoanNowFullySettled,
     updatedLoan,
     message: isLoanNowFullySettled 
-      ? `Payment recorded! Loan ${loanId} is now FULLY SETTLED! 🎉`
+      ? `Payment recorded! Loan ${loanId} is now FULLY SETTLED (GH₵0.00 balance)! 🎉`
       : `Payment of GH₵${amountPaid.toFixed(2)} successfully recorded. Remaining balance: GH₵${updatedLoan?.outstandingBalance.toFixed(2)}.`
   };
 }

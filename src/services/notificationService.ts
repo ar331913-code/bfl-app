@@ -88,7 +88,7 @@ export async function checkAndUpdateLoanStatusesAndAlerts(): Promise<{
     const computedOutstanding = Math.max(0, Math.round((loan.totalRepayment + totalLoanPenalties - totalPaidOnLoan) * 100) / 100);
 
     if (computedOutstanding <= 0.01) {
-      if (loan.status !== 'completed') {
+      if (loan.status !== 'completed' || loan.outstandingBalance !== 0) {
         await db.loans.update(loan.id!, { 
           status: 'completed',
           outstandingBalance: 0,
@@ -100,17 +100,14 @@ export async function checkAndUpdateLoanStatusesAndAlerts(): Promise<{
 
     const hasOverdue = loanSchedules.some(s => s.status === 'overdue' && s.remainingBalance > 0.01);
     const hasDueToday = loanSchedules.some(s => s.status === 'due_today' && s.remainingBalance > 0.01);
-    const hasUpcoming = loanSchedules.some(s => s.status === 'upcoming' && s.remainingBalance > 0.01);
 
     let loanStatus: typeof loan.status = 'active';
     if (hasOverdue) {
       loanStatus = 'overdue';
     } else if (hasDueToday) {
       loanStatus = 'due_today';
-    } else if (hasUpcoming) {
-      loanStatus = 'due_soon';
-    } else if (loan.totalPaid > 0) {
-      loanStatus = 'partially_paid';
+    } else {
+      loanStatus = 'active';
     }
 
     await db.loans.update(loan.id!, {

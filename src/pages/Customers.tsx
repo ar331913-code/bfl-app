@@ -35,10 +35,10 @@ export const Customers: React.FC<CustomersProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'driver' | 'trader' | 'active' | 'overdue'>('all');
 
   const activeCustomerIds = new Set(
-    loans.filter(l => l.status !== 'completed' && l.status !== 'defaulted').map(l => l.customerId)
+    loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted').map(l => l.customerId)
   );
   const overdueCustomerIds = new Set(
-    loans.filter(l => l.status === 'overdue').map(l => l.customerId)
+    loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue').map(l => l.customerId)
   );
 
   const cleanQuery = searchTerm.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -83,10 +83,10 @@ export const Customers: React.FC<CustomersProps> = ({
               if (res.message) alert(res.message);
             }}
             type="button"
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 active:scale-95 text-xs font-black rounded-xl shadow-xs flex items-center gap-1 transition"
+            className="px-3 py-2 bg-sky-50 hover:bg-sky-100 text-blue-800 border border-sky-300 active:scale-95 text-xs font-black rounded-xl shadow-xs flex items-center gap-1 transition"
             title="Transport all registered clients & photos to Google Drive"
           >
-            <Upload className="w-3.5 h-3.5 text-emerald-700" />
+            <Upload className="w-3.5 h-3.5 text-blue-700" />
             <span>Drive</span>
           </button>
 
@@ -108,17 +108,17 @@ export const Customers: React.FC<CustomersProps> = ({
           placeholder="Search by phone number, Ghana Card, name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full text-xs font-semibold pl-9 pr-4 py-2.5 bg-white rounded-2xl border-2 border-slate-200 shadow-sm focus:border-sky-500 focus:outline-none placeholder:text-slate-400"
+          className="w-full text-xs font-semibold pl-9 pr-4 py-2.5 bg-white rounded-2xl border-2 border-sky-100 shadow-sm focus:border-sky-500 focus:outline-none placeholder:text-slate-400"
         />
       </div>
 
       {/* Filter Tabs with High Contrast */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {[
-          { id: 'all', label: `All (${customers.length})`, activeBg: 'bg-navy-950 text-white' },
+          { id: 'all', label: `All (${customers.length})`, activeBg: 'bg-blue-900 text-white' },
           { id: 'driver', label: `Drivers (${customers.filter(c => c.customerType === 'driver').length})`, activeBg: 'bg-blue-700 text-white' },
-          { id: 'trader', label: `Traders (${customers.filter(c => c.customerType === 'trader').length})`, activeBg: 'bg-emerald-700 text-white' },
-          { id: 'active', label: `Borrowing (${activeCustomerIds.size})`, activeBg: 'bg-amber-600 text-white' },
+          { id: 'trader', label: `Traders (${customers.filter(c => c.customerType === 'trader').length})`, activeBg: 'bg-sky-700 text-white' },
+          { id: 'active', label: `Borrowing (${activeCustomerIds.size})`, activeBg: 'bg-indigo-700 text-white' },
           { id: 'overdue', label: `Overdue (${overdueCustomerIds.size})`, activeBg: 'bg-rose-700 text-white' }
         ].map(tab => (
           <button
@@ -172,21 +172,21 @@ export const Customers: React.FC<CustomersProps> = ({
                   <div className={`w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center font-black text-sm shrink-0 border-2 shadow-sm ${
                     customer.customerType === 'driver' 
                       ? 'bg-blue-100 text-blue-800 border-blue-200' 
-                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : 'bg-sky-100 text-sky-800 border-sky-200'
                   }`}>
                     {customer.photoUrl ? (
                       <img src={customer.photoUrl} alt={customer.fullName} className="w-full h-full object-cover" />
                     ) : customer.customerType === 'driver' ? (
                       <Car className="w-6 h-6 text-blue-700" />
                     ) : (
-                      <Store className="w-6 h-6 text-emerald-700" />
+                      <Store className="w-6 h-6 text-sky-700" />
                     )}
                   </div>
 
                   {/* Customer Info */}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-navy-950 truncate group-hover:text-sky-700 transition">
+                      <span className="text-xs font-black text-navy-950 truncate group-hover:text-blue-700 transition">
                         {customer.fullName}
                       </span>
                       <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">({customer.customerId})</span>
@@ -195,13 +195,13 @@ export const Customers: React.FC<CustomersProps> = ({
                     <div className="text-[11px] text-slate-600 flex items-center gap-2 mt-0.5 truncate font-medium">
                       <span>{formatGhanaPhone(customer.primaryPhone)}</span>
                       <span>•</span>
-                      <span className={`font-bold capitalize ${customer.customerType === 'driver' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                      <span className={`font-bold capitalize ${customer.customerType === 'driver' ? 'text-blue-700' : 'text-sky-700'}`}>
                         {customer.customerType}
                       </span>
                     </div>
 
                     {/* Ghana Card Pin */}
-                    <div className="text-[10px] text-sky-800 font-mono font-bold mt-0.5 flex items-center gap-1">
+                    <div className="text-[10px] text-blue-800 font-mono font-bold mt-0.5 flex items-center gap-1">
                       <CreditCard className="w-3 h-3 text-sky-600 shrink-0" />
                       <span>{maskGhanaCard(customer.ghanaCardNumber, true)}</span>
                     </div>
@@ -219,7 +219,7 @@ export const Customers: React.FC<CustomersProps> = ({
                       Active Loan
                     </span>
                   ) : (
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                    <span className="text-[10px] font-bold bg-sky-50 text-blue-700 px-2 py-0.5 rounded-full border border-sky-200">
                       Clear
                     </span>
                   )}
@@ -229,22 +229,22 @@ export const Customers: React.FC<CustomersProps> = ({
                     href={`https://wa.me/${waPhone}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-xl bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition shadow-xs"
+                    className="p-2 rounded-xl bg-sky-50 text-blue-700 hover:bg-sky-100 transition shadow-xs border border-sky-200"
                     title="WhatsApp"
                   >
-                    <MessageCircle className="w-4 h-4 text-emerald-700" />
+                    <MessageCircle className="w-4 h-4 text-blue-600" />
                   </a>
 
                   {/* Phone Call Quick Action */}
                   <a
                     href={`tel:${customer.primaryPhone}`}
-                    className="p-2 rounded-xl bg-blue-100 text-blue-800 hover:bg-blue-200 transition shadow-xs"
+                    className="p-2 rounded-xl bg-blue-50 text-blue-800 hover:bg-blue-100 transition shadow-xs border border-blue-200"
                     title="Call Client"
                   >
                     <Phone className="w-4 h-4 text-blue-700" />
                   </a>
 
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-700 transition" />
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-700 transition" />
                 </div>
               </div>
             );

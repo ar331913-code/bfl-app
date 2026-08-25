@@ -220,21 +220,21 @@ export const Settings: React.FC<SettingsProps> = ({
       </div>
 
       {saveMessage && (
-        <div className="p-3.5 rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in shadow-xs">
-          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-3.5 rounded-2xl bg-sky-50 text-blue-900 border border-sky-300 text-xs font-bold flex items-center gap-2 animate-fade-in shadow-xs">
+          <Check className="w-4 h-4 text-blue-600 shrink-0" />
           <span>{saveMessage}</span>
         </div>
       )}
 
       {/* 1. Multi-Device Google Firebase Cloud Synchronization */}
-      <div className="p-5 rounded-3xl bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 text-white shadow-xl border border-emerald-500/30 space-y-3.5 relative overflow-hidden">
+      <div className="p-5 rounded-3xl bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950 text-white shadow-xl border border-sky-500/30 space-y-3.5 relative overflow-hidden">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-            <Cloud className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
+            <Cloud className="w-4 h-4 text-sky-400" />
             Google Firebase Cloud Database
           </h3>
-          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/40 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
             Firebase Cloud Active
           </span>
         </div>
@@ -245,7 +245,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
-            <label className="text-[11px] font-bold text-emerald-200 block mb-1">
+            <label className="text-[11px] font-bold text-sky-200 block mb-1">
               Firebase Organization Sync Key
             </label>
             <input
@@ -253,12 +253,12 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="e.g. BFL-GHANA-MAIN"
               value={cloudSyncOrgId}
               onChange={(e) => setCloudSyncOrgId(e.target.value)}
-              className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-white/10 text-white focus:border-emerald-400 focus:outline-none placeholder:text-slate-500"
+              className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500"
             />
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-emerald-200 block mb-1">
+            <label className="text-[11px] font-bold text-sky-200 block mb-1">
               Firebase Database Endpoint URL
             </label>
             <input
@@ -266,14 +266,14 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="https://your-project.firebaseio.com"
               value={cloudSyncEndpoint}
               onChange={(e) => setCloudSyncEndpoint(e.target.value)}
-              className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-emerald-500/40 bg-white/10 text-white focus:border-emerald-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
+              className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
             />
           </div>
         </div>
 
         {cloudSyncMessage && (
-          <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center gap-2 animate-fade-in">
-            <Check className="w-4 h-4 text-emerald-400" />
+          <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-400/50 text-sky-200 text-xs font-bold flex items-center gap-2 animate-fade-in">
+            <Check className="w-4 h-4 text-sky-400" />
             <span>{cloudSyncMessage}</span>
           </div>
         )}
@@ -282,7 +282,7 @@ export const Settings: React.FC<SettingsProps> = ({
           type="button"
           onClick={handleTriggerCloudSync}
           disabled={isCloudSyncing}
-          className="w-full py-3 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:to-teal-500 active:scale-98 text-white text-xs font-black rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50"
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-98 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50"
         >
           {isCloudSyncing ? (
             <>
@@ -299,9 +299,9 @@ export const Settings: React.FC<SettingsProps> = ({
       </div>
 
       {/* 2. Business Information & Loan Defaults */}
-      <form onSubmit={handleSaveSettings} className="p-5 rounded-3xl bg-white border-2 border-emerald-100 shadow-sm space-y-4">
+      <form onSubmit={handleSaveSettings} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-4">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-          <Building2 className="w-4 h-4 text-emerald-600" />
+          <Building2 className="w-4 h-4 text-blue-600" />
           Business Profile & Default Parameters
         </h3>
 
@@ -312,7 +312,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
@@ -322,7 +322,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="text"
               value={businessPhone}
               onChange={(e) => setBusinessPhone(e.target.value)}
-              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
@@ -332,7 +332,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="text"
               value={businessAddress}
               onChange={(e) => setBusinessAddress(e.target.value)}
-              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
         </div>
@@ -344,7 +344,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="number"
               value={defaultInterestRate}
               onChange={(e) => setDefaultInterestRate(Number(e.target.value))}
-              className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
@@ -353,7 +353,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <select
               value={defaultInterestType}
               onChange={(e) => setDefaultInterestType(e.target.value as InterestType)}
-              className="w-full text-xs font-semibold px-2 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+              className="w-full text-xs font-semibold px-2 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
             >
               <option value="flat">Flat Rate</option>
               <option value="reducing_balance">Reducing Balance</option>
@@ -366,7 +366,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <select
               value={defaultFrequency}
               onChange={(e) => setDefaultFrequency(e.target.value as RepaymentFrequency)}
-              className="w-full text-xs font-semibold px-2 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+              className="w-full text-xs font-semibold px-2 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
@@ -382,7 +382,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <select
               value={autoLockMinutes}
               onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
-              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+              className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
             >
               <option value={1}>1 Minute Inactive</option>
               <option value={3}>3 Minutes Inactive</option>
@@ -396,7 +396,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
         <button
           type="submit"
-          className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
         >
           Save Configuration
         </button>
@@ -556,13 +556,13 @@ export const Settings: React.FC<SettingsProps> = ({
       </div>
 
       {/* 4. Automated SMS Gateway Configuration */}
-      <div className="p-5 rounded-3xl bg-white border-2 border-emerald-100 shadow-sm space-y-3.5">
+      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            <MessageSquare className="w-4 h-4 text-blue-600" />
             Automated SMS Gateway (Ghana)
           </h3>
-          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-100 text-blue-800 border border-sky-300">
             {smsProvider === 'native' ? 'Free 1-Tap SIM SMS' : `${smsProvider.toUpperCase()} Cloud API`}
           </span>
         </div>
@@ -577,7 +577,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <select
               value={smsProvider}
               onChange={(e) => setSmsProvider(e.target.value as any)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
             >
               <option value="native">Free 1-Tap SIM (Device)</option>
               <option value="mnotify">mNotify Ghana (Automated)</option>
@@ -594,7 +594,7 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="BFL-LOANS"
               value={smsSenderId}
               onChange={(e) => setSmsSenderId(e.target.value.toUpperCase())}
-              className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none uppercase"
+              className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none uppercase"
             />
           </div>
         </div>
@@ -607,7 +607,7 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder={`Enter your ${smsProvider.toUpperCase()} API Key`}
               value={smsApiKey}
               onChange={(e) => setSmsApiKey(e.target.value)}
-              className="w-full text-xs font-mono px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-mono px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
         )}
@@ -618,7 +618,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="checkbox"
               checked={autoSmsOnRegister}
               onChange={(e) => setAutoSmsOnRegister(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+              className="w-4 h-4 rounded text-blue-600 focus:ring-sky-500"
             />
             <span>Auto-send welcome SMS on registering new client</span>
           </label>
@@ -628,7 +628,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="checkbox"
               checked={autoSmsOnPayment}
               onChange={(e) => setAutoSmsOnPayment(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+              className="w-4 h-4 rounded text-blue-600 focus:ring-sky-500"
             />
             <span>Auto-send instant payment receipt SMS on recording payment</span>
           </label>
@@ -638,7 +638,7 @@ export const Settings: React.FC<SettingsProps> = ({
               type="checkbox"
               checked={autoSmsOnDisburse}
               onChange={(e) => setAutoSmsOnDisburse(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
+              className="w-4 h-4 rounded text-blue-600 focus:ring-sky-500"
             />
             <span>Auto-send disbursement schedule SMS on creating new loan</span>
           </label>
@@ -658,16 +658,16 @@ export const Settings: React.FC<SettingsProps> = ({
             setSaveMessage('Automated SMS Gateway settings saved!');
             setTimeout(() => setSaveMessage(null), 3000);
           }}
-          className="w-full py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
+          className="w-full py-2.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
         >
           <Check className="w-3.5 h-3.5" /> Save SMS Settings
         </button>
       </div>
 
       {/* 4. Operator Security Credentials (Username & Password) */}
-      <form onSubmit={handleChangeCredentialsSubmit} className="p-5 rounded-3xl bg-white border-2 border-emerald-100 shadow-sm space-y-3.5">
+      <form onSubmit={handleChangeCredentialsSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-          <KeyRound className="w-4 h-4 text-emerald-600" />
+          <KeyRound className="w-4 h-4 text-blue-600" />
           Operator Login Credentials (Username & Password)
         </h3>
 
@@ -679,7 +679,7 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="Enter current password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
@@ -690,7 +690,7 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="e.g. admin"
               value={newUsername}
               onChange={(e) => setNewUsername(e.target.value)}
-              className="w-full text-xs font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-black px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
         </div>
@@ -703,7 +703,7 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="Leave blank to keep same"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
 
@@ -714,14 +714,14 @@ export const Settings: React.FC<SettingsProps> = ({
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
             />
           </div>
         </div>
 
         {credMessage && (
           <div className={`p-2.5 rounded-xl text-xs flex items-center gap-1.5 font-bold ${
-            credMessage.type === 'success' ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            credMessage.type === 'success' ? 'bg-sky-50 text-blue-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}>
             <AlertCircle className="w-3.5 h-3.5" />
             {credMessage.text}
@@ -730,16 +730,16 @@ export const Settings: React.FC<SettingsProps> = ({
 
         <button
           type="submit"
-          className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
         >
           Update Operator Credentials
         </button>
       </form>
 
       {/* 5. Database Backup & Reset Center */}
-      <div className="p-5 rounded-3xl bg-white border-2 border-emerald-100 shadow-sm space-y-3">
+      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-          <Database className="w-4 h-4 text-emerald-600" />
+          <Database className="w-4 h-4 text-blue-600" />
           Offline Data Backup & Google Drive Center
         </h3>
 
@@ -747,16 +747,16 @@ export const Settings: React.FC<SettingsProps> = ({
           <button
             type="button"
             onClick={handleExportBackup}
-            className="p-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
+            className="p-3 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 text-blue-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
           >
-            <Download className="w-4 h-4 text-emerald-700" />
+            <Download className="w-4 h-4 text-blue-700" />
             <span>Download Backup</span>
           </button>
 
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-3 rounded-2xl border-2 border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
+            className="p-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
           >
             <Upload className="w-4 h-4 text-teal-700" />
             <span>Restore Backup</span>

@@ -11,8 +11,8 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) 
       
       {/* Top Header */}
       <header className="max-w-xs mx-auto w-full flex items-center justify-center pt-4">
-        <div className="flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-400/40 px-3.5 py-1 rounded-full text-[11px] text-emerald-300 font-bold shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <div className="flex items-center gap-1.5 bg-sky-500/15 border border-sky-400/40 px-3.5 py-1 rounded-full text-[11px] text-sky-300 font-bold shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
           <span>Online & Offline Ready</span>
         </div>
       </header>
@@ -22,12 +22,12 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) 
         
         {/* Large B-F-L Emblem */}
         <div className="relative">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-700 p-1 shadow-2xl shadow-emerald-500/30 flex items-center justify-center animate-pulse">
-            <div className="w-full h-full rounded-[22px] bg-slate-950 flex items-center justify-center text-emerald-400 font-black text-3xl tracking-widest">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 p-1 shadow-2xl shadow-sky-500/30 flex items-center justify-center animate-pulse">
+            <div className="w-full h-full rounded-[22px] bg-slate-950 flex items-center justify-center text-sky-400 font-black text-3xl tracking-widest">
               BFL
             </div>
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-md font-mono">
+          <div className="absolute -bottom-2 -right-2 bg-sky-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md font-mono">
             GH₵
           </div>
         </div>
@@ -46,7 +46,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) 
         <button
           onClick={onGetStarted}
           type="button"
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:to-teal-500 active:scale-98 text-white text-sm font-black shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition duration-200 border border-emerald-300/30 cursor-pointer"
+          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-98 text-white text-sm font-black shadow-xl shadow-sky-600/30 flex items-center justify-center gap-2 transition duration-200 border border-sky-300/30 cursor-pointer"
         >
           <span>Operator Login</span>
           <ArrowRight className="w-4 h-4" />
@@ -56,7 +56,7 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) 
 
       {/* Bottom Footer */}
       <footer className="max-w-xs mx-auto w-full pb-4 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5 font-medium">
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+        <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
         <span>Secure Local & Cloud Sync</span>
       </footer>
 

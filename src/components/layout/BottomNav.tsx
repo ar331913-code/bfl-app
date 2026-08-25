@@ -38,12 +38,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => onNavigate(item.id)}
               type="button"
               className={`relative flex flex-col items-center justify-center py-1 transition-all duration-200 select-none ${
-                isActive ? 'text-emerald-700 font-extrabold' : 'text-slate-400 hover:text-emerald-800'
+                isActive ? 'text-blue-600 font-extrabold' : 'text-slate-400 hover:text-blue-600'
               }`}
             >
-              <div className={`relative p-1 rounded-xl transition-all ${
+              <div className={`relative p-1.5 rounded-xl transition-all ${
                 isActive 
-                  ? 'bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-700 scale-110 shadow-xs border border-emerald-200' 
+                  ? 'bg-gradient-to-br from-sky-100 to-blue-50 text-blue-600 scale-105 shadow-xs border border-sky-200' 
                   : ''
               }`}>
                 <Icon className="w-5 h-5" />
@@ -53,11 +53,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-emerald-800' : 'font-semibold'}`}>
+              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-blue-900' : 'font-semibold'}`}>
                 {item.label}
               </span>
               {isActive && (
-                <div className="absolute bottom-1 w-8 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 rounded-full shadow-xs" />
+                <div className="absolute bottom-1 w-8 h-1 bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600 rounded-full shadow-xs" />
               )}
             </button>
           );

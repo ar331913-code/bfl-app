@@ -117,7 +117,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const customerActiveLoan = useMemo(() => {
     if (!selectedCustomerId) return null;
     return existingLoans.find(
-      l => l.customerId === selectedCustomerId && l.status !== 'completed' && l.status !== 'defaulted'
+      l => l.customerId === selectedCustomerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
     );
   }, [selectedCustomerId, existingLoans]);
 
@@ -479,7 +479,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               >
                 {filteredCustomers.map(c => {
                   const hasActive = existingLoans.some(
-                    l => l.customerId === c.customerId && l.status !== 'completed' && l.status !== 'defaulted'
+                    l => l.customerId === c.customerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
                   );
                   return (
                     <option key={c.customerId} value={c.customerId}>

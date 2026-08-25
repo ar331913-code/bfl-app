@@ -163,8 +163,8 @@ export const Notifications: React.FC<NotificationsProps> = ({
               {/* Type Icon */}
               <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
                 n.type === 'overdue' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                n.type === 'due_today' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                n.type === 'loan_completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                n.type === 'due_today' ? 'bg-sky-100 text-blue-800 border-sky-200' :
+                n.type === 'loan_completed' ? 'bg-sky-100 text-blue-800 border-sky-200' :
                 'bg-sky-100 text-sky-800 border-sky-200'
               }`}>
                 {n.type === 'overdue' ? <AlertTriangle className="w-5 h-5" /> :
