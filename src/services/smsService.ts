@@ -16,27 +16,36 @@ export class SMSService {
    * Generates a Welcome & Registration SMS
    */
   static generateWelcomeSMS(data: SMSTemplateData): string {
-    const biz = data.businessName || 'B-F-L Micro Credit';
+    const biz = data.businessName || 'B-F-L';
     const phone = data.businessPhone || '';
     return `Welcome to ${biz}, ${data.customer.fullName}! Your Client ID is ${data.customer.customerId}. For inquiries, contact ${phone}.`;
   }
 
   /**
-   * Generates a Loan Disbursement SMS
+   * Generates a Loan Disbursement SMS (Cash or MTN MoMo)
    */
   static generateLoanDisbursedSMS(data: SMSTemplateData): string {
     if (!data.loan) return '';
     const biz = data.businessName || 'B-F-L';
-    return `Dear ${data.customer.fullName}, your loan ${data.loan.loanId} of ${formatCurrency(data.loan.principalAmount)} has been disbursed. Total repayment: ${formatCurrency(data.loan.totalRepayment)} in ${data.loan.totalInstallments} installments of ${formatCurrency(data.loan.installmentAmount)} (${data.loan.repaymentFrequency}). First due date: ${formatDate(data.loan.firstRepaymentDate)}. Thank you, ${biz}.`;
+    const momoRef = data.loan.momoTransactionId 
+      ? ` via ${data.loan.momoNetwork || 'MTN'} MoMo (Ref: ${data.loan.momoTransactionId})` 
+      : '';
+    return `Dear ${data.customer.fullName}, your loan ${data.loan.loanId} of ${formatCurrency(data.loan.principalAmount)} has been disbursed${momoRef}. Total repayment: ${formatCurrency(data.loan.totalRepayment)} in ${data.loan.totalInstallments} installments of ${formatCurrency(data.loan.installmentAmount)} (${data.loan.repaymentFrequency}). First due date: ${formatDate(data.loan.firstRepaymentDate)}. Thank you, ${biz}.`;
   }
 
   /**
-   * Generates a Payment Confirmation Receipt SMS
+   * Generates a Payment Confirmation Receipt SMS with Live Balance
    */
   static generatePaymentReceiptSMS(data: SMSTemplateData): string {
     if (!data.payment || !data.loan) return '';
     const biz = data.businessName || 'B-F-L';
-    return `Dear ${data.customer.fullName}, payment of ${formatCurrency(data.payment.amountPaid)} received on ${formatDate(data.payment.paymentDate)} (Receipt: ${data.payment.paymentId}). Outstanding balance: ${formatCurrency(data.loan.outstandingBalance)}. Thank you, ${biz}.`;
+    const isCompleted = data.loan.status === 'completed' || data.loan.outstandingBalance <= 0.01;
+
+    if (isCompleted) {
+      return `B-F-L RECEIPT: Congratulations ${data.customer.fullName}! Payment of ${formatCurrency(data.payment.amountPaid)} received (Receipt: ${data.payment.paymentId}). Your Loan ${data.loan.loanId} is now 100% FULLY PAID OFF! Remaining Balance: GH₵0.00. Thank you for doing business with ${biz}.`;
+    }
+
+    return `B-F-L RECEIPT: Dear ${data.customer.fullName}, payment of ${formatCurrency(data.payment.amountPaid)} received on ${formatDate(data.payment.paymentDate)} (Receipt: ${data.payment.paymentId}). Remaining Balance: ${formatCurrency(data.loan.outstandingBalance)}. Thank you, ${biz}.`;
   }
 
   /**
@@ -50,14 +59,13 @@ export class SMSService {
   }
 
   /**
-   * Generates an Overdue / Default Notice SMS with Late Fees
+   * Generates an Overdue Notice SMS
    */
   static generateOverdueSMS(data: SMSTemplateData): string {
     if (!data.loan) return '';
-    const biz = data.businessName || 'B-F-L Micro Credit';
+    const biz = data.businessName || 'B-F-L';
     const bizPhone = data.businessPhone || '';
-    const penaltyText = data.loan.totalPenalties > 0 ? ` (including GH₵${data.loan.totalPenalties.toFixed(2)} late fee)` : '';
-    return `URGENT OVERDUE NOTICE: Dear ${data.customer.fullName}, your loan ${data.loan.loanId} is overdue with an outstanding balance of ${formatCurrency(data.loan.outstandingBalance)}${penaltyText}. Kindly settle immediately to avoid further penalties. MoMo / Inquiries: ${bizPhone}. - ${biz}`;
+    return `OVERDUE NOTICE: Dear ${data.customer.fullName}, your loan ${data.loan.loanId} has an outstanding balance of ${formatCurrency(data.loan.outstandingBalance)}. Kindly remit your payment as soon as possible. MoMo / Inquiries: ${bizPhone}. - ${biz}`;
   }
 
   /**

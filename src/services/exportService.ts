@@ -64,13 +64,17 @@ export function generateLoanStatementPDF(
   // Loan Box
   doc.text(`Loan ID: ${loan.loanId}`, 115, 46);
   doc.text(`Disbursement Date: ${formatDate(loan.startDate)}`, 115, 52);
-  doc.text(`Principal Lent: ${formatCurrency(loan.principalAmount)}`, 115, 58);
-  doc.text(`Interest (${loan.interestRate}% ${loan.interestType}): ${formatCurrency(loan.totalInterest)}`, 115, 64);
-  doc.text(`Total Repayment Expected: ${formatCurrency(loan.totalRepayment)}`, 115, 70);
-  doc.text(`Total Amount Paid: ${formatCurrency(loan.totalPaid)}`, 115, 76);
+  const disburseMethodText = loan.disbursementMethod === 'momo' 
+    ? `MTN MoMo (${loan.momoTransactionId || 'Direct'})` 
+    : (loan.disbursementMethod?.toUpperCase() || 'CASH');
+  doc.text(`Payout Mode: ${disburseMethodText}`, 115, 58);
+  doc.text(`Principal Lent: ${formatCurrency(loan.principalAmount)}`, 115, 64);
+  doc.text(`Interest (${loan.interestRate}% ${loan.interestType}): ${formatCurrency(loan.totalInterest)}`, 115, 70);
+  doc.text(`Total Repayment: ${formatCurrency(loan.totalRepayment)}`, 115, 76);
+  doc.text(`Total Amount Paid: ${formatCurrency(loan.totalPaid)}`, 115, 82);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(loan.outstandingBalance > 0 ? 185 : 5, loan.outstandingBalance > 0 ? 28 : 150, loan.outstandingBalance > 0 ? 28 : 105);
-  doc.text(`Outstanding Balance: ${formatCurrency(loan.outstandingBalance)}`, 115, 83);
+  doc.text(`Outstanding Balance: ${formatCurrency(loan.outstandingBalance)}`, 115, 88);
   doc.setTextColor(30, 41, 59);
 
   // 3. Repayment Schedule Table

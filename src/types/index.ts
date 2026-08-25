@@ -42,6 +42,11 @@ export interface Customer {
   ghanaCardBackUrl?: string;
   photoUrl?: string;
   
+  // MTN Mobile Money Wallet
+  momoNumber?: string;
+  momoName?: string;
+  momoNetwork?: 'MTN' | 'Telecel' | 'AT';
+  
   // Specific Archetypes
   driverDetails?: DriverDetails;
   traderDetails?: TraderDetails;
@@ -103,6 +108,16 @@ export interface Loan {
   // Status & Audit
   status: LoanStatus;
   notes?: string;
+
+  // Disbursement Details (MTN MoMo / Cash / Bank)
+  disbursementMethod?: 'cash' | 'momo' | 'bank';
+  momoRecipientPhone?: string;
+  momoRecipientName?: string;
+  momoNetwork?: 'MTN' | 'Telecel' | 'AT';
+  momoTransactionId?: string;
+  momoTransferStatus?: 'pending' | 'success' | 'failed' | 'manual';
+  momoDisbursedAt?: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -200,6 +215,15 @@ export interface SystemSettings {
   autoSmsOnDisburse?: boolean;
   autoSmsOnPayment?: boolean;
   autoSmsOnOverdue?: boolean;
+
+  // MTN Mobile Money (MoMo) Gateway Configuration
+  momoProvider?: 'manual_ussd' | 'mtn_open_api' | 'hubtel' | 'paystack' | 'custom_webhook';
+  momoApiUserId?: string;
+  momoApiKey?: string;
+  momoSubscriptionKey?: string;
+  momoTargetEnvironment?: 'sandbox' | 'production';
+  momoMerchantPhone?: string;
+  autoMomoDisbursement?: boolean;
 
   // Multi-Device Cloud Synchronization
   cloudSyncEnabled?: boolean;

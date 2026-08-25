@@ -55,72 +55,74 @@ export const Loans: React.FC<LoansProps> = ({
   });
 
   return (
-    <div className="space-y-4 pb-24 animate-fade-in">
+    <div className="space-y-4 pb-24 animate-fade-in text-slate-800">
       
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-black text-navy-950">Loan Portfolio</h1>
-          <p className="text-xs text-slate-500 font-medium">{activeLoans.length} active microloans</p>
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-black text-slate-950 truncate">Loan Portfolio</h1>
+          <p className="text-xs text-slate-500 font-medium truncate">{activeLoans.length} active microloans</p>
         </div>
 
         <button
           onClick={onOpenNewLoan}
           type="button"
-          className="px-3.5 py-2 bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 active:scale-95 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition"
+          className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-95 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition shrink-0"
         >
-          <Plus className="w-4 h-4" /> Issue Loan
+          <Plus className="w-4 h-4" />
+          <span>Give Loan</span>
         </button>
       </div>
 
       {/* Search Input */}
       <div className="relative">
-        <Search className="w-4 h-4 text-blue-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
         <input
           type="text"
-          placeholder="Search Loan ID, customer name or BFL ID..."
+          placeholder="Search by borrower name, ID, or Loan ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full text-xs font-semibold pl-9 pr-4 py-2.5 bg-white rounded-2xl border-2 border-slate-200 shadow-sm focus:border-blue-500 focus:outline-none placeholder:text-slate-400"
+          className="w-full text-xs font-semibold pl-10 pr-4 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white shadow-xs"
         />
       </div>
 
-      {/* Status Filter Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      {/* Filter Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
         {[
-          { id: 'all', label: `All (${loans.length})`, activeBg: 'bg-navy-950 text-white' },
-          { id: 'active', label: `Active (${activeLoans.length})`, activeBg: 'bg-blue-700 text-white' },
-          { id: 'due_today', label: `Due Today (${dueTodayLoans.length})`, activeBg: 'bg-amber-600 text-white' },
-          { id: 'overdue', label: `Overdue (${overdueLoans.length})`, activeBg: 'bg-rose-700 text-white' },
-          { id: 'completed', label: `Completed (${completedLoans.length})`, activeBg: 'bg-emerald-700 text-white' },
+          { id: 'all', label: 'All', count: loans.length },
+          { id: 'active', label: 'Active', count: activeLoans.length },
+          { id: 'due_today', label: 'Due Today', count: dueTodayLoans.length },
+          { id: 'overdue', label: 'Overdue', count: overdueLoans.length },
+          { id: 'completed', label: 'Paid Off', count: completedLoans.length },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setStatusFilter(tab.id)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition border ${
+            className={`px-3 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1.5 border ${
               statusFilter === tab.id
-                ? `${tab.activeBg} shadow-md border-transparent`
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {tab.label}
+            <span>{tab.label}</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {tab.count}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Loans List */}
+      {/* Loan Cards List */}
       {filteredLoans.length === 0 ? (
-        <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-            <Banknote className="w-6 h-6" />
-          </div>
-          <div className="text-sm font-black text-navy-950">No loans found</div>
-          <div className="text-xs text-slate-400 max-w-xs mx-auto">
-            {searchTerm ? `No loans match "${searchTerm}"` : 'No loans under this filter category.'}
-          </div>
+        <div className="p-8 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 space-y-2">
+          <Banknote className="w-8 h-8 text-slate-300 mx-auto" />
+          <div className="text-xs font-bold text-slate-500">No loans found</div>
+          <p className="text-[11px] text-slate-400">Try adjusting your search or issue a new loan.</p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {filteredLoans.map(loan => {
             const progress = Math.min(100, Math.round((loan.totalPaid / loan.totalRepayment) * 100));
 
@@ -128,32 +130,32 @@ export const Loans: React.FC<LoansProps> = ({
               <div
                 key={loan.loanId}
                 onClick={() => onSelectLoan(loan)}
-                className={`bg-white rounded-2xl p-4 border-2 shadow-sm transition cursor-pointer space-y-3 group ${
+                className={`bg-white rounded-2xl p-4 border-2 shadow-sm transition cursor-pointer space-y-3 group overflow-hidden ${
                   loan.status === 'overdue' ? 'border-rose-300 hover:border-rose-500 bg-rose-50/20' :
                   loan.status === 'due_today' ? 'border-amber-300 hover:border-amber-500 bg-amber-50/20' :
                   loan.status === 'completed' ? 'border-emerald-200 hover:border-emerald-400' :
-                  'border-slate-200 hover:border-blue-500'
+                  'border-slate-200 hover:border-emerald-500'
                 }`}
               >
                 {/* Top Row: Customer Name, Loan ID, Status Badge */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-navy-950 group-hover:text-blue-700 transition">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="text-xs font-black text-slate-950 group-hover:text-emerald-700 transition truncate">
                         {loan.customerName || loan.customerId}
                       </span>
-                      <span className="text-[10px] font-mono font-bold text-slate-500">({loan.loanId})</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">({loan.loanId})</span>
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                    <div className="text-[11px] text-slate-500 mt-0.5 font-medium truncate">
                       Lent {formatDate(loan.startDate)} • {loan.durationValue} {loan.durationUnit} ({loan.repaymentFrequency})
                     </div>
                   </div>
 
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase shrink-0 shadow-xs ${
                     loan.status === 'completed' ? 'bg-emerald-600 text-white' :
-                    loan.status === 'overdue' ? 'bg-rose-600 text-white animate-pulse' :
+                    loan.status === 'overdue' ? 'bg-rose-600 text-white' :
                     loan.status === 'due_today' ? 'bg-amber-500 text-white' :
-                    'bg-blue-600 text-white'
+                    'bg-emerald-700 text-white'
                   }`}>
                     {loan.status.replace('_', ' ')}
                   </span>
@@ -161,16 +163,16 @@ export const Loans: React.FC<LoansProps> = ({
 
                 {/* Middle Row: Progress Bar */}
                 <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-slate-600 font-bold">
-                    <span>Paid: <strong className="text-emerald-700 font-black">{formatCurrency(loan.totalPaid)}</strong></span>
-                    <span>Expected: <strong className="text-navy-950 font-black">{formatCurrency(loan.totalRepayment)}</strong></span>
+                  <div className="flex justify-between text-[11px] text-slate-600 font-bold gap-2">
+                    <span className="truncate">Paid: <strong className="text-emerald-700 font-black">{formatCurrency(loan.totalPaid)}</strong></span>
+                    <span className="truncate text-right">Expected: <strong className="text-slate-950 font-black">{formatCurrency(loan.totalRepayment)}</strong></span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden p-0.5 border border-slate-200">
                     <div 
                       className={`h-full rounded-full transition-all duration-300 ${
                         loan.status === 'completed' ? 'bg-emerald-500' :
                         loan.status === 'overdue' ? 'bg-rose-500' :
-                        'bg-blue-600'
+                        'bg-emerald-600'
                       }`} 
                       style={{ width: `${progress}%` }}
                     />
@@ -178,13 +180,13 @@ export const Loans: React.FC<LoansProps> = ({
                 </div>
 
                 {/* Bottom Row: Balances & Pay Action */}
-                <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-black uppercase">Outstanding Balance</span>
-                    <div className="font-black text-navy-950 text-sm">{formatCurrency(loan.outstandingBalance)}</div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-slate-400 font-black uppercase block truncate">Outstanding Balance</span>
+                    <div className="font-black text-slate-950 text-sm truncate">{formatCurrency(loan.outstandingBalance)}</div>
                   </div>
 
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                     {loan.status !== 'completed' && (
                       <button
                         onClick={() => onOpenRecordPayment(loan.loanId)}
@@ -193,7 +195,7 @@ export const Loans: React.FC<LoansProps> = ({
                         Record Pay
                       </button>
                     )}
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition" />
                   </div>
                 </div>
 

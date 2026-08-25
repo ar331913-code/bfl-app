@@ -257,6 +257,16 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 <span className="font-mono font-bold text-sky-800">{customer.ghanaCardNumber}</span>
               </div>
               <div>
+                <span className="text-slate-400 block font-medium">MoMo Wallet</span>
+                <span className="font-mono font-bold text-amber-700">
+                  {customer.momoNumber || customer.primaryPhone} ({customer.momoNetwork || 'MTN'})
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block font-medium">MoMo Registered Name</span>
+                <span className="font-semibold text-slate-800">{customer.momoName || customer.fullName}</span>
+              </div>
+              <div>
                 <span className="text-slate-400 block font-medium">Residence</span>
                 <span className="font-semibold text-navy-950">{customer.residentialAddress}</span>
               </div>

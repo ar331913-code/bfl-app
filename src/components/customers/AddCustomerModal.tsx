@@ -51,6 +51,14 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   const [residentialAddress, setResidentialAddress] = useState(existingCustomer?.residentialAddress || '');
   const [workAddress, setWorkAddress] = useState(existingCustomer?.workAddress || '');
   
+  // MTN MoMo Wallet Specifics
+  const [momoNumber, setMomoNumber] = useState(existingCustomer?.momoNumber || existingCustomer?.primaryPhone || '');
+  const [momoName, setMomoName] = useState(existingCustomer?.momoName || existingCustomer?.fullName || '');
+  const [momoNetwork, setMomoNetwork] = useState<'MTN' | 'Telecel' | 'AT'>(existingCustomer?.momoNetwork || 'MTN');
+  const [sameAsPrimary, setSameAsPrimary] = useState<boolean>(
+    !existingCustomer?.momoNumber || existingCustomer?.momoNumber === existingCustomer?.primaryPhone
+  );
+  
   // Step 2: Ghana Card Specifics & Photos
   const [ghanaCardNumber, setGhanaCardNumber] = useState(existingCustomer?.ghanaCardNumber || 'GHA-');
   const [photoUrl, setPhotoUrl] = useState<string>(existingCustomer?.photoUrl || '');
@@ -189,6 +197,11 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         photoUrl: photoUrl || undefined,
         ghanaCardFrontUrl: ghanaCardFrontUrl || undefined,
         ghanaCardBackUrl: ghanaCardBackUrl || undefined,
+        
+        // MTN MoMo Wallet Details
+        momoNumber: sameAsPrimary ? primaryPhone.trim() : (momoNumber.trim() || primaryPhone.trim()),
+        momoName: momoName.trim() || fullName.trim(),
+        momoNetwork,
         
         driverDetails: customerType === 'driver' ? {
           vehicleType: vehicleType.trim() || 'Trotro / Taxi',
@@ -392,7 +405,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               {/* Phone Numbers */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Primary MoMo Phone *</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Primary Telephone *</label>
                   <input
                     type="tel"
                     placeholder="024 412 3456"
@@ -400,6 +413,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     onChange={(e) => {
                       setPrimaryPhone(e.target.value);
                       if (errors.primaryPhone) setErrors(prev => ({ ...prev, primaryPhone: '' }));
+                      if (sameAsPrimary) setMomoNumber(e.target.value);
                     }}
                     className={`w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 focus:outline-none ${
                       errors.primaryPhone ? 'border-rose-400 focus:border-rose-600 bg-rose-50/30' : 'border-slate-200 focus:border-sky-500'
@@ -418,6 +432,80 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              {/* MTN Mobile Money Wallet Card */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-yellow-500/5 to-amber-500/10 border-2 border-amber-300 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-black text-xs text-amber-950 uppercase tracking-wider">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>MTN MoMo Loan Disbursement Wallet</span>
+                  </div>
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-400/50">
+                    MTN GHANA
+                  </span>
+                </div>
+
+                {/* MoMo Network Selector */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'MTN', label: 'MTN MoMo', color: 'border-amber-400 bg-amber-100 text-amber-950' },
+                    { id: 'Telecel', label: 'Telecel Cash', color: 'border-red-300 bg-red-50 text-red-950' },
+                    { id: 'AT', label: 'AT Money', color: 'border-blue-300 bg-blue-50 text-blue-950' }
+                  ].map(net => (
+                    <button
+                      key={net.id}
+                      type="button"
+                      onClick={() => setMomoNetwork(net.id as any)}
+                      className={`py-1.5 px-2 text-[10px] font-black rounded-xl border-2 transition active:scale-95 ${
+                        momoNetwork === net.id
+                          ? `${net.color} shadow-xs`
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {net.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Same as primary phone toggle */}
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer pt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={sameAsPrimary}
+                    onChange={(e) => {
+                      setSameAsPrimary(e.target.checked);
+                      if (e.target.checked) setMomoNumber(primaryPhone);
+                    }}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>Use primary phone as MoMo disbursement number</span>
+                </label>
+
+                {!sameAsPrimary && (
+                  <div className="grid grid-cols-2 gap-2 pt-1 animate-fade-in">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">MoMo Wallet Number</label>
+                      <input
+                        type="tel"
+                        placeholder="024XXXXXXX"
+                        value={momoNumber}
+                        onChange={(e) => setMomoNumber(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-amber-300 focus:border-amber-500 focus:outline-none bg-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Registered MoMo Name</label>
+                      <input
+                        type="text"
+                        placeholder="Account name on MoMo"
+                        value={momoName}
+                        onChange={(e) => setMomoName(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-amber-300 focus:border-amber-500 focus:outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Residential & Work Address */}

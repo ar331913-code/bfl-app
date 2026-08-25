@@ -1,10 +1,10 @@
 import React from 'react';
 import { 
-  LayoutDashboard, 
+  Home, 
   Users, 
   Banknote, 
   Receipt, 
-  Menu
+  Settings as SettingsIcon 
 } from 'lucide-react';
 
 interface BottomNavProps {
@@ -19,11 +19,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   overdueCount = 0
 }) => {
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Home', icon: Home },
     { id: 'customers', label: 'Clients', icon: Users },
     { id: 'loans', label: 'Loans', icon: Banknote, badge: overdueCount > 0 ? overdueCount : undefined },
     { id: 'payments', label: 'Payments', icon: Receipt },
-    { id: 'more', label: 'More', icon: Menu },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (
@@ -31,7 +31,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <div className="max-w-md mx-auto grid grid-cols-5 h-16">
         {navItems.map(item => {
           const Icon = item.icon;
-          const isActive = activeTab === item.id || (item.id === 'more' && (activeTab === 'reports' || activeTab === 'settings'));
+          const isActive = activeTab === item.id || (item.id === 'settings' && (activeTab === 'more' || activeTab === 'reports'));
           return (
             <button
               key={item.id}
