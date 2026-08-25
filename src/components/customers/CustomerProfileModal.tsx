@@ -350,26 +350,38 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
               </div>
             ) : (
               <div className="space-y-2">
-                {customerLoans.map(loan => (
-                  <div
-                    key={loan.loanId}
-                    onClick={() => onSelectLoan(loan)}
-                    className="p-3 rounded-2xl bg-white border-2 border-slate-200 hover:border-sky-400 flex items-center justify-between cursor-pointer transition shadow-xs group"
-                  >
-                    <div>
-                      <div className="text-xs font-black text-navy-950 flex items-center gap-1.5">
-                        {loan.loanId}
-                        <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
-                          {formatCurrency(loan.principalAmount)}
-                        </span>
+                {customerLoans.map(loan => {
+                  const isSettled = loan.status === 'completed' || (loan.outstandingBalance || 0) <= 0.01;
+                  return (
+                    <div
+                      key={loan.loanId}
+                      onClick={() => onSelectLoan(loan)}
+                      className="p-3 rounded-2xl bg-white border-2 border-slate-200 hover:border-sky-400 flex items-center justify-between cursor-pointer transition shadow-xs group"
+                    >
+                      <div>
+                        <div className="text-xs font-black text-navy-950 flex items-center gap-1.5">
+                          {loan.loanId}
+                          <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                            {formatCurrency(loan.principalAmount)}
+                          </span>
+                          {isSettled && (
+                            <span className="text-[9px] font-black text-sky-800 bg-sky-100 px-2 py-0.5 rounded-full">
+                              PAID OFF
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {isSettled ? (
+                            <span className="text-sky-800 font-bold">100% Settled • GH₵0.00 Remaining</span>
+                          ) : (
+                            <>Balance: <strong className="text-rose-700">{formatCurrency(loan.outstandingBalance)}</strong> • {loan.status.toUpperCase()}</>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Balance: <strong className="text-navy-900">{formatCurrency(loan.outstandingBalance)}</strong> • {loan.status.toUpperCase()}
-                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-sky-600 transition" />
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-sky-600 transition" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

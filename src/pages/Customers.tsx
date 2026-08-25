@@ -220,7 +220,7 @@ export const Customers: React.FC<CustomersProps> = ({
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold bg-sky-50 text-blue-700 px-2 py-0.5 rounded-full border border-sky-200">
-                      Clear
+                      Debt-Free
                     </span>
                   )}
 
