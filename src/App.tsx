@@ -243,6 +243,8 @@ const MainApp: React.FC = () => {
                 setEditingCustomer(undefined);
                 setIsAddCustomerOpen(true);
               }}
+              onOpenNewLoan={handleOpenNewLoan}
+              onOpenRecordPayment={handleOpenRecordPayment}
             />
           )}
 
