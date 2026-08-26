@@ -635,40 +635,10 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               )}
             </div>
 
-            {/* 3. Interest Method & Duration */}
+            {/* 3. Loan Duration & Tenure */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Calculation Method</label>
-                <select
-                  value={interestType}
-                  onChange={(e) => setInterestType(e.target.value as any)}
-                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                >
-                  <option value="flat">Flat Rate (Standard)</option>
-                  <option value="reducing_balance">Reducing Balance (Amortized)</option>
-                  <option value="fixed_sum">Fixed Fee Markup</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Repayment Frequency</label>
-                <select
-                  value={repaymentFrequency}
-                  onChange={(e) => setRepaymentFrequency(e.target.value as any)}
-                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                >
-                  <option value="daily">Daily (Drivers / Market)</option>
-                  <option value="weekly">Weekly (Standard)</option>
-                  <option value="biweekly">Bi-Weekly (2 Weeks)</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Duration Input */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Tenure Duration</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Loan Duration *</label>
                 <input
                   type="number"
                   min="1"
@@ -722,29 +692,22 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <div className="flex items-center justify-between text-xs font-bold text-sky-100">
                   <span className="flex items-center gap-1">
                     <Calculator className="w-3.5 h-3.5 text-cyan-200" />
-                    Live Schedule Calculation
+                    Loan Calculation Summary
                   </span>
                   <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-black">
-                    {calculation.totalInstallments} Installments
+                    Due {formatDate(calculation.maturityDate)}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/20 text-xs">
                   <div>
-                    <div className="text-[10px] text-sky-200">Total Interest</div>
+                    <div className="text-[10px] text-sky-200">Total Interest ({interestRate}%)</div>
                     <div className="font-black text-sm text-cyan-200">{formatCurrency(calculation.totalInterest)}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-sky-200">Total Repayment</div>
+                    <div className="text-[10px] text-sky-200">Total Amount To Repay</div>
                     <div className="font-black text-sm text-white">{formatCurrency(calculation.totalRepayment)}</div>
                   </div>
-                </div>
-
-                <div className="pt-2 border-t border-white/20 flex justify-between items-center text-xs">
-                  <span className="text-sky-100 font-bold">Installment Amount:</span>
-                  <span className="text-base font-black text-amber-300">
-                    {formatCurrency(calculation.installmentAmount)} / {repaymentFrequency}
-                  </span>
                 </div>
               </div>
             )}
@@ -816,17 +779,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <span className="font-bold text-navy-950">{formatCurrency(calculation?.processingFee)}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                <span className="text-slate-500 font-medium">Total Repayment:</span>
+                <span className="text-slate-500 font-medium">Total Amount To Repay:</span>
                 <span className="font-black text-navy-950 text-sm">{formatCurrency(calculation?.totalRepayment)}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                <span className="text-slate-500 font-medium">Schedule Breakdown:</span>
-                <span className="font-black text-sky-800">
-                  {calculation?.totalInstallments} x {formatCurrency(calculation?.installmentAmount)} ({repaymentFrequency})
-                </span>
-              </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Maturity Date:</span>
+                <span className="text-slate-500 font-medium">Maturity Due Date:</span>
                 <span className="font-bold text-navy-950">{formatDate(calculation?.maturityDate)}</span>
               </div>
             </div>

@@ -165,7 +165,7 @@ export const Loans: React.FC<LoansProps> = ({
                       <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">({loan.loanId})</span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5 font-medium truncate">
-                      Lent {formatDate(loan.startDate)} • {loan.durationValue} {loan.durationUnit} ({loan.repaymentFrequency})
+                      Lent {formatDate(loan.startDate)} • Due {formatDate(loan.maturityDate)}
                     </div>
                   </div>
 

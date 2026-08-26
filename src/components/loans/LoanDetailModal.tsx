@@ -178,8 +178,8 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
           {/* Repayment Schedules Breakdown */}
           <div className="space-y-2">
             <div className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between">
-              <span>Repayment Schedule ({loanSchedules.length} Installments)</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase">{loan.repaymentFrequency}</span>
+              <span>Repayment Schedule</span>
+              <span className="text-[10px] text-slate-500 font-bold">Due {formatDate(loan.maturityDate)}</span>
             </div>
 
             <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
