@@ -15,7 +15,7 @@ import {
   CreditCard,
   Upload
 } from 'lucide-react';
-import { formatGhanaPhone, maskGhanaCard } from '../utils/formatters';
+import { formatGhanaPhone, maskGhanaCard, isLoanOwing } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 
 interface CustomersProps {
@@ -35,10 +35,10 @@ export const Customers: React.FC<CustomersProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'driver' | 'trader' | 'active' | 'overdue'>('all');
 
   const activeCustomerIds = new Set(
-    loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted').map(l => l.customerId)
+    loans.filter(l => isLoanOwing(l)).map(l => l.customerId)
   );
   const overdueCustomerIds = new Set(
-    loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue').map(l => l.customerId)
+    loans.filter(l => isLoanOwing(l) && l.status === 'overdue').map(l => l.customerId)
   );
 
   const cleanQuery = searchTerm.trim().toLowerCase().replace(/[^a-z0-9]/g, '');

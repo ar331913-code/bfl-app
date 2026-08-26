@@ -13,7 +13,7 @@ import {
   Wallet, 
   Calendar 
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
 
 interface DashboardProps {
   customers: Customer[];
@@ -41,19 +41,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   // Aggregate Metrics
   const totalCustomers = customers.length;
-  const activeLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted');
-  const overdueLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue');
-  const dueTodayLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'due_today');
+  const activeLoans = loans.filter(l => isLoanOwing(l));
+  const overdueLoans = loans.filter(l => isLoanOwing(l) && l.status === 'overdue');
+  const dueTodayLoans = loans.filter(l => isLoanOwing(l) && l.status === 'due_today');
 
   const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const totalOutstanding = activeLoans.reduce((sum, l) => sum + (l.outstandingBalance || 0), 0);
+  const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
 
-  // Schedules due today
-  const dueTodaySchedules = schedules.filter(s => s.status === 'due_today' && s.remainingBalance > 0.01);
+  // Schedules due today (only for actively owing loans)
+  const activeLoanIds = new Set(activeLoans.map(l => l.loanId));
+  const dueTodaySchedules = schedules.filter(s => activeLoanIds.has(s.loanId) && s.status === 'due_today' && s.remainingBalance > 0.01);
   const dueTodayAmount = dueTodaySchedules.reduce((sum, s) => sum + s.remainingBalance, 0);
 
-  // Overdue schedules
-  const overdueSchedules = schedules.filter(s => s.status === 'overdue' && s.remainingBalance > 0.01);
+  // Overdue schedules (only for actively owing loans)
+  const overdueSchedules = schedules.filter(s => activeLoanIds.has(s.loanId) && s.status === 'overdue' && s.remainingBalance > 0.01);
   const overdueAmount = overdueSchedules.reduce((sum, s) => sum + s.remainingBalance, 0);
 
   // Recent payments

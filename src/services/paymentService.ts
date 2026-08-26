@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { Payment, PaymentMethod, Loan, RepaymentSchedule } from '../types';
 import { format } from 'date-fns';
+import { reconcileAllLoanBalances } from './notificationService';
 
 export interface RecordPaymentParams {
   loanId: string;
@@ -154,14 +155,30 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
     }
 
     const updatedLoanData: Partial<Loan> = {
-      totalPaid: newTotalPaid,
+      totalPaid: isLoanNowFullySettled ? Math.max(newTotalPaid, loan.totalRepayment) : newTotalPaid,
       outstandingBalance: isLoanNowFullySettled ? 0 : newOutstanding,
-      totalPenalties: totalLoanPenalties,
-      status: newStatus,
+      totalPenalties: isLoanNowFullySettled ? 0 : totalLoanPenalties,
+      status: isLoanNowFullySettled ? 'completed' : newStatus,
       updatedAt: paymentDate
     };
 
     await db.loans.update(loan.id!, updatedLoanData);
+
+    // If fully settled, ensure all schedules are explicitly zeroed out
+    if (isLoanNowFullySettled) {
+      for (const s of schedules) {
+        s.status = 'paid';
+        s.remainingBalance = 0;
+        s.penaltyAmount = 0;
+        if (s.id) {
+          await db.repaymentSchedules.update(s.id, {
+            status: 'paid',
+            remainingBalance: 0,
+            penaltyAmount: 0
+          });
+        }
+      }
+    }
 
     // Save Payment Record
     const newPayment: Payment = {
@@ -203,12 +220,18 @@ export async function recordPayment(params: RecordPaymentParams): Promise<Paymen
     }
   });
 
+  // Reconcile all balances immediately
+  await reconcileAllLoanBalances();
+
   const updatedLoan = await db.loans.where('loanId').equals(loanId).first();
 
   return {
     success: true,
-    loanCompleted: isLoanNowFullySettled,
-    updatedLoan,
+    loanCompleted: isLoanNowFullySettled || (updatedLoan?.status === 'completed'),
+    updatedLoan: updatedLoan ? {
+      ...updatedLoan,
+      outstandingBalance: isLoanNowFullySettled ? 0 : updatedLoan.outstandingBalance
+    } : undefined,
     message: isLoanNowFullySettled 
       ? `Payment recorded! Loan ${loanId} is now FULLY SETTLED (GH₵0.00 balance)! 🎉`
       : `Payment of GH₵${amountPaid.toFixed(2)} successfully recorded. Remaining balance: GH₵${updatedLoan?.outstandingBalance.toFixed(2)}.`

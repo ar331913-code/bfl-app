@@ -21,7 +21,7 @@ import {
   Ban
 } from 'lucide-react';
 import { calculateLoan, generateRepaymentSchedulesForLoan } from '../../services/loanCalculator';
-import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard, isLoanOwing } from '../../utils/formatters';
 import { format, addWeeks } from 'date-fns';
 import { CloudSyncService } from '../../services/cloudSyncService';
 import { MOMOService, MoMoDisbursementResult } from '../../services/momoService';
@@ -117,7 +117,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const customerActiveLoan = useMemo(() => {
     if (!selectedCustomerId) return null;
     return existingLoans.find(
-      l => l.customerId === selectedCustomerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
+      l => l.customerId === selectedCustomerId && isLoanOwing(l)
     );
   }, [selectedCustomerId, existingLoans]);
 

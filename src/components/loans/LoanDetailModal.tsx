@@ -18,7 +18,7 @@ import {
   TrendingUp,
   CreditCard
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { SMSService } from '../../services/smsService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -29,7 +29,7 @@ interface LoanDetailModalProps {
   schedules: RepaymentSchedule[];
   payments: Payment[];
   customer?: Customer;
-  onOpenRecordPayment: (loanId: string, scheduleId?: number) => void;
+  onOpenRecordPayment?: (loanId: string, installmentId?: number) => void;
 }
 
 export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
@@ -45,16 +45,18 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
 
   if (!isOpen || !loan) return null;
 
+  const isOwing = isLoanOwing(loan);
+  const trueOutstanding = getTrueOutstanding(loan);
+
   const loanSchedules = schedules
     .filter(s => s.loanId === loan.loanId)
     .sort((a, b) => a.installmentNumber - b.installmentNumber);
 
   const loanPayments = payments.filter(p => p.loanId === loan.loanId);
 
-  const progressPercent = Math.min(
-    100,
-    Math.round((loan.totalPaid / loan.totalRepayment) * 100)
-  );
+  const progressPercent = isOwing 
+    ? Math.min(99, Math.round(((loan.totalPaid || 0) / (loan.totalRepayment || 1)) * 100))
+    : 100;
 
   const handleSendReminderSMS = () => {
     if (!customer) return;
@@ -131,7 +133,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
               <div className="min-w-0">
                 <div className="text-[10px] uppercase font-bold text-sky-400 tracking-wider">Outstanding Balance</div>
                 <div className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">
-                  {formatCurrency(loan.outstandingBalance)}
+                  {formatCurrency(trueOutstanding)}
                 </div>
               </div>
               <div className="text-right shrink-0">
@@ -211,7 +213,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
 
                   {sched.status !== 'paid' && (
                     <button
-                      onClick={() => onOpenRecordPayment(loan.loanId, sched.id)}
+                      onClick={() => onOpenRecordPayment?.(loan.loanId, sched.id)}
                       className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-[11px] font-black rounded-xl shadow-sm transition shrink-0"
                     >
                       Pay Inst.
@@ -254,7 +256,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
 
         {/* Footer with SMS Reminder & Record Repayment */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center gap-2">
-          {loan.status !== 'completed' ? (
+          {isOwing ? (
             <>
               {customer && (
                 <button
@@ -268,7 +270,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                 </button>
               )}
               <button
-                onClick={() => onOpenRecordPayment(loan.loanId)}
+                onClick={() => onOpenRecordPayment?.(loan.loanId)}
                 className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5"
               >
                 <DollarSign className="w-4 h-4" /> Record Repayment
@@ -276,7 +278,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
             </>
           ) : (
             <div className="w-full py-3 bg-sky-50 text-blue-900 border border-sky-300 text-xs font-black rounded-xl text-center flex items-center justify-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-blue-700" /> This Loan is 100% Fully Settled
+              <CheckCircle2 className="w-4 h-4 text-blue-700" /> This Loan is 100% Fully Settled (GH₵0.00 Outstanding)
             </div>
           )}
         </div>

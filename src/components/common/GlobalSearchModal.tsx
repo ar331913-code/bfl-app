@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Customer, Loan } from '../../types';
 import { Search, X, User, Banknote, Car, Store, ArrowRight, Phone, CreditCard } from 'lucide-react';
-import { formatCurrency, formatGhanaPhone, maskGhanaCard } from '../../utils/formatters';
+import { formatCurrency, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -172,7 +172,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 font-medium">
-                          {loan.customerName || loan.customerId} • Balance: <strong className="text-navy-900">{formatCurrency(loan.outstandingBalance)}</strong>
+                          {loan.customerName || loan.customerId} • Balance:{' '}
+                          <strong className={isLoanOwing(loan) ? 'text-rose-700 font-black' : 'text-blue-700 font-black'}>
+                            {formatCurrency(getTrueOutstanding(loan))}
+                          </strong>{' '}
+                          {!isLoanOwing(loan) && <span className="text-[9px] font-black text-blue-800 bg-sky-100 px-1.5 py-0.5 rounded-full ml-1">PAID OFF</span>}
                         </div>
                       </div>
                     </div>

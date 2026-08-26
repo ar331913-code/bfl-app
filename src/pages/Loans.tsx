@@ -11,7 +11,7 @@ import {
   Filter,
   DollarSign
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
 
 interface LoansProps {
   loans: Loan[];
@@ -38,10 +38,10 @@ export const Loans: React.FC<LoansProps> = ({
     setStatusFilter(initialFilter);
   }, [initialFilter]);
 
-  const activeLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted');
-  const dueTodayLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'due_today');
-  const overdueLoans = loans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue');
-  const completedLoans = loans.filter(l => l.status === 'completed' || (l.outstandingBalance || 0) <= 0.01);
+  const activeLoans = loans.filter(l => isLoanOwing(l));
+  const dueTodayLoans = loans.filter(l => isLoanOwing(l) && l.status === 'due_today');
+  const overdueLoans = loans.filter(l => isLoanOwing(l) && l.status === 'overdue');
+  const completedLoans = loans.filter(l => !isLoanOwing(l));
 
   const filteredLoans = loans.filter(l => {
     const matchesSearch = 
@@ -51,10 +51,10 @@ export const Loans: React.FC<LoansProps> = ({
 
     if (!matchesSearch) return false;
 
-    if (statusFilter === 'active') return (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted';
-    if (statusFilter === 'due_today') return (l.outstandingBalance || 0) > 0.01 && l.status === 'due_today';
-    if (statusFilter === 'overdue') return (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue';
-    if (statusFilter === 'completed') return l.status === 'completed' || (l.outstandingBalance || 0) <= 0.01;
+    if (statusFilter === 'active') return isLoanOwing(l);
+    if (statusFilter === 'due_today') return isLoanOwing(l) && l.status === 'due_today';
+    if (statusFilter === 'overdue') return isLoanOwing(l) && l.status === 'overdue';
+    if (statusFilter === 'completed') return !isLoanOwing(l);
 
     return true;
   });

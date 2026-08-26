@@ -30,7 +30,7 @@ import {
   Eye,
   DollarSign
 } from 'lucide-react';
-import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { SMSService } from '../../services/smsService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -70,13 +70,13 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
 
   // Filter records for this customer
   const customerLoans = loans.filter(l => l.customerId === customer.customerId);
-  const activeLoans = customerLoans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted');
-  const overdueLoans = customerLoans.filter(l => (l.outstandingBalance || 0) > 0.01 && l.status === 'overdue');
+  const activeLoans = customerLoans.filter(l => isLoanOwing(l));
+  const overdueLoans = customerLoans.filter(l => isLoanOwing(l) && l.status === 'overdue');
   const customerPayments = payments.filter(p => p.customerId === customer.customerId);
 
   const totalBorrowed = customerLoans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
   const totalRepaid = customerLoans.reduce((sum, l) => sum + (l.totalPaid || 0), 0);
-  const totalOutstanding = activeLoans.reduce((sum, l) => sum + (l.outstandingBalance || 0), 0);
+  const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
   const isOwing = totalOutstanding > 0.01;
 
   // Calculate age if DOB exists

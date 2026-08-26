@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { Customer, Loan, RepaymentSchedule, Payment, SystemSettings } from '../types';
+import { reconcileAllLoanBalances } from './notificationService';
 
 export interface SyncResult {
   success: boolean;
@@ -188,6 +189,9 @@ export class CloudSyncService {
           }
         }
       }
+
+      // Reconcile loan balances against all payments after pull
+      await reconcileAllLoanBalances();
 
       // 3. Push Local Unified Dataset to Cloud
       const unifiedCustomers = await db.customers.toArray();

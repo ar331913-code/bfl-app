@@ -85,3 +85,27 @@ export function formatDate(dateStr: string | undefined | null, formatPattern = '
 export function formatDateTime(dateStr: string | undefined | null): string {
   return formatDate(dateStr, 'dd MMM yyyy, hh:mm a');
 }
+
+// Robust Helper to determine if a loan is actively owing
+export function isLoanOwing(loan: { status?: string; outstandingBalance?: number; totalPaid?: number; totalRepayment?: number; totalPenalties?: number } | null | undefined): boolean {
+  if (!loan) return false;
+  if (loan.status === 'completed') return false;
+  if ((loan.outstandingBalance ?? 0) <= 0.01) return false;
+  const expected = (loan.totalRepayment || 0) + (loan.totalPenalties || 0);
+  const paid = loan.totalPaid || 0;
+  if (expected > 0 && paid >= expected - 0.05) return false;
+  return true;
+}
+
+// Robust Helper to get true outstanding balance
+export function getTrueOutstanding(loan: { status?: string; outstandingBalance?: number; totalPaid?: number; totalRepayment?: number; totalPenalties?: number } | null | undefined): number {
+  if (!loan) return 0;
+  if (loan.status === 'completed') return 0;
+  const expected = (loan.totalRepayment || 0) + (loan.totalPenalties || 0);
+  const paid = loan.totalPaid || 0;
+  const remaining = expected - paid;
+  if (remaining <= 0.01) return 0;
+  const balance = loan.outstandingBalance ?? 0;
+  if (balance <= 0.01) return 0;
+  return Math.max(0, Math.min(balance, Math.round(remaining * 100) / 100));
+}
