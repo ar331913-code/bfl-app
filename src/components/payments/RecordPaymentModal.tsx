@@ -22,7 +22,7 @@ import {
   TrendingUp,
   Clock
 } from 'lucide-react';
-import { formatCurrency, formatDate, formatGhanaPhone } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatGhanaPhone, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { recordPayment } from '../../services/paymentService';
 import { generatePaymentReceiptPDF } from '../../utils/pdfGenerator';
 import { SMSService } from '../../services/smsService';
@@ -76,7 +76,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [updatedLoanState, setUpdatedLoanState] = useState<Loan | null>(null);
 
   // Active Loans Only
-  const activeLoans = loans.filter(l => l.status !== 'completed' && (l.outstandingBalance || 0) > 0.01);
+  const activeLoans = loans.filter(l => isLoanOwing(l));
 
   // Reset when opened
   useEffect(() => {
@@ -459,25 +459,55 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 {/* Progress bar */}
                 <div className="space-y-1 pt-1">
                   <div className="flex justify-between text-[11px] font-bold text-slate-600">
-                    <span>Paid: <strong className="text-blue-700">{formatCurrency(currentLoan.totalPaid)}</strong></span>
-                    <span>Total: <strong>{formatCurrency(currentLoan.totalRepayment)}</strong></span>
+                    <span>
+                      Paid So Far: <strong className="text-blue-700">{formatCurrency(currentLoan.totalPaid)}</strong>
+                    </span>
+                    <span>
+                      Total Loan Due: <strong>{formatCurrency(currentLoan.totalRepayment)}</strong>
+                    </span>
                   </div>
                   <div className="w-full bg-white rounded-full h-2 overflow-hidden border border-sky-200 p-0.5">
                     <div 
                       className="h-full rounded-full bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600 transition-all duration-300"
-                      style={{ width: `${loanProgress}%` }}
+                      style={{ width: `${Math.min(100, Math.round((((currentLoan.totalPaid || 0) + (amountPaid || 0)) / (currentLoan.totalRepayment || 1)) * 100))}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Outstanding Highlight */}
-                <div className="flex items-center justify-between pt-2 border-t border-sky-200/80">
-                  <span className="text-slate-700 font-bold uppercase tracking-wider text-[10px]">
-                    Current Outstanding Balance
-                  </span>
-                  <strong className="text-rose-700 font-black text-base">
-                    {formatCurrency(currentLoan.outstandingBalance)}
-                  </strong>
+                {/* Outstanding & Live Projection Highlight */}
+                <div className="pt-2 border-t border-sky-200/80 space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                      Before Payment Balance:
+                    </span>
+                    <span className="text-slate-900 font-bold">
+                      {formatCurrency(getTrueOutstanding(currentLoan))}
+                    </span>
+                  </div>
+
+                  {amountPaid > 0 && (
+                    <div className="p-2.5 bg-white rounded-2xl border border-sky-200 flex items-center justify-between shadow-xs animate-fade-in">
+                      <div>
+                        <span className="text-blue-950 font-black text-[10px] uppercase block">
+                          Projected Balance After Payment:
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          Deducting {formatCurrency(amountPaid)}
+                        </span>
+                      </div>
+
+                      {amountPaid >= getTrueOutstanding(currentLoan) - 0.05 ? (
+                        <span className="bg-sky-100 text-blue-900 border border-sky-300 text-[11px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-blue-600" />
+                          GH₵0.00 (100% PAID OFF 🎉)
+                        </span>
+                      ) : (
+                        <span className="text-rose-700 font-black text-sm">
+                          {formatCurrency(Math.max(0, getTrueOutstanding(currentLoan) - amountPaid))}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
