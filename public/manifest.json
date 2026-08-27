@@ -1,26 +1,58 @@
 {
+  "id": "/bfl-app/",
   "short_name": "B-F-L",
-  "name": "B-F-L Micro Loan Manager",
-  "description": "Professional microfinance and loan management system for drivers and market traders in Ghana.",
-  "icons": [
-    {
-      "src": "./logo.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192 512x512",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icons.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192 512x512",
-      "purpose": "any"
-    }
-  ],
+  "name": "B-F-L Loan Manager",
+  "description": "Professional microfinance, debt collection and loan management system in Ghana.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
-  "background_color": "#0369a1",
-  "theme_color": "#0284c7",
   "display": "standalone",
   "orientation": "portrait",
-  "categories": ["finance", "productivity", "business"]
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshot-mobile.png",
+      "sizes": "540x960",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "B-F-L Mobile View"
+    },
+    {
+      "src": "./screenshot-desktop.png",
+      "sizes": "960x540",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "B-F-L Desktop View"
+    }
+  ],
+  "prefer_related_applications": false
 }
