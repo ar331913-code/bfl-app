@@ -18,7 +18,11 @@ import {
   CreditCard,
   Phone,
   User,
-  Ban
+  Ban,
+  Copy,
+  Check,
+  ExternalLink,
+  PhoneCall
 } from 'lucide-react';
 import { calculateLoan, generateRepaymentSchedulesForLoan } from '../../services/loanCalculator';
 import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard, isLoanOwing } from '../../utils/formatters';
@@ -78,6 +82,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [momoNetwork, setMomoNetwork] = useState<'MTN' | 'Telecel' | 'AT'>('MTN');
   const [completedMoMoResult, setCompletedMoMoResult] = useState<MoMoDisbursementResult | null>(null);
   const [createdLoanRecord, setCreatedLoanRecord] = useState<Loan | null>(null);
+  const [copiedUSSD, setCopiedUSSD] = useState<boolean>(false);
 
   // Confirmation Step State
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
@@ -424,14 +429,60 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <span>Share MoMo Receipt via WhatsApp</span>
               </button>
 
-              {/* USSD Dial Shortcut (for operators needing manual *170# dial on their SIM) */}
+              {/* Interactive USSD Transfer Box for Operator SIM */}
               {completedMoMoResult.ussdPrompt && (
-                <a
-                  href={`tel:${encodeURIComponent(completedMoMoResult.ussdPrompt)}`}
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-amber-950 text-xs font-black rounded-xl shadow-xs transition flex items-center justify-center gap-2"
-                >
-                  <span>Quick-Dial MTN MoMo (*170# SIM)</span>
-                </a>
+                <div className="p-3.5 rounded-2xl bg-slate-900 text-white text-left space-y-2.5 border border-slate-800 shadow-md">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-amber-400 font-black uppercase tracking-wider">
+                      MTN MoMo USSD Code
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">SIM (*170#)</span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-950 font-mono text-xs font-bold text-amber-300 break-all select-all border border-slate-800 text-center tracking-wide">
+                    {completedMoMoResult.ussdPrompt}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (completedMoMoResult.ussdPrompt) {
+                          navigator.clipboard.writeText(completedMoMoResult.ussdPrompt);
+                          setCopiedUSSD(true);
+                          setTimeout(() => setCopiedUSSD(false), 3500);
+                        }
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 transition shadow-sm"
+                    >
+                      {copiedUSSD ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied! 🎉</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>1-Tap Copy</span>
+                        </>
+                      )}
+                    </button>
+
+                    <a
+                      href="tel:*170%23"
+                      className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition border border-white/20"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Open Dialer</span>
+                    </a>
+                  </div>
+
+                  {copiedUSSD && (
+                    <p className="text-[11px] text-emerald-400 font-bold text-center animate-fade-in">
+                      ✓ USSD Code copied! Open dialer, paste, and press Call.
+                    </p>
+                  )}
+                </div>
               )}
 
               <button
