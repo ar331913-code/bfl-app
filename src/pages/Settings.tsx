@@ -97,6 +97,11 @@ export const Settings: React.FC<SettingsProps> = ({
   // General message
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  // Double-confirmation reset modal state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetConfirmInput, setResetConfirmInput] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -700,7 +705,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <label className="text-[11px] font-bold text-slate-700 block mb-1">New Password</label>
             <input
               type="password"
-              placeholder="Leave blank to keep same"
+              placeholder="Leave blank to keep current"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
@@ -774,21 +779,80 @@ export const Settings: React.FC<SettingsProps> = ({
         <div className="pt-2 border-t border-slate-100">
           <button
             type="button"
-            onClick={async () => {
-              if (confirm('Are you sure you want to reset all data and reseed clean sample clients? This cannot be undone.')) {
-                await seedInitialData(true);
-                await CloudSyncService.syncWithCloud(true);
-                onDataReset();
-                alert('Database reset and re-seeded successfully!');
-              }
+            onClick={() => {
+              setResetConfirmInput('');
+              setIsResetModalOpen(true);
             }}
-            className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+            className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Reset & Reseed Portfolio</span>
           </button>
         </div>
       </div>
+
+      {/* DOUBLE-CONFIRMATION RESET MODAL */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-rose-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-sm font-black text-slate-950">Confirm Database Reset</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                This will purge all custom borrowers, loans, and payments and restore fresh sample data. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 block">
+                Type <span className="font-mono text-rose-700 font-black">RESET</span> to confirm:
+              </label>
+              <input
+                type="text"
+                placeholder="Type RESET here"
+                value={resetConfirmInput}
+                onChange={(e) => setResetConfirmInput(e.target.value)}
+                className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-rose-200 focus:border-rose-600 focus:outline-none text-center uppercase tracking-widest"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={resetConfirmInput.trim().toUpperCase() !== 'RESET' || isResetting}
+                onClick={async () => {
+                  setIsResetting(true);
+                  try {
+                    await seedInitialData(true);
+                    await CloudSyncService.syncWithCloud(true);
+                    onDataReset();
+                    setIsResetModalOpen(false);
+                  } catch (e) {
+                    console.error('Reset error:', e);
+                  } finally {
+                    setIsResetting(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isResetting ? 'Resetting...' : 'Purge & Reseed'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

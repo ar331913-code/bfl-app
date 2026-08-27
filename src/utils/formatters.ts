@@ -11,6 +11,20 @@ export function formatCurrency(amount: number | undefined | null): string {
   })}`;
 }
 
+// Compact currency for tight mobile tiles (e.g. GH₵49.8k)
+export function formatCompactCurrency(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || isNaN(amount)) {
+    return 'GH₵0';
+  }
+  if (Math.abs(amount) >= 1_000_000) {
+    return `GH₵${(amount / 1_000_000).toFixed(1)}M`;
+  }
+  if (Math.abs(amount) >= 100_000) {
+    return `GH₵${(amount / 1_000).toFixed(1)}k`;
+  }
+  return formatCurrency(amount);
+}
+
 // Format Phone Number to Ghanaian Standard
 export function formatGhanaPhone(phone: string): string {
   if (!phone) return '';

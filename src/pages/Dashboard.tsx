@@ -72,7 +72,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="flex items-center justify-between text-sky-300 text-xs font-bold uppercase tracking-wider mb-1 gap-2">
           <span className="flex items-center gap-1.5 truncate">
             <Wallet className="w-4 h-4 text-sky-400 shrink-0" />
-            <span className="truncate">Money Outside (To Collect)</span>
+            <span className="truncate">Outstanding Portfolio</span>
           </span>
           <span className="bg-sky-500/20 text-sky-300 border border-sky-400/30 text-[10px] px-2.5 py-0.5 rounded-full font-black shrink-0">
             {activeLoans.length} Active {activeLoans.length === 1 ? 'Loan' : 'Loans'}
