@@ -162,6 +162,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
+    // CRITICAL: Prevent early submit from mobile keyboard Enter/Go on Step 1 or 2
+    if (step < 3) {
+      handleNext();
+      return;
+    }
+    
     if (!fullName.trim()) {
       setStep(1);
       setErrors({ fullName: 'Full legal name is required' });
@@ -597,9 +603,10 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="text-xs font-black text-sky-600 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1"
+                  className="text-xs font-black text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95"
                 >
-                  Skip Photos ➡️
+                  <span>Skip Photos to Work & Notes</span>
+                  <span>➔</span>
                 </button>
               </div>
 
@@ -839,18 +846,19 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95"
+                className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
               >
-                Continue to Step {step + 1}
+                <span>{step === 1 ? 'Next: Ghana Card & Photo (Step 2)' : 'Next: Work & Notes (Step 3)'}</span>
+                <span>➔</span>
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                {existingCustomer ? 'Save Changes' : 'Save & Register Borrower'}
+                {existingCustomer ? 'Save Changes' : 'Complete & Register Borrower'}
               </button>
             )}
           </div>
