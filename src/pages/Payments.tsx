@@ -41,8 +41,8 @@ export const Payments: React.FC<PaymentsProps> = ({
   const loanMap = new Map(loans.map(l => [l.loanId, l]));
 
   const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const momoCollected = payments.filter(p => p.paymentMethod === 'momo').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const cashCollected = payments.filter(p => p.paymentMethod === 'cash').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const cashCollected = payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const bankCollected = payments.filter(p => p.paymentMethod === 'bank').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
 
   const filteredPayments = payments.filter(p => {
     const cust = customerMap.get(p.customerId);
@@ -83,7 +83,7 @@ export const Payments: React.FC<PaymentsProps> = ({
       `Customer: ${cust.fullName}\n` +
       `Loan ID: ${payment.loanId}\n` +
       `Amount Paid: GH₵${payment.amountPaid.toFixed(2)}\n` +
-      `Method: ${payment.paymentMethod.toUpperCase()}\n` +
+      `Method: ${(payment.paymentMethod || 'CASH').toUpperCase()}\n` +
       `Date: ${payment.paymentDate}\n` +
       `${balanceLine}\n\n` +
       `Thank you for your repayment! - ${settings?.businessName || 'B-F-L'}`;
@@ -122,12 +122,12 @@ export const Payments: React.FC<PaymentsProps> = ({
 
         <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/15 text-xs">
           <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
-            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">MTN MoMo</div>
-            <div className="font-black text-amber-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(momoCollected)}</div>
+            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Cash Hand</div>
+            <div className="font-black text-emerald-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(cashCollected)}</div>
           </div>
           <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
-            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Cash Hand</div>
-            <div className="font-black text-sky-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(cashCollected)}</div>
+            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Bank Transfers</div>
+            <div className="font-black text-sky-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(bankCollected)}</div>
           </div>
           <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
             <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Receipts</div>
@@ -152,9 +152,8 @@ export const Payments: React.FC<PaymentsProps> = ({
       <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
         {[
           { id: 'all', label: 'All Receipts', count: payments.length },
-          { id: 'momo', label: 'MTN MoMo', count: payments.filter(p => p.paymentMethod === 'momo').length },
-          { id: 'cash', label: 'Cash Hand', count: payments.filter(p => p.paymentMethod === 'cash').length },
-          { id: 'bank', label: 'Bank', count: payments.filter(p => p.paymentMethod === 'bank').length },
+          { id: 'cash', label: 'Cash Hand', count: payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).length },
+          { id: 'bank', label: 'Bank Transfer', count: payments.filter(p => p.paymentMethod === 'bank').length },
         ].map(tab => (
           <button
             key={tab.id}

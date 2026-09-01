@@ -61,7 +61,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedInstallmentId, setSelectedInstallmentId] = useState<number | undefined>(undefined);
   const [amountPaid, setAmountPaid] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('momo');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -299,7 +299,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-black text-white truncate tracking-tight">Record Repayment</h2>
-              <p className="text-[11px] text-sky-300 font-medium truncate">Accept Cash, MoMo, or Bank collections</p>
+              <p className="text-[11px] text-sky-300 font-medium truncate">Accept Cash or Bank collections</p>
             </div>
           </div>
           <button 
@@ -628,10 +628,9 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
                 Payment Channel
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'momo', label: 'MTN MoMo', icon: Smartphone, color: 'text-amber-600' },
-                  { id: 'cash', label: 'Cash Hand', icon: Banknote, color: 'text-blue-600' },
+                  { id: 'cash', label: 'Cash Hand', icon: Banknote, color: 'text-emerald-600' },
                   { id: 'bank', label: 'Bank Transfer', icon: Building2, color: 'text-indigo-600' }
                 ].map(method => {
                   const Icon = method.icon;
@@ -659,13 +658,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  MoMo / Transaction Ref (Optional)
+                  Receipt / Bank Ref (Optional)
                 </label>
                 <input
                   type="text"
                   value={referenceNumber}
                   onChange={(e) => setReferenceNumber(e.target.value)}
-                  placeholder="e.g. MTN-28492049"
+                  placeholder="e.g. REC-8492049"
                   className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
                 />
               </div>

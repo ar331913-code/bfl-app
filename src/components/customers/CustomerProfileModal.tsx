@@ -401,24 +401,11 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
             <div className="font-black text-slate-900 uppercase tracking-wider text-[11px] flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <CreditCard className="w-4 h-4 text-sky-600" />
-                Ghana Card & MoMo Wallet
+                Ghana Card Identity
               </span>
-              <span className="text-[10px] font-mono text-blue-700 bg-sky-100 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[10px] font-mono text-blue-700 bg-sky-100 px-2.5 py-0.5 rounded-full font-bold">
                 {customer.ghanaCardNumber}
               </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-[11px]">
-              <div>
-                <span className="text-slate-400 block font-medium">MoMo Wallet Number</span>
-                <span className="font-mono font-bold text-amber-700">
-                  {customer.momoNumber || customer.primaryPhone} ({customer.momoNetwork || 'MTN'})
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block font-medium">MoMo Registered Name</span>
-                <span className="font-semibold text-slate-800">{customer.momoName || customer.fullName}</span>
-              </div>
             </div>
 
             {/* Ghana Card Photos Preview */}

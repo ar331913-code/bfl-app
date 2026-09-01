@@ -33,7 +33,6 @@ import {
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 import { CloudSyncService, CloudSnapshot } from '../services/cloudSyncService';
-import { MOMOService } from '../services/momoService';
 
 interface SettingsProps {
   auditLogs: AuditLog[];
@@ -68,20 +67,6 @@ export const Settings: React.FC<SettingsProps> = ({
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
-
-  // MTN Mobile Money (MoMo) Gateway state
-  const [momoProvider, setMomoProvider] = useState<'manual_ussd' | 'mtn_open_api' | 'hubtel' | 'paystack' | 'custom_webhook'>(
-    settings?.momoProvider || 'manual_ussd'
-  );
-  const [momoApiUserId, setMomoApiUserId] = useState(settings?.momoApiUserId || '');
-  const [momoApiKey, setMomoApiKey] = useState(settings?.momoApiKey || '');
-  const [momoSubscriptionKey, setMomoSubscriptionKey] = useState(settings?.momoSubscriptionKey || '');
-  const [momoTargetEnvironment, setMomoTargetEnvironment] = useState<'sandbox' | 'production'>(
-    settings?.momoTargetEnvironment || 'sandbox'
-  );
-  const [momoMerchantPhone, setMomoMerchantPhone] = useState(settings?.momoMerchantPhone || '+233 24 412 3456');
-  const [isTestingMoMo, setIsTestingMoMo] = useState(false);
-  const [momoTestMessage, setMomoTestMessage] = useState<{ success: boolean; text: string } | null>(null);
 
   // Automated SMS Gateway state
   const [smsProvider, setSmsProvider] = useState<'native' | 'mnotify' | 'arkesel' | 'hubtel' | 'custom_webhook'>(settings?.smsProvider || 'native');
@@ -512,160 +497,7 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </form>
 
-      {/* 3. MTN Mobile Money (MoMo) Disbursement Gateway */}
-      <div className="p-5 rounded-3xl bg-white border-2 border-amber-300 shadow-sm space-y-3.5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            MTN Mobile Money (MoMo) Loan Disbursement Gateway
-          </h3>
-          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-            {momoProvider === 'manual_ussd' ? '1-Tap SIM USSD (*170#)' : `${momoProvider.toUpperCase()} Direct`}
-          </span>
-        </div>
-
-        <p className="text-[11px] text-slate-600 leading-relaxed">
-          Configure how microloans are sent to borrowers. Use <strong>1-Tap SIM USSD (*170#)</strong> for instant operator transfer with pre-filled dialer, or connect <strong>MTN MoMo Open API</strong> / <strong>Hubtel</strong> for automated instant cloud payouts.
-        </p>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Mode</label>
-            <select
-              value={momoProvider}
-              onChange={(e) => setMomoProvider(e.target.value as any)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none bg-white"
-            >
-              <option value="manual_ussd">1-Tap SIM & USSD (*170#) [Standard]</option>
-              <option value="mtn_open_api">MTN MoMo Open API (Direct)</option>
-              <option value="hubtel">Hubtel MoMo Gateway</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursing Merchant Phone</label>
-            <input
-              type="text"
-              placeholder="+233 24 412 3456"
-              value={momoMerchantPhone}
-              onChange={(e) => setMomoMerchantPhone(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none font-mono"
-            />
-          </div>
-        </div>
-
-        {momoProvider === 'mtn_open_api' && (
-          <div className="space-y-2.5 pt-1 border-t border-amber-200/80 animate-fade-in">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">Target Environment</label>
-                <select
-                  value={momoTargetEnvironment}
-                  onChange={(e) => setMomoTargetEnvironment(e.target.value as any)}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none bg-white"
-                >
-                  <option value="sandbox">MTN MoMo Sandbox (Testing)</option>
-                  <option value="production">MTN MoMo Live Production</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">API User ID (UUID)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                  value={momoApiUserId}
-                  onChange={(e) => setMomoApiUserId(e.target.value)}
-                  className="w-full text-xs font-mono px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none text-[11px]"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">API Key / Secret</label>
-                <input
-                  type="password"
-                  placeholder="Enter MTN MoMo API Key"
-                  value={momoApiKey}
-                  onChange={(e) => setMomoApiKey(e.target.value)}
-                  className="w-full text-xs font-mono px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">Primary Subscription Key</label>
-                <input
-                  type="password"
-                  placeholder="Ocp-Apim-Subscription-Key"
-                  value={momoSubscriptionKey}
-                  onChange={(e) => setMomoSubscriptionKey(e.target.value)}
-                  className="w-full text-xs font-mono px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {momoTestMessage && (
-          <div className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-fade-in ${
-            momoTestMessage.success ? 'bg-sky-50 text-blue-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}>
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{momoTestMessage.text}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={async () => {
-              setIsTestingMoMo(true);
-              setMomoTestMessage(null);
-              try {
-                const res = await MOMOService.testConnection({
-                  momoProvider,
-                  momoApiUserId,
-                  momoApiKey,
-                  momoSubscriptionKey,
-                  momoTargetEnvironment,
-                  momoMerchantPhone
-                } as any);
-                setMomoTestMessage({ success: res.success, text: res.message });
-              } catch (err: any) {
-                setMomoTestMessage({ success: false, text: err.message || 'Failed to connect to MoMo Gateway' });
-              } finally {
-                setIsTestingMoMo(false);
-              }
-            }}
-            disabled={isTestingMoMo}
-            className="py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-bold transition active:scale-95 flex items-center justify-center gap-1"
-          >
-            {isTestingMoMo ? 'Testing...' : 'Test MoMo Connection'}
-          </button>
-
-          <button
-            type="button"
-            onClick={async () => {
-              await updateSettings({
-                momoProvider,
-                momoApiUserId,
-                momoApiKey,
-                momoSubscriptionKey,
-                momoTargetEnvironment,
-                momoMerchantPhone
-              });
-              setSaveMessage('MTN MoMo Gateway settings saved successfully!');
-              setTimeout(() => setSaveMessage(null), 3000);
-            }}
-            className="py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-amber-950 text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
-          >
-            <Check className="w-3.5 h-3.5" /> Save MoMo Settings
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Automated SMS Gateway Configuration */}
+      {/* 3. Automated SMS Gateway Configuration */}
       <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
