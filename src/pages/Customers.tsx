@@ -40,7 +40,7 @@ export const Customers: React.FC<CustomersProps> = ({
   onOpenRecordPayment
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [primaryTab, setPrimaryTab] = useState<'owing' | 'debt_free' | 'all'>('owing');
+  const [primaryTab, setPrimaryTab] = useState<'all' | 'owing' | 'debt_free'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'driver' | 'trader'>('all');
 
   // Map outstanding debt per customer
@@ -102,7 +102,7 @@ export const Customers: React.FC<CustomersProps> = ({
         <div className="min-w-0">
           <h1 className="text-base sm:text-lg font-black text-slate-950 truncate">Borrowers & Clients</h1>
           <p className="text-xs text-slate-500 font-medium truncate">
-            {owingCustomers.length} owing • {debtFreeCustomers.length} debt-free
+            {customers.length} total • {owingCustomers.length} owing • {debtFreeCustomers.length} debt-free
           </p>
         </div>
 
@@ -133,6 +133,18 @@ export const Customers: React.FC<CustomersProps> = ({
       {/* 2. Compact View Switcher */}
       <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/75 rounded-2xl border border-slate-300/60 shadow-xs">
         <button
+          onClick={() => setPrimaryTab('all')}
+          className={`py-2 px-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 truncate ${
+            primaryTab === 'all'
+              ? 'bg-slate-950 text-white shadow-sm'
+              : 'text-slate-700 hover:text-slate-950 hover:bg-white/60'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">All ({customers.length})</span>
+        </button>
+
+        <button
           onClick={() => setPrimaryTab('owing')}
           className={`py-2 px-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 truncate ${
             primaryTab === 'owing'
@@ -155,21 +167,23 @@ export const Customers: React.FC<CustomersProps> = ({
           <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">Debt-Free ({debtFreeCustomers.length})</span>
         </button>
-
-        <button
-          onClick={() => setPrimaryTab('all')}
-          className={`py-2 px-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 truncate ${
-            primaryTab === 'all'
-              ? 'bg-slate-950 text-white shadow-sm'
-              : 'text-slate-700 hover:text-slate-950 hover:bg-white/60'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">All ({customers.length})</span>
-        </button>
       </div>
 
       {/* 3. Consolidated Slim 1-Line Sticky Summary Bar */}
+      {primaryTab === 'all' && (
+        <div className="px-3.5 py-2 rounded-2xl bg-sky-50 border border-sky-200 shadow-xs flex items-center justify-between text-xs animate-fade-in gap-2 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="text-blue-950 font-bold truncate">
+              {customers.length} registered client{customers.length === 1 ? '' : 's'} ({owingCustomers.length} currently owing)
+            </span>
+          </div>
+          <span className="bg-sky-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-md shrink-0">
+            {debtFreeCustomers.length} ready for loan
+          </span>
+        </div>
+      )}
+
       {primaryTab === 'owing' && (
         <div className="px-3.5 py-2 rounded-2xl bg-rose-50 border border-rose-200 shadow-xs flex items-center justify-between text-xs animate-fade-in gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0">

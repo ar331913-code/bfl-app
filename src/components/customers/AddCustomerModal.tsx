@@ -231,6 +231,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
       if (existingCustomer && existingCustomer.id) {
         await db.customers.update(existingCustomer.id, newCustomer);
+        newCustomer.id = existingCustomer.id;
         await db.auditLogs.add({
           action: 'CUSTOMER_UPDATED',
           entityType: 'customer',
@@ -239,7 +240,8 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           timestamp: now
         });
       } else {
-        await db.customers.add(newCustomer);
+        const newId = await db.customers.add(newCustomer);
+        newCustomer.id = newId;
         await db.auditLogs.add({
           action: 'CUSTOMER_REGISTERED',
           entityType: 'customer',
@@ -260,7 +262,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       }
 
       onCustomerCreated(newCustomer);
-      CloudSyncService.triggerBackgroundSync();
+      CloudSyncService.forcePushLocalToCloud().catch(e => console.warn('Cloud sync error:', e));
       onClose();
     } catch (err) {
       console.error('Failed to save customer', err);

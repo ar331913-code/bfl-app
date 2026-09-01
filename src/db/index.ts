@@ -32,20 +32,44 @@ export class BFLDatabase extends Dexie {
     });
   }
 
-  // ID Generators with prefix and zero-padding
+  // ID Generators with prefix and zero-padding (collision-proof)
   async getNextCustomerId(): Promise<string> {
-    const count = await this.customers.count();
-    return `BFL-${String(count + 1).padStart(5, '0')}`;
+    const all = await this.customers.toArray();
+    let maxNum = 0;
+    for (const c of all) {
+      const match = c.customerId?.match(/BFL-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `BFL-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
   async getNextLoanId(): Promise<string> {
-    const count = await this.loans.count();
-    return `LN-${String(count + 1).padStart(5, '0')}`;
+    const all = await this.loans.toArray();
+    let maxNum = 0;
+    for (const l of all) {
+      const match = l.loanId?.match(/LN-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `LN-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
   async getNextPaymentId(): Promise<string> {
-    const count = await this.payments.count();
-    return `RCP-${String(count + 1).padStart(5, '0')}`;
+    const all = await this.payments.toArray();
+    let maxNum = 0;
+    for (const p of all) {
+      const match = p.paymentId?.match(/RCP-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `RCP-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
   // Full Database Export as JSON
