@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../db';
 import { seedInitialData } from '../db/seedData';
@@ -24,11 +24,15 @@ import {
   Cloud,
   CloudOff,
   Globe,
-  Share2
+  Share2,
+  Archive,
+  History,
+  Sparkles,
+  Plus
 } from 'lucide-react';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatCurrency } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
-import { CloudSyncService } from '../services/cloudSyncService';
+import { CloudSyncService, CloudSnapshot } from '../services/cloudSyncService';
 import { MOMOService } from '../services/momoService';
 
 interface SettingsProps {
@@ -106,7 +110,104 @@ export const Settings: React.FC<SettingsProps> = ({
   const [clearConfirmInput, setClearConfirmInput] = useState('');
   const [isClearing, setIsClearing] = useState(false);
 
+  // Cloud Snapshot Archives state
+  const [snapshots, setSnapshots] = useState<CloudSnapshot[]>([]);
+  const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
+  const [snapshotLabelInput, setSnapshotLabelInput] = useState('');
+  const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
+  const [snapshotMessage, setSnapshotMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Snapshot Restore Modal state
+  const [snapshotToRestore, setSnapshotToRestore] = useState<CloudSnapshot | null>(null);
+  const [restoreConfirmInput, setRestoreConfirmInput] = useState('');
+  const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
+  const [deletingSnapshotId, setDeletingSnapshotId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load Cloud Snapshots
+  const loadCloudSnapshots = async () => {
+    setIsLoadingSnapshots(true);
+    try {
+      const data = await CloudSyncService.fetchCloudSnapshots();
+      setSnapshots(data);
+    } catch (err) {
+      console.warn('Failed to load snapshots:', err);
+    } finally {
+      setIsLoadingSnapshots(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCloudSnapshots();
+  }, []);
+
+  const handleCreateSnapshot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingSnapshot(true);
+    setSnapshotMessage(null);
+    try {
+      const res = await CloudSyncService.createCloudSnapshot(snapshotLabelInput);
+      if (res.success) {
+        setSnapshotMessage({ type: 'success', text: res.message });
+        setSnapshotLabelInput('');
+        await loadCloudSnapshots();
+      } else {
+        setSnapshotMessage({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setSnapshotMessage({ type: 'error', text: err.message || 'Failed to create cloud snapshot' });
+    } finally {
+      setIsCreatingSnapshot(false);
+      setTimeout(() => setSnapshotMessage(null), 6000);
+    }
+  };
+
+  const handleConfirmRestoreSnapshot = async () => {
+    if (!snapshotToRestore) return;
+    setIsRestoringSnapshot(true);
+    try {
+      const res = await CloudSyncService.restoreCloudSnapshot(snapshotToRestore);
+      if (res.success) {
+        onDataReset();
+        setSnapshotToRestore(null);
+        setRestoreConfirmInput('');
+        setSnapshotMessage({ type: 'success', text: res.message });
+      } else {
+        setSnapshotMessage({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setSnapshotMessage({ type: 'error', text: err.message || 'Restore failed' });
+    } finally {
+      setIsRestoringSnapshot(false);
+      setTimeout(() => setSnapshotMessage(null), 6000);
+    }
+  };
+
+  const handleDeleteSnapshot = async (id: string) => {
+    setDeletingSnapshotId(id);
+    try {
+      const ok = await CloudSyncService.deleteCloudSnapshot(id);
+      if (ok) {
+        setSnapshots(prev => prev.filter(s => s.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete snapshot:', err);
+    } finally {
+      setDeletingSnapshotId(null);
+    }
+  };
+
+  const handleDownloadSnapshotJSON = (snapshot: CloudSnapshot) => {
+    const jsonStr = JSON.stringify(snapshot, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BFL_Cloud_Backup_${snapshot.id}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -745,11 +846,189 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </form>
 
-      {/* 5. Database Backup & Reset Center */}
-      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3">
+      {/* 5. Cloud Snapshot & Backup Vault (Firebase Cloud) */}
+      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-100 text-blue-600 flex items-center justify-center">
+              <Cloud className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                Cloud Snapshot & Backup Vault
+              </h3>
+              <p className="text-[10px] text-slate-500 font-medium">
+                Save full point-in-time backups to Firebase Cloud. Restore anytime.
+              </p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-blue-700 text-[10px] font-black">
+            {snapshots.length} {snapshots.length === 1 ? 'Snapshot' : 'Snapshots'}
+          </span>
+        </div>
+
+        {/* Snapshot Notification Feedback */}
+        {snapshotMessage && (
+          <div className={`p-2.5 rounded-xl text-xs flex items-center gap-1.5 font-bold animate-fade-in ${
+            snapshotMessage.type === 'success' ? 'bg-sky-50 text-blue-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}>
+            {snapshotMessage.type === 'success' ? <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />}
+            <span>{snapshotMessage.text}</span>
+          </div>
+        )}
+
+        {/* Create Snapshot Form */}
+        <form onSubmit={handleCreateSnapshot} className="space-y-2 pt-1 border-t border-slate-100">
+          <label className="text-[11px] font-bold text-slate-700 block">
+            Save Current Portfolio Snapshot to Cloud
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="e.g. End of Month August, Before Auditing..."
+              value={snapshotLabelInput}
+              onChange={(e) => setSnapshotLabelInput(e.target.value)}
+              className="flex-1 text-xs px-3 py-2 rounded-xl border border-slate-200 focus:border-blue-600 focus:outline-none placeholder:text-slate-400 bg-slate-50/50"
+            />
+            <button
+              type="submit"
+              disabled={isCreatingSnapshot}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-blue-600/20 transition disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+            >
+              {isCreatingSnapshot ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-3.5 h-3.5" />
+                  <span>Save to Cloud</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Saved Snapshots List */}
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <Archive className="w-3 h-3 text-blue-600" />
+              Saved Cloud Backups ({snapshots.length})
+            </span>
+            <button
+              type="button"
+              onClick={loadCloudSnapshots}
+              disabled={isLoadingSnapshots}
+              className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <RefreshCw className={`w-2.5 h-2.5 ${isLoadingSnapshots ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          {isLoadingSnapshots ? (
+            <div className="py-6 text-center text-xs text-slate-400 font-bold flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+              <span>Loading cloud archives...</span>
+            </div>
+          ) : snapshots.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center space-y-1">
+              <Archive className="w-6 h-6 text-slate-300 mx-auto" />
+              <p className="text-xs font-bold text-slate-700">No cloud snapshots saved yet</p>
+              <p className="text-[10px] text-slate-400">
+                Click "Save to Cloud" above to capture your current borrowers and loan ledger.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {snapshots.map((snap) => (
+                <div
+                  key={snap.id}
+                  className="p-3 rounded-2xl bg-slate-50/80 border border-slate-200 hover:border-sky-300 transition space-y-2 shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 leading-tight">
+                        {snap.label}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        {new Date(snap.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-black text-[9px]">
+                        {snap.customersCount} Clients
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-black text-[9px]">
+                        {snap.loansCount} Loans
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Summary Badges */}
+                  <div className="grid grid-cols-2 gap-2 text-[10px] bg-white p-2 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Outstanding</span>
+                      <span className="font-black text-slate-800">{formatCurrency(snap.totalOutstanding || 0)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Collected</span>
+                      <span className="font-black text-teal-700">{formatCurrency(snap.totalCollected || 0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSnapshotToRestore(snap);
+                        setRestoreConfirmInput('');
+                      }}
+                      className="flex-1 py-1.5 px-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] flex items-center justify-center gap-1 shadow-xs transition active:scale-95"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Restore to System</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSnapshotJSON(snap)}
+                      title="Download JSON File"
+                      className="p-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] transition active:scale-95"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSnapshot(snap.id)}
+                      disabled={deletingSnapshotId === snap.id}
+                      title="Delete from Cloud"
+                      className="p-1.5 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 font-bold text-[10px] transition active:scale-95 disabled:opacity-40"
+                    >
+                      {deletingSnapshotId === snap.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 6. Offline Data Backup & Clear Ledger Center */}
+      <div className="p-5 rounded-3xl bg-white border-2 border-slate-100 shadow-sm space-y-3">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-          <Database className="w-4 h-4 text-blue-600" />
-          Offline Data Backup & Google Drive Center
+          <Database className="w-4 h-4 text-slate-700" />
+          Offline File Backup & Ledger Wipe Controls
         </h3>
 
         <div className="grid grid-cols-2 gap-2">
@@ -759,7 +1038,7 @@ export const Settings: React.FC<SettingsProps> = ({
             className="p-3 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 text-blue-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
           >
             <Download className="w-4 h-4 text-blue-700" />
-            <span>Download Backup</span>
+            <span>Download Offline JSON</span>
           </button>
 
           <button
@@ -767,8 +1046,8 @@ export const Settings: React.FC<SettingsProps> = ({
             onClick={() => fileInputRef.current?.click()}
             className="p-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 flex flex-col items-center justify-center gap-1.5 font-black text-xs transition active:scale-95"
           >
-            <Upload className="w-4 h-4 text-teal-700" />
-            <span>Restore Backup</span>
+            <Upload className="w-4 h-4 text-indigo-700" />
+            <span>Restore from File</span>
           </button>
         </div>
 
@@ -788,10 +1067,10 @@ export const Settings: React.FC<SettingsProps> = ({
               setClearConfirmInput('');
               setIsClearModalOpen(true);
             }}
-            className="w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+            className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Clear All Data (0 Clients / Fresh Slate)</span>
+            <span>Clear Active Ledger (0 Clients / Fresh Slate)</span>
           </button>
 
           {/* Button 2: Reset with Demo Samples */}
@@ -804,12 +1083,83 @@ export const Settings: React.FC<SettingsProps> = ({
             className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
           >
             <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-            <span>Reset with Demo Ghanaian Sample Data</span>
+            <span>Reset with Demo Ghanaian Sample Clients</span>
           </button>
         </div>
       </div>
 
-      {/* MODAL 1: DOUBLE-CONFIRMATION CLEAR ALL DATA (0 RECORDS) */}
+      {/* MODAL 1: DOUBLE-CONFIRMATION RESTORE SNAPSHOT */}
+      {snapshotToRestore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-sky-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-sky-100 text-blue-600 flex items-center justify-center mx-auto">
+              <Cloud className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-sm font-black text-slate-950">Restore Cloud Snapshot</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                You are about to restore <strong>"{snapshotToRestore.label}"</strong> saved on {new Date(snapshotToRestore.createdAt).toLocaleDateString()}.
+              </p>
+            </div>
+
+            {/* Summary preview of snapshot */}
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Borrowers:</span>
+                <span className="font-black text-slate-900">{snapshotToRestore.customersCount} Clients</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Active Loans:</span>
+                <span className="font-black text-slate-900">{snapshotToRestore.loansCount} Loans</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Outstanding:</span>
+                <span className="font-black text-blue-900">{formatCurrency(snapshotToRestore.totalOutstanding || 0)}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200 font-medium leading-tight">
+              ⚠️ This will replace your active ledger with this backup and sync across all your phones.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 block">
+                Type <span className="font-mono text-blue-700 font-black">RESTORE</span> to confirm:
+              </label>
+              <input
+                type="text"
+                placeholder="Type RESTORE here"
+                value={restoreConfirmInput}
+                onChange={(e) => setRestoreConfirmInput(e.target.value)}
+                className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-sky-200 focus:border-blue-600 focus:outline-none text-center uppercase tracking-widest"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSnapshotToRestore(null)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={restoreConfirmInput.trim().toUpperCase() !== 'RESTORE' || isRestoringSnapshot}
+                onClick={handleConfirmRestoreSnapshot}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRestoringSnapshot ? 'animate-spin' : ''}`} />
+                <span>{isRestoringSnapshot ? 'Restoring...' : 'Restore Now'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: DOUBLE-CONFIRMATION CLEAR ALL DATA (0 RECORDS) */}
       {isClearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-rose-200 space-y-4">
@@ -818,9 +1168,9 @@ export const Settings: React.FC<SettingsProps> = ({
             </div>
 
             <div className="text-center">
-              <h3 className="text-sm font-black text-slate-950">Clear Entire Portfolio (0 Clients)</h3>
+              <h3 className="text-sm font-black text-slate-950">Clear Active Ledger (0 Clients)</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                This will completely wipe all clients, loans, schedules, and payment receipts from <strong>both this phone and Firebase Cloud</strong>, giving you a 100% clean empty ledger.
+                This will wipe active clients, loans, schedules, and receipts from your active ledger. <strong>Your Cloud Snapshots are preserved</strong> and can be restored at any time.
               </p>
             </div>
 
@@ -871,7 +1221,7 @@ export const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: DOUBLE-CONFIRMATION RESET DEMO DATA */}
+      {/* MODAL 3: DOUBLE-CONFIRMATION RESET DEMO DATA */}
       {isResetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-sky-200 space-y-4">

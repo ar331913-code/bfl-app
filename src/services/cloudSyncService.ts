@@ -11,6 +11,23 @@ export interface SyncResult {
   lastSyncedAt: string;
 }
 
+export interface CloudSnapshot {
+  id: string;
+  label: string;
+  createdAt: string;
+  customersCount: number;
+  loansCount: number;
+  totalOutstanding: number;
+  totalCollected: number;
+  data: {
+    customers: Customer[];
+    loans: Loan[];
+    repaymentSchedules: RepaymentSchedule[];
+    payments: Payment[];
+    settings?: SystemSettings[];
+  };
+}
+
 export class CloudSyncService {
   private static defaultOrgId = 'BFL-GHANA-MAIN';
   private static defaultCloudBaseUrl = 'https://bfl-microfinance-default-rtdb.firebaseio.com';
@@ -310,6 +327,179 @@ export class CloudSyncService {
   public static async reseedPortfolioData(): Promise<void> {
     await seedInitialData(true);
     await this.forcePushLocalToCloud();
+  }
+
+  /**
+   * Retrieves snapshots endpoint for the active organization
+   */
+  public static async getSnapshotsEndpoint(): Promise<{ orgId: string; endpoint: string }> {
+    try {
+      const settingsList = await db.settings.toArray();
+      const settings = settingsList[0];
+      const orgId = (settings?.cloudSyncOrgId && settings.cloudSyncOrgId.trim()) || this.defaultOrgId;
+      const cleanOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      let base = (settings?.cloudSyncEndpoint && settings.cloudSyncEndpoint.trim()) || this.defaultCloudBaseUrl;
+      if (base.includes('bfl-app-cloud-sync-default-rtdb')) base = this.defaultCloudBaseUrl;
+      return { orgId: cleanOrgId, endpoint: `${base.replace(/\/$/, '')}/snapshots/${cleanOrgId}` };
+    } catch {
+      return { orgId: this.defaultOrgId, endpoint: `${this.defaultCloudBaseUrl}/snapshots/${this.defaultOrgId}` };
+    }
+  }
+
+  /**
+   * Creates a full Cloud Backup Snapshot in Firebase
+   */
+  public static async createCloudSnapshot(customLabel?: string): Promise<{ success: boolean; snapshot?: CloudSnapshot; message: string }> {
+    try {
+      const { endpoint } = await this.getSnapshotsEndpoint();
+      const snapshotId = `snap_${Date.now()}`;
+      const now = new Date().toISOString();
+
+      const customers = await db.customers.toArray();
+      const loans = await db.loans.toArray();
+      const schedules = await db.repaymentSchedules.toArray();
+      const payments = await db.payments.toArray();
+      const settings = await db.settings.toArray();
+
+      const totalOutstanding = loans
+        .filter(l => l.status !== 'completed')
+        .reduce((sum, l) => sum + (l.outstandingBalance || 0), 0);
+      const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+
+      const label = customLabel?.trim() || `Cloud Backup (${customers.length} Clients, ${loans.length} Loans)`;
+
+      const snapshot: CloudSnapshot = {
+        id: snapshotId,
+        label,
+        createdAt: now,
+        customersCount: customers.length,
+        loansCount: loans.length,
+        totalOutstanding,
+        totalCollected,
+        data: {
+          customers,
+          loans,
+          repaymentSchedules: schedules,
+          payments,
+          settings
+        }
+      };
+
+      const res = await fetch(`${endpoint}/${snapshotId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(snapshot)
+      });
+
+      if (!res.ok) throw new Error(`Firebase returned HTTP ${res.status}`);
+
+      return {
+        success: true,
+        snapshot,
+        message: `Cloud Snapshot "${label}" saved safely in Firebase!`
+      };
+    } catch (err: any) {
+      console.error('Failed to create cloud snapshot:', err);
+      return {
+        success: false,
+        message: err?.message || 'Failed to save cloud snapshot.'
+      };
+    }
+  }
+
+  /**
+   * Fetches all Cloud Snapshots from Firebase
+   */
+  public static async fetchCloudSnapshots(): Promise<CloudSnapshot[]> {
+    try {
+      const { endpoint } = await this.getSnapshotsEndpoint();
+      const res = await fetch(`${endpoint}.json`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return [];
+
+      const snapshots: CloudSnapshot[] = Object.values(data);
+      return snapshots
+        .filter(s => s && s.id && s.createdAt)
+        .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    } catch (err) {
+      console.error('Failed to fetch cloud snapshots:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Restores a Cloud Snapshot into Local Database and active Firebase Cloud
+   */
+  public static async restoreCloudSnapshot(snapshot: CloudSnapshot): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!snapshot || !snapshot.data) {
+        throw new Error('Invalid snapshot payload');
+      }
+
+      const { customers = [], loans = [], repaymentSchedules = [], payments = [], settings = [] } = snapshot.data;
+
+      // 1. Overwrite Local Dexie Database with Snapshot data
+      await db.transaction('rw', [
+        db.customers,
+        db.loans,
+        db.repaymentSchedules,
+        db.payments,
+        db.notifications,
+        db.auditLogs,
+        db.settings
+      ], async () => {
+        await db.customers.clear();
+        await db.loans.clear();
+        await db.repaymentSchedules.clear();
+        await db.payments.clear();
+        await db.notifications.clear();
+        await db.auditLogs.clear();
+
+        if (customers.length) await db.customers.bulkAdd(customers);
+        if (loans.length) await db.loans.bulkAdd(loans);
+        if (repaymentSchedules.length) await db.repaymentSchedules.bulkAdd(repaymentSchedules);
+        if (payments.length) await db.payments.bulkAdd(payments);
+        if (settings.length) {
+          await db.settings.clear();
+          await db.settings.bulkAdd(settings);
+        }
+      });
+
+      // 2. Force Push Restored State to Active Firebase Endpoint
+      await this.forcePushLocalToCloud();
+
+      return {
+        success: true,
+        message: `Successfully restored "${snapshot.label}" (${customers.length} clients, ${loans.length} loans)`
+      };
+    } catch (err: any) {
+      console.error('Failed to restore snapshot:', err);
+      return {
+        success: false,
+        message: err?.message || 'Failed to restore snapshot.'
+      };
+    }
+  }
+
+  /**
+   * Deletes a Cloud Snapshot from Firebase
+   */
+  public static async deleteCloudSnapshot(snapshotId: string): Promise<boolean> {
+    try {
+      const { endpoint } = await this.getSnapshotsEndpoint();
+      const res = await fetch(`${endpoint}/${snapshotId}.json`, {
+        method: 'DELETE'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Failed to delete snapshot:', err);
+      return false;
+    }
   }
 
   /**
