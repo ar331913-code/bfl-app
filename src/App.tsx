@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { seedInitialData } from './db/seedData';
+import { seedInitialData, initDefaultSettings } from './db/seedData';
 import { checkAndUpdateLoanStatusesAndAlerts } from './services/notificationService';
 import { Customer, Loan } from './types';
 import { CloudSyncService } from './services/cloudSyncService';
@@ -65,24 +65,31 @@ const MainApp: React.FC = () => {
   const notifications = useLiveQuery(() => db.notifications.toArray(), []) || [];
   const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) || [];
 
-  // Seed on startup, sync with cloud & run status checks
+  // Fast startup: render immediately from local storage, sync with cloud in background
   useEffect(() => {
     async function init() {
       try {
-        // 1. FIRST Synchronize with Cloud across all devices
-        await CloudSyncService.syncWithCloud();
+        const hasExistingSettings = (await db.settings.count()) > 0;
+        await initDefaultSettings();
 
-        // 2. If still 0 customers after cloud sync, seed clean demo data
-        const count = await db.customers.count();
-        if (count === 0) {
-          await seedInitialData(true);
-          await CloudSyncService.syncWithCloud(true);
+        // Only seed demo data on the absolute first launch of a completely fresh install
+        if (!hasExistingSettings) {
+          const custCount = await db.customers.count();
+          if (custCount === 0) {
+            await seedInitialData(false);
+          }
         }
-        await checkAndUpdateLoanStatusesAndAlerts();
+
+        // Render UI instantly without waiting on network!
+        setIsInitializing(false);
+
+        // Run cloud sync & status alerts asynchronously in background
+        CloudSyncService.syncWithCloud()
+          .then(() => checkAndUpdateLoanStatusesAndAlerts())
+          .catch(e => console.warn('Background sync on startup:', e));
       } catch (e) {
         console.warn('Initialization error:', e);
-      } finally {
-        setTimeout(() => setIsInitializing(false), 500);
+        setIsInitializing(false);
       }
     }
     init();

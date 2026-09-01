@@ -97,10 +97,14 @@ export const Settings: React.FC<SettingsProps> = ({
   // General message
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  // Double-confirmation reset modal state
+  // Double-confirmation reset & clear modal states
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetConfirmInput, setResetConfirmInput] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [clearConfirmInput, setClearConfirmInput] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -776,46 +780,122 @@ export const Settings: React.FC<SettingsProps> = ({
           className="hidden"
         />
 
-        <div className="pt-2 border-t border-slate-100">
+        <div className="pt-2 border-t border-slate-100 space-y-2">
+          {/* Button 1: Clear All Data (0 Records / Fresh Slate) */}
+          <button
+            type="button"
+            onClick={() => {
+              setClearConfirmInput('');
+              setIsClearModalOpen(true);
+            }}
+            className="w-full py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-rose-50 hover:border-rose-300 text-slate-700 hover:text-rose-700 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All Data (0 Clients / Fresh Slate)</span>
+          </button>
+
+          {/* Button 2: Reset with Demo Samples */}
           <button
             type="button"
             onClick={() => {
               setResetConfirmInput('');
               setIsResetModalOpen(true);
             }}
-            className="w-full py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95"
+            className="w-full py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Reset & Reseed Portfolio</span>
+            <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+            <span>Reset with Demo Ghanaian Sample Data</span>
           </button>
         </div>
       </div>
 
-      {/* DOUBLE-CONFIRMATION RESET MODAL */}
-      {isResetModalOpen && (
+      {/* MODAL 1: DOUBLE-CONFIRMATION CLEAR ALL DATA (0 RECORDS) */}
+      {isClearModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
           <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-rose-200 space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
+              <Trash2 className="w-6 h-6" />
             </div>
 
             <div className="text-center">
-              <h3 className="text-sm font-black text-slate-950">Confirm Database Reset</h3>
+              <h3 className="text-sm font-black text-slate-950">Clear Entire Portfolio (0 Clients)</h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                This will purge all custom borrowers, loans, and payments and restore fresh sample data. This action cannot be undone.
+                This will completely wipe all clients, loans, schedules, and payment receipts from <strong>both this phone and Firebase Cloud</strong>, giving you a 100% clean empty ledger.
               </p>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-700 block">
-                Type <span className="font-mono text-rose-700 font-black">RESET</span> to confirm:
+                Type <span className="font-mono text-rose-700 font-black">CLEAR</span> to confirm:
+              </label>
+              <input
+                type="text"
+                placeholder="Type CLEAR here"
+                value={clearConfirmInput}
+                onChange={(e) => setClearConfirmInput(e.target.value)}
+                className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-rose-200 focus:border-rose-600 focus:outline-none text-center uppercase tracking-widest"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsClearModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={clearConfirmInput.trim().toUpperCase() !== 'CLEAR' || isClearing}
+                onClick={async () => {
+                  setIsClearing(true);
+                  try {
+                    await CloudSyncService.clearAllPortfolioData();
+                    onDataReset();
+                    setIsClearModalOpen(false);
+                  } catch (e) {
+                    console.error('Clear error:', e);
+                  } finally {
+                    setIsClearing(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isClearing ? 'Clearing...' : 'Clear All (0)'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: DOUBLE-CONFIRMATION RESET DEMO DATA */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 border border-sky-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-sky-100 text-blue-600 flex items-center justify-center mx-auto">
+              <RefreshCw className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-sm font-black text-slate-950">Reset with Sample Demo Clients</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                This will overwrite the database on this phone and Firebase Cloud with fresh Ghanaian demo borrowers (Kofi Boateng, Akosua Darko, etc.).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-700 block">
+                Type <span className="font-mono text-blue-700 font-black">RESET</span> to confirm:
               </label>
               <input
                 type="text"
                 placeholder="Type RESET here"
                 value={resetConfirmInput}
                 onChange={(e) => setResetConfirmInput(e.target.value)}
-                className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-rose-200 focus:border-rose-600 focus:outline-none text-center uppercase tracking-widest"
+                className="w-full text-xs font-mono font-bold px-3 py-2.5 rounded-xl border-2 border-sky-200 focus:border-blue-600 focus:outline-none text-center uppercase tracking-widest"
               />
             </div>
 
@@ -834,8 +914,7 @@ export const Settings: React.FC<SettingsProps> = ({
                 onClick={async () => {
                   setIsResetting(true);
                   try {
-                    await seedInitialData(true);
-                    await CloudSyncService.syncWithCloud(true);
+                    await CloudSyncService.reseedPortfolioData();
                     onDataReset();
                     setIsResetModalOpen(false);
                   } catch (e) {
@@ -844,10 +923,10 @@ export const Settings: React.FC<SettingsProps> = ({
                     setIsResetting(false);
                   }
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20"
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isResetting ? 'Resetting...' : 'Purge & Reseed'}</span>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{isResetting ? 'Resetting...' : 'Reseed Demo'}</span>
               </button>
             </div>
           </div>

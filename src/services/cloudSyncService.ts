@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { Customer, Loan, RepaymentSchedule, Payment, SystemSettings } from '../types';
 import { reconcileAllLoanBalances } from './notificationService';
+import { seedInitialData } from '../db/seedData';
 
 export interface SyncResult {
   success: boolean;
@@ -256,6 +257,59 @@ export class CloudSyncService {
     } finally {
       this.isSyncing = false;
     }
+  }
+
+  /**
+   * Force Overwrite Cloud Portfolio with current Local DB (e.g. on Purge or Reseed)
+   * This bypasses the pull-merge phase and directly writes local state to Firebase.
+   */
+  public static async forcePushLocalToCloud(): Promise<boolean> {
+    try {
+      const { orgId, endpoint } = await this.getCloudConfig();
+      const unifiedCustomers = await db.customers.toArray();
+      const unifiedLoans = await db.loans.toArray();
+      const unifiedSchedules = await db.repaymentSchedules.toArray();
+      const unifiedPayments = await db.payments.toArray();
+
+      const cloudPayload = {
+        orgId,
+        lastSyncedAt: new Date().toISOString(),
+        customers: unifiedCustomers,
+        loans: unifiedLoans,
+        repaymentSchedules: unifiedSchedules,
+        payments: unifiedPayments
+      };
+
+      const pushRes = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cloudPayload)
+      });
+
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.lastSyncTimestamp = now;
+      this.notify('synced', now);
+      return pushRes.ok;
+    } catch (err) {
+      console.error('Failed to force push to cloud:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Clear all portfolio data from both Local DB and Firebase Cloud
+   */
+  public static async clearAllPortfolioData(): Promise<void> {
+    await db.resetAllData();
+    await this.forcePushLocalToCloud();
+  }
+
+  /**
+   * Reseed portfolio with fresh demo data both locally and in Firebase Cloud
+   */
+  public static async reseedPortfolioData(): Promise<void> {
+    await seedInitialData(true);
+    await this.forcePushLocalToCloud();
   }
 
   /**
