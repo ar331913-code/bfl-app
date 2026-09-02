@@ -22,12 +22,21 @@
     <div id="root" class="h-full"></div>
     <script type="module" src="./src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then((reg) => console.log('B-F-L Service Worker registered:', reg.scope))
-            .catch((err) => console.error('Service Worker registration failed:', err));
-        });
+      if ('serviceWorker' in navigator) {
+        if (location.protocol.startsWith('http')) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+              .then((reg) => console.log('B-F-L Service Worker registered:', reg.scope))
+              .catch((err) => console.error('Service Worker registration failed:', err));
+          });
+        } else {
+          // Unregister any leftover service workers in desktop environment
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const reg of registrations) {
+              reg.unregister();
+            }
+          }).catch((err) => console.warn('Service worker unregister:', err));
+        }
       }
     </script>
   </body>

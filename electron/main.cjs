@@ -1,9 +1,10 @@
-const { app, BrowserWindow, shell, Menu } = require('electron');
+const { app, BrowserWindow, shell, session, globalShortcut } = require('electron');
 const path = require('path');
 
 // Allow file:// access for Vite packaged assets and IndexedDB storage
 app.commandLine.appendSwitch('disable-site-isolation-trials');
 app.commandLine.appendSwitch('allow-file-access-from-files');
+app.commandLine.appendSwitch('ignore-certificate-errors');
 
 let mainWindow = null;
 
@@ -43,6 +44,13 @@ function createWindow() {
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    // Auto retry once if initial load fails
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        mainWindow.loadFile(indexPath);
+      }
+    }, 500);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -58,7 +66,18 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Purge any corrupted service workers or legacy cache storage from earlier broken installs
+  try {
+    if (session.defaultSession) {
+      await session.defaultSession.clearStorageData({
+        storages: ['serviceworkers', 'cachestorage']
+      });
+    }
+  } catch (e) {
+    console.warn('Session clearStorageData notice:', e);
+  }
+
   createWindow();
 
   app.on('activate', () => {
