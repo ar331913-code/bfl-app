@@ -131,7 +131,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-fade-in text-slate-800">
-      <div className="w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200/80">
+      <div className="w-full max-w-xl md:max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200/80">
         
         {/* Profile Header Banner */}
         <div className="bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 text-white p-4 sm:p-5 relative border-b border-sky-500/20">

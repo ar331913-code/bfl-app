@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
+import { Customer, Loan, Payment, RepaymentSchedule } from './types';
 import { seedInitialData, initDefaultSettings } from './db/seedData';
-import { checkAndUpdateLoanStatusesAndAlerts } from './services/notificationService';
-import { Customer, Loan } from './types';
 import { CloudSyncService } from './services/cloudSyncService';
+import { checkAndUpdateLoanStatusesAndAlerts } from './services/notificationService';
 
 // Layout
+import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { BottomNav } from './components/layout/BottomNav';
 import { WelcomeLanding } from './components/auth/WelcomeLanding';
@@ -34,7 +35,6 @@ import { Settings } from './pages/Settings';
 const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [navHistory, setNavHistory] = useState<string[]>(['dashboard']);
-  const [isMobileFrame, setIsMobileFrame] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
@@ -107,8 +107,17 @@ const MainApp: React.FC = () => {
       }
     };
 
+    // Keyboard shortcut (Ctrl+K or Cmd+K) to open global search
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+    };
+
     window.addEventListener('online', handleOnlineOrFocus);
     window.addEventListener('focus', handleOnlineOrFocus);
+    window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         handleOnlineOrFocus();
@@ -119,6 +128,7 @@ const MainApp: React.FC = () => {
       clearInterval(syncInterval);
       window.removeEventListener('online', handleOnlineOrFocus);
       window.removeEventListener('focus', handleOnlineOrFocus);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
@@ -197,31 +207,44 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-slate-100 flex justify-center selection:bg-brand-500 selection:text-white ${
-      isMobileFrame ? 'p-4 sm:p-8 items-center bg-slate-900' : ''
-    }`}>
+    <div className="min-h-screen bg-slate-100 flex selection:bg-brand-500 selection:text-white">
       
-      {/* Mobile Frame Container */}
-      <div className={`w-full bg-slate-50 flex flex-col relative transition-all duration-300 ${
-        isMobileFrame 
-          ? 'max-w-[420px] h-[860px] rounded-[48px] shadow-2xl border-[10px] border-slate-800 overflow-hidden ring-1 ring-slate-700' 
-          : 'max-w-md min-h-screen shadow-mobile'
-      }`}>
+      {/* 1. Desktop Left Sidebar (Appears on Laptop / Computer Screens >= lg) */}
+      <Sidebar
+        activeTab={activeTab}
+        onNavigate={handleNavigate}
+        unreadNotifications={notifications}
+        overdueCount={overdueCount}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenNewCustomer={() => {
+          setEditingCustomer(undefined);
+          setIsAddCustomerOpen(true);
+        }}
+        onOpenNewLoan={() => handleOpenNewLoan()}
+        onOpenRecordPayment={() => handleOpenRecordPayment()}
+      />
+
+      {/* 2. Main Content Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-slate-50/50">
         
-        {/* Top Header with Back Arrow */}
+        {/* Top Header (Responsive for both Mobile & Desktop) */}
         <Header
           activeTab={activeTab}
           onNavigate={handleNavigate}
           canGoBack={canGoBack}
           onGoBack={handleGoBack}
           unreadNotifications={notifications}
-          isMobileFrame={isMobileFrame}
-          onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
           onOpenSearch={() => setIsSearchOpen(true)}
+          onOpenNewCustomer={() => {
+            setEditingCustomer(undefined);
+            setIsAddCustomerOpen(true);
+          }}
+          onOpenNewLoan={() => handleOpenNewLoan()}
+          onOpenRecordPayment={() => handleOpenRecordPayment()}
         />
 
         {/* Dynamic Tab Body Content */}
-        <main className="flex-1 px-4 pt-4 overflow-y-auto">
+        <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <Dashboard
               customers={customers}
@@ -287,8 +310,8 @@ const MainApp: React.FC = () => {
           )}
 
           {activeTab === 'more' && (
-            <div className="space-y-4 pb-24 animate-fade-in">
-              <div className="flex gap-2 p-1 bg-slate-200/80 rounded-2xl">
+            <div className="space-y-4 pb-24 lg:pb-8 animate-fade-in">
+              <div className="flex gap-2 p-1 bg-slate-200/80 rounded-2xl max-w-md">
                 <button
                   onClick={() => setActiveTab('reports')}
                   className="flex-1 py-2.5 rounded-xl text-xs font-black bg-white text-navy-950 shadow-sm border border-slate-200"
@@ -330,126 +353,130 @@ const MainApp: React.FC = () => {
           )}
         </main>
 
-        {/* Bottom Navigation */}
+        {/* 3. Mobile Bottom Navigation (Visible ONLY on Phone / Tablet < lg) */}
         <BottomNav
           activeTab={activeTab === 'reports' || activeTab === 'settings' ? 'more' : activeTab}
           onNavigate={handleNavigate}
           overdueCount={overdueCount}
         />
 
-        {/* Global Fast Search Modal */}
-        <GlobalSearchModal
-          isOpen={isSearchOpen}
-          onClose={() => setIsSearchOpen(false)}
-          customers={customers}
-          loans={loans}
-          onSelectCustomer={handleSelectCustomer}
-          onSelectLoan={handleSelectLoan}
-        />
-
-        {/* Add / Edit Customer Modal */}
-        <AddCustomerModal
-          isOpen={isAddCustomerOpen}
-          onClose={() => {
-            setIsAddCustomerOpen(false);
-            setEditingCustomer(undefined);
-          }}
-          existingCustomer={editingCustomer}
-          onCustomerCreated={(c) => {
-            handleSelectCustomer(c);
-          }}
-        />
-
-        {/* Customer Profile Dossier Modal */}
-        <CustomerProfileModal
-          customer={selectedProfileCustomer}
-          loans={loans}
-          schedules={schedules}
-          payments={payments}
-          isOpen={isProfileOpen}
-          onClose={() => {
-            setIsProfileOpen(false);
-            setSelectedProfileCustomer(null);
-          }}
-          onOpenNewLoan={(cId) => {
-            setIsProfileOpen(false);
-            handleOpenNewLoan(cId);
-          }}
-          onOpenRecordPayment={(lId) => {
-            setIsProfileOpen(false);
-            handleOpenRecordPayment(lId);
-          }}
-          onEditCustomer={(c) => {
-            setIsProfileOpen(false);
-            setEditingCustomer(c);
-            setIsAddCustomerOpen(true);
-          }}
-          onSelectLoan={(l) => {
-            setIsProfileOpen(false);
-            handleSelectLoan(l);
-          }}
-        />
-
-        {/* Create Loan Modal */}
-        <CreateLoanModal
-          isOpen={isCreateLoanOpen}
-          onClose={() => {
-            setIsCreateLoanOpen(false);
-            setLoanTargetCustomerId(undefined);
-          }}
-          customers={customers}
-          preselectedCustomerId={loanTargetCustomerId}
-          onLoanCreated={(newLoan) => {
-            handleSelectLoan(newLoan);
-          }}
-        />
-
-        {/* Loan Details & Schedule Modal */}
-        <LoanDetailModal
-          loan={selectedDetailLoan}
-          customer={customers.find(c => c.customerId === selectedDetailLoan?.customerId)}
-          schedules={schedules}
-          payments={payments}
-          isOpen={isLoanDetailOpen}
-          onClose={() => {
-            setIsLoanDetailOpen(false);
-            setSelectedDetailLoan(null);
-          }}
-          onOpenRecordPayment={(lId, sId) => {
-            setIsLoanDetailOpen(false);
-            handleOpenRecordPayment(lId, sId);
-          }}
-        />
-
-        {/* Record Payment Modal */}
-        <RecordPaymentModal
-          isOpen={isRecordPaymentOpen}
-          onClose={() => {
-            setIsRecordPaymentOpen(false);
-            setPaymentLoanId(undefined);
-            setPaymentInstallmentId(undefined);
-          }}
-          loans={loans}
-          customers={customers}
-          schedules={schedules}
-          preselectedLoanId={paymentLoanId}
-          preselectedInstallmentId={paymentInstallmentId}
-          onPaymentSuccess={() => {
-            // Live queries automatically refresh state
-          }}
-        />
-
       </div>
+
+      {/* Global Fast Search Modal */}
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        customers={customers}
+        loans={loans}
+        onSelectCustomer={handleSelectCustomer}
+        onSelectLoan={handleSelectLoan}
+      />
+
+      {/* Add / Edit Customer Modal */}
+      <AddCustomerModal
+        isOpen={isAddCustomerOpen}
+        onClose={() => {
+          setIsAddCustomerOpen(false);
+          setEditingCustomer(undefined);
+        }}
+        existingCustomer={editingCustomer}
+        onCustomerCreated={(c) => {
+          handleSelectCustomer(c);
+        }}
+      />
+
+      {/* Customer Profile Dossier Modal */}
+      <CustomerProfileModal
+        customer={selectedProfileCustomer}
+        loans={loans}
+        schedules={schedules}
+        payments={payments}
+        isOpen={isProfileOpen}
+        onClose={() => {
+          setIsProfileOpen(false);
+          setSelectedProfileCustomer(null);
+        }}
+        onSelectLoan={(loan) => {
+          setIsProfileOpen(false);
+          handleSelectLoan(loan);
+        }}
+        onOpenNewLoan={(cId) => {
+          setIsProfileOpen(false);
+          handleOpenNewLoan(cId);
+        }}
+        onOpenRecordPayment={(lId) => {
+          setIsProfileOpen(false);
+          handleOpenRecordPayment(lId);
+        }}
+        onEditCustomer={(c) => {
+          setIsProfileOpen(false);
+          setEditingCustomer(c);
+          setIsAddCustomerOpen(true);
+        }}
+      />
+
+      {/* Create / Disburse Loan Modal */}
+      <CreateLoanModal
+        isOpen={isCreateLoanOpen}
+        onClose={() => {
+          setIsCreateLoanOpen(false);
+          setLoanTargetCustomerId(undefined);
+        }}
+        customers={customers}
+        preselectedCustomerId={loanTargetCustomerId}
+        onLoanCreated={(newLoan) => {
+          handleSelectLoan(newLoan);
+        }}
+      />
+
+      {/* Loan Details & Statement Modal */}
+      <LoanDetailModal
+        loan={selectedDetailLoan}
+        customer={customers.find(c => c.customerId === selectedDetailLoan?.customerId)}
+        schedules={schedules}
+        payments={payments}
+        isOpen={isLoanDetailOpen}
+        onClose={() => {
+          setIsLoanDetailOpen(false);
+          setSelectedDetailLoan(null);
+        }}
+        onOpenRecordPayment={(loanId, installmentId) => {
+          setIsLoanDetailOpen(false);
+          handleOpenRecordPayment(loanId, installmentId);
+        }}
+      />
+
+      {/* Record Repayment Modal */}
+      <RecordPaymentModal
+        isOpen={isRecordPaymentOpen}
+        onClose={() => {
+          setIsRecordPaymentOpen(false);
+          setPaymentLoanId(undefined);
+          setPaymentInstallmentId(undefined);
+        }}
+        loans={loans}
+        customers={customers}
+        schedules={schedules}
+        preselectedLoanId={paymentLoanId}
+        preselectedInstallmentId={paymentInstallmentId}
+        onPaymentSuccess={(payment: Payment) => {
+          const targetLoan = loans.find(l => l.loanId === payment.loanId);
+          if (targetLoan) {
+            handleSelectLoan(targetLoan);
+          }
+        }}
+      />
+
     </div>
   );
 };
 
-export function App() {
+export const App: React.FC = () => {
   return (
     <AuthProvider>
       <MainApp />
     </AuthProvider>
   );
-}
+};
 
 export default App;

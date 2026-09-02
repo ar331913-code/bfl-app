@@ -4,7 +4,6 @@ import {
   Receipt, 
   Search, 
   Plus, 
-  Smartphone, 
   DollarSign, 
   Building2, 
   Download, 
@@ -14,7 +13,8 @@ import {
   TrendingUp,
   Wallet,
   CheckCircle2,
-  Calendar
+  Calendar,
+  CreditCard
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatGhanaPhone } from '../utils/formatters';
 import { generatePaymentReceiptPDF } from '../services/exportService';
@@ -94,173 +94,217 @@ export const Payments: React.FC<PaymentsProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-24 animate-fade-in text-slate-800">
+    <div className="space-y-4 pb-24 lg:pb-8 animate-fade-in text-slate-800">
       
-      {/* 1. Header with Main Metrics Card */}
-      <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl border border-sky-500/30 relative overflow-hidden">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-sky-500/20 border border-sky-400/30 text-sky-300">
-              <Receipt className="w-4 h-4" />
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-3xl border-2 border-slate-200 shadow-sm">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-xl font-black text-slate-950 truncate">Collections & Payment History</h1>
+          <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
+            {payments.length} total payments recorded • {formatCurrency(totalCollected)} cumulative collections
+          </p>
+        </div>
+
+        <button
+          onClick={onOpenRecordPayment}
+          type="button"
+          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md flex items-center gap-1.5 transition shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>+ Record Repayment</span>
+        </button>
+      </div>
+
+      {/* 2. Top Summary KPI Cards (3-Column on desktop) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        
+        {/* Total Collected Card */}
+        <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between text-sky-300 text-xs font-bold uppercase tracking-wider mb-2">
+            <span>Total Collected</span>
+            <Receipt className="w-4 h-4 text-sky-400" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            {formatCurrency(totalCollected)}
+          </div>
+          <div className="text-[11px] text-sky-300 font-medium mt-1">
+            {payments.length} successful receipts issued
+          </div>
+        </div>
+
+        {/* Cash Hand Card */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-emerald-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <span>Cash Hand</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+              <DollarSign className="w-4 h-4" />
             </div>
-            <span className="text-xs font-black text-sky-300 uppercase tracking-wider">Collections Ledger</span>
           </div>
-
-          <button
-            onClick={onOpenRecordPayment}
-            type="button"
-            className="px-3.5 py-1.5 bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-600 hover:from-sky-500 hover:to-blue-600 active:scale-95 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition shrink-0"
-          >
-            <Plus className="w-4 h-4" /> Record Pay
-          </button>
-        </div>
-
-        <div className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-3 drop-shadow-sm">
-          {formatCurrency(totalCollected)}
-          <span className="text-xs text-sky-300 font-bold block mt-0.5">Total Repayments Collected</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/15 text-xs">
-          <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
-            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Cash Hand</div>
-            <div className="font-black text-emerald-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(cashCollected)}</div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight">
+            {formatCurrency(cashCollected)}
           </div>
-          <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
-            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Bank Transfers</div>
-            <div className="font-black text-sky-300 text-xs sm:text-sm mt-0.5 truncate">{formatCurrency(bankCollected)}</div>
-          </div>
-          <div className="bg-white/5 p-2 sm:p-2.5 rounded-2xl border border-white/10 min-w-0">
-            <div className="text-slate-400 text-[9px] sm:text-[10px] font-bold uppercase truncate">Receipts</div>
-            <div className="font-black text-white text-xs sm:text-sm mt-0.5 truncate">{payments.length} Records</div>
+          <div className="text-[11px] text-emerald-700 font-medium mt-1">
+            Physical cash collections
           </div>
         </div>
+
+        {/* Bank Transfer Card */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-indigo-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between text-indigo-800 text-xs font-bold uppercase tracking-wider mb-2">
+            <span>Bank Transfer</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight">
+            {formatCurrency(bankCollected)}
+          </div>
+          <div className="text-[11px] text-indigo-700 font-medium mt-1">
+            Direct bank deposits
+          </div>
+        </div>
+
       </div>
 
-      {/* 2. Search Input */}
-      <div className="relative">
-        <Search className="w-4 h-4 text-sky-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Search receipt no, loan ID, reference, customer..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full text-xs font-semibold pl-10 pr-4 py-2.5 bg-white rounded-2xl border-2 border-sky-100 shadow-xs focus:border-sky-500 focus:outline-none placeholder:text-slate-400"
-        />
+      {/* 3. Search and Payment Channel Filters */}
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        
+        {/* Search Input */}
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-sky-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search by customer name, Loan ID, Payment ID, or Ref..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full text-xs font-semibold pl-10 pr-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white shadow-xs"
+          />
+        </div>
+
+        {/* Method Filter Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black shrink-0">
+          {[
+            { id: 'all', label: `All (${payments.length})` },
+            { id: 'cash', label: `Cash Hand (${payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).length})` },
+            { id: 'bank', label: `Bank (${payments.filter(p => p.paymentMethod === 'bank').length})` },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setMethodFilter(tab.id)}
+              className={`px-3.5 py-2.5 rounded-2xl transition shrink-0 border-2 ${
+                methodFilter === tab.id
+                  ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
       </div>
 
-      {/* 3. Method Filter Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black">
-        {[
-          { id: 'all', label: 'All Receipts', count: payments.length },
-          { id: 'cash', label: 'Cash Hand', count: payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).length },
-          { id: 'bank', label: 'Bank Transfer', count: payments.filter(p => p.paymentMethod === 'bank').length },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setMethodFilter(tab.id)}
-            className={`px-3 py-1.5 rounded-xl transition shrink-0 flex items-center gap-1.5 border ${
-              methodFilter === tab.id
-                ? 'bg-blue-900 text-white border-blue-900 shadow-xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span>{tab.label}</span>
-            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-              methodFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-            }`}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* 4. Payments List */}
+      {/* 4. Payment Records Responsive Grid */}
       {filteredPayments.length === 0 ? (
-        <div className="bg-white rounded-3xl p-8 border-2 border-dashed border-slate-200 text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-            <Receipt className="w-6 h-6" />
+        <div className="p-10 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+            <Receipt className="w-7 h-7" />
           </div>
-          <div className="text-sm font-black text-slate-900">No payment receipts found</div>
-          <div className="text-xs text-slate-400 max-w-xs mx-auto">
-            {searchTerm ? `No receipts match "${searchTerm}"` : 'No payments under this category.'}
-          </div>
+          <div className="text-base font-black text-slate-950">No payments found</div>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {searchTerm ? `No results match "${searchTerm}"` : 'No repayment transactions recorded for this filter.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredPayments.map(p => {
-            const customer = customerMap.get(p.customerId);
-            const loan = loanMap.get(p.loanId);
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredPayments.map(payment => {
+            const customer = customerMap.get(payment.customerId);
+            const loan = loanMap.get(payment.loanId);
 
             return (
               <div
-                key={p.paymentId}
-                className="bg-white rounded-2xl p-4 border-2 border-sky-100/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition hover:border-sky-400"
+                key={payment.paymentId}
+                className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-slate-200 shadow-xs hover:shadow-md transition flex flex-col justify-between gap-3.5 group overflow-hidden"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 border shadow-xs ${
-                    p.paymentMethod === 'momo' 
-                      ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                      : p.paymentMethod === 'cash'
-                      ? 'bg-sky-50 text-blue-700 border-sky-200'
-                      : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                {/* Top Row: Amount & Channel Badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-lg sm:text-xl font-black text-emerald-700">
+                      +{formatCurrency(payment.amountPaid)}
+                    </div>
+                    <div className="text-[10px] font-mono font-bold text-slate-400 mt-0.5">
+                      {payment.paymentId} • {formatDate(payment.paymentDate)}
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl uppercase shrink-0 shadow-xs flex items-center gap-1 ${
+                    payment.paymentMethod === 'bank'
+                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                   }`}>
-                    {p.paymentMethod === 'momo' ? <Smartphone className="w-5 h-5" /> :
-                     p.paymentMethod === 'bank' ? <Building2 className="w-5 h-5" /> :
-                     <DollarSign className="w-5 h-5" />}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-950 truncate">
-                        {customer?.fullName || p.customerId}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">#{p.paymentId}</span>
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 mt-0.5 font-medium flex items-center gap-1.5 flex-wrap">
-                      <span>Loan: <strong className="text-blue-800">{p.loanId}</strong></span>
-                      <span>•</span>
-                      <span>{formatDate(p.paymentDate)}</span>
-                      {p.referenceNumber && (
-                        <>
-                          <span>•</span>
-                          <span className="font-mono text-blue-700">Ref: {p.referenceNumber}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                    {payment.paymentMethod === 'bank' ? <Building2 className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
+                    <span>{payment.paymentMethod || 'cash'}</span>
+                  </span>
                 </div>
 
-                {/* Right side: Amount and Action buttons */}
-                <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                  <div className="text-left sm:text-right">
-                    <div className="text-sm sm:text-base font-black text-blue-700">
-                      +{formatCurrency(p.amountPaid)}
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {p.paymentMethod}
+                {/* Middle Info: Customer & Loan Reference */}
+                <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-100 text-xs">
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Client Name:</span>
+                    <span className="font-black text-slate-900 truncate max-w-[160px]">
+                      {customer?.fullName || payment.customerId}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleShareWhatsAppReceipt(p)}
-                      className="p-2 bg-sky-50 hover:bg-sky-100 text-blue-700 border border-sky-200 rounded-xl transition shadow-xs active:scale-95"
-                      title="Share Receipt on WhatsApp"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDownloadReceipt(p)}
-                      className="px-2.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black flex items-center gap-1 transition shadow-xs active:scale-95"
-                      title="Download PDF Receipt"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>PDF</span>
-                    </button>
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Loan Account:</span>
+                    <span className="font-mono font-bold text-blue-700">
+                      {payment.loanId}
+                    </span>
                   </div>
+
+                  {payment.referenceNumber && (
+                    <div className="flex items-center justify-between text-slate-700">
+                      <span className="text-[10px] font-bold uppercase text-slate-400">Reference:</span>
+                      <span className="font-mono text-slate-600 truncate max-w-[160px]">
+                        {payment.referenceNumber}
+                      </span>
+                    </div>
+                  )}
+
+                  {loan && (
+                    <div className="flex items-center justify-between text-slate-700 pt-1 border-t border-slate-200/60">
+                      <span className="text-[10px] font-bold uppercase text-slate-400">Remaining Debt:</span>
+                      <span className={`font-black ${loan.outstandingBalance <= 0.01 ? 'text-emerald-700' : 'text-slate-900'}`}>
+                        {loan.outstandingBalance <= 0.01 ? 'PAID OFF 🎉' : formatCurrency(loan.outstandingBalance)}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {/* Bottom Row: Actions (Download PDF Receipt, WhatsApp Share) */}
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadReceipt(payment)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                    title="Download Official PDF Receipt"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-700" />
+                    <span>PDF Receipt</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleShareWhatsAppReceipt(payment)}
+                    className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs"
+                    title="Share Receipt on WhatsApp"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </button>
+                </div>
+
               </div>
             );
           })}

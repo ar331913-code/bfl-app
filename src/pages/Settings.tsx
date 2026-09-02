@@ -321,9 +321,11 @@ export const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* 1. Multi-Device Google Firebase Cloud Synchronization */}
-      <div className="p-5 rounded-3xl bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950 text-white shadow-xl border border-sky-500/30 space-y-3.5 relative overflow-hidden">
-        <div className="flex items-center justify-between">
+      {/* Settings Grid (Responsive 2-column on desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* 1. Multi-Device Google Firebase Cloud Synchronization */}
+        <div className="lg:col-span-2 p-5 rounded-3xl bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950 text-white shadow-xl border border-sky-500/30 space-y-3.5 relative overflow-hidden">
+          <div className="flex items-center justify-between">
           <h3 className="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
             <Cloud className="w-4 h-4 text-sky-400" />
             Google Firebase Cloud Database
@@ -679,7 +681,7 @@ export const Settings: React.FC<SettingsProps> = ({
       </form>
 
       {/* 5. Cloud Snapshot & Backup Vault (Firebase Cloud) */}
-      <div className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-4">
+      <div className="lg:col-span-2 p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-sky-100 text-blue-600 flex items-center justify-center">
@@ -918,6 +920,8 @@ export const Settings: React.FC<SettingsProps> = ({
             <span>Reset with Demo Ghanaian Sample Clients</span>
           </button>
         </div>
+      </div>
+
       </div>
 
       {/* MODAL 1: DOUBLE-CONFIRMATION RESTORE SNAPSHOT */}

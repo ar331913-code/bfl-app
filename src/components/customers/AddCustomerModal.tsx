@@ -269,7 +269,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/85 backdrop-blur-sm p-3.5 overflow-y-auto">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200">
+      <div className="w-full max-w-xl md:max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200">
         
         {/* Header */}
         <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-800 text-white flex items-center justify-between border-b border-sky-400/30">
