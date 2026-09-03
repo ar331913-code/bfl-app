@@ -216,8 +216,12 @@ export interface SystemSettings {
   autoSmsOnPayment?: boolean;
   autoSmsOnOverdue?: boolean;
 
-  // MTN Mobile Money (MoMo) Gateway Configuration
+  // Mobile Money (MoMo) Disbursement Gateway (Paystack Ghana)
   momoProvider?: 'manual_ussd' | 'mtn_open_api' | 'hubtel' | 'paystack' | 'custom_webhook';
+  momoPaystackSecretKey?: string;
+  momoPaystackPublicKey?: string;
+  momoEnvironment?: 'test' | 'live';
+  momoDefaultNetwork?: 'MTN' | 'Telecel' | 'AT';
   momoApiUserId?: string;
   momoApiKey?: string;
   momoSubscriptionKey?: string;
@@ -230,6 +234,19 @@ export interface SystemSettings {
   cloudSyncOrgId?: string; // Organization / Tenant ID e.g. "BFL-GHANA-HQ"
   cloudSyncEndpoint?: string; // Optional custom cloud sync URL
   cloudLastSyncedAt?: string;
+}
+
+export interface MoMoDisbursementResult {
+  success: boolean;
+  reference?: string;
+  transferCode?: string;
+  message: string;
+  recipientName?: string;
+  phone?: string;
+  network?: 'MTN' | 'Telecel' | 'AT';
+  amount?: number;
+  timestamp: string;
+  simulated?: boolean;
 }
 
 export interface CustomerFinancialSummary {

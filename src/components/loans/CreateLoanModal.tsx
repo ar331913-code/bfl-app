@@ -22,13 +22,16 @@ import {
   Copy,
   Check,
   ExternalLink,
-  PhoneCall
+  PhoneCall,
+  Smartphone,
+  Send
 } from 'lucide-react';
 import { calculateLoan, generateRepaymentSchedulesForLoan } from '../../services/loanCalculator';
 import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard, isLoanOwing } from '../../utils/formatters';
 import { format, addWeeks } from 'date-fns';
 import { CloudSyncService } from '../../services/cloudSyncService';
 import { SMSService } from '../../services/smsService';
+import { MOMOService } from '../../services/momoService';
 import { useAuth } from '../../context/AuthContext';
 import confetti from 'canvas-confetti';
 
@@ -75,7 +78,10 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [notes, setNotes] = useState<string>('');
 
   // Disbursement State
-  const [disbursementMethod, setDisbursementMethod] = useState<'cash' | 'bank'>('cash');
+  const [disbursementMethod, setDisbursementMethod] = useState<'momo' | 'cash' | 'bank'>('momo');
+  const [momoRecipientPhone, setMomoRecipientPhone] = useState<string>('');
+  const [momoRecipientName, setMomoRecipientName] = useState<string>('');
+  const [momoNetwork, setMomoNetwork] = useState<'MTN' | 'Telecel' | 'AT'>('MTN');
   const [createdLoanRecord, setCreatedLoanRecord] = useState<Loan | null>(null);
 
   // Confirmation Step State
@@ -86,6 +92,16 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
 
   // Selected customer object
   const selectedCustomer = customers.find(c => c.customerId === selectedCustomerId);
+
+  // Auto-fill MoMo details when customer changes
+  useEffect(() => {
+    if (selectedCustomer) {
+      const phone = selectedCustomer.momoNumber || selectedCustomer.primaryPhone;
+      setMomoRecipientPhone(phone);
+      setMomoRecipientName(selectedCustomer.momoName || selectedCustomer.fullName);
+      setMomoNetwork(selectedCustomer.momoNetwork || MOMOService.detectNetwork(phone));
+    }
+  }, [selectedCustomerId, selectedCustomer]);
 
   // Load existing loans to verify no multiple active loans
   useEffect(() => {
@@ -187,6 +203,27 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       const loanId = await db.getNextLoanId();
       const now = new Date().toISOString();
 
+      let momoTxId: string | undefined = undefined;
+      let momoStatus: 'success' | 'pending' | 'failed' | 'manual' | undefined = undefined;
+
+      if (disbursementMethod === 'momo') {
+        const targetPhone = momoRecipientPhone || selectedCustomer.momoNumber || selectedCustomer.primaryPhone;
+        const targetName = momoRecipientName || selectedCustomer.momoName || selectedCustomer.fullName;
+        
+        const momoRes = await MOMOService.disburseLoan({
+          loanId,
+          customer: selectedCustomer,
+          amount: calculation.principalAmount,
+          recipientPhone: targetPhone,
+          recipientName: targetName,
+          network: momoNetwork,
+          settings
+        });
+
+        momoTxId = momoRes.transactionId;
+        momoStatus = momoRes.transferStatus;
+      }
+
       const newLoan: Loan = {
         loanId,
         customerId: selectedCustomer.customerId,
@@ -213,6 +250,12 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         status: 'active',
         notes: notes.trim() || undefined,
         disbursementMethod,
+        momoRecipientPhone: disbursementMethod === 'momo' ? (momoRecipientPhone || selectedCustomer.primaryPhone) : undefined,
+        momoRecipientName: disbursementMethod === 'momo' ? (momoRecipientName || selectedCustomer.fullName) : undefined,
+        momoNetwork: disbursementMethod === 'momo' ? momoNetwork : undefined,
+        momoTransactionId: momoTxId,
+        momoTransferStatus: momoStatus,
+        momoDisbursedAt: disbursementMethod === 'momo' ? now : undefined,
         createdAt: now,
         updatedAt: now
       };
@@ -228,7 +271,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         action: 'LOAN_ISSUED',
         entityType: 'loan',
         entityId: loanId,
-        details: `Disbursed loan ${loanId} of GH₵${calculation.principalAmount.toFixed(2)} in ${disbursementMethod.toUpperCase()} to ${selectedCustomer.fullName} (${selectedCustomer.customerId})`,
+        details: `Disbursed loan ${loanId} of GH₵${calculation.principalAmount.toFixed(2)} via ${disbursementMethod.toUpperCase()}${momoTxId ? ` (Ref: ${momoTxId})` : ''} to ${selectedCustomer.fullName} (${selectedCustomer.customerId})`,
         timestamp: now
       });
 
@@ -340,8 +383,26 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Disbursement Method:</span>
-                <span className="font-bold text-emerald-800 uppercase">{createdLoanRecord.disbursementMethod || 'CASH'}</span>
+                <span className="font-bold text-emerald-800 uppercase">
+                  {createdLoanRecord.disbursementMethod === 'momo'
+                    ? `${createdLoanRecord.momoNetwork || 'MTN'} MoMo`
+                    : createdLoanRecord.disbursementMethod?.toUpperCase() || 'CASH'}
+                </span>
               </div>
+              {createdLoanRecord.disbursementMethod === 'momo' && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500 font-medium">MoMo Wallet:</span>
+                    <span className="font-mono font-bold text-slate-900">{createdLoanRecord.momoRecipientPhone} ({createdLoanRecord.momoNetwork})</span>
+                  </div>
+                  {createdLoanRecord.momoTransactionId && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">MoMo Ref / TX:</span>
+                      <span className="font-mono text-[11px] font-bold text-emerald-700">{createdLoanRecord.momoTransactionId}</span>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Total Repayment:</span>
                 <span className="font-bold text-slate-950">{formatCurrency(createdLoanRecord.totalRepayment)}</span>
@@ -510,31 +571,91 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
             </div>
 
             {/* Disbursement Method Selector */}
-            <div className="p-3 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2">
-              <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
-                Disbursement Method *
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'cash', label: 'Cash Hand', desc: 'Direct Cash Payout' },
-                  { id: 'bank', label: 'Bank Transfer', desc: 'Direct Bank Payout' }
-                ].map(method => (
-                  <button
-                    key={method.id}
-                    type="button"
-                    onClick={() => setDisbursementMethod(method.id as any)}
-                    className={`py-2 px-3 text-center rounded-xl border-2 transition active:scale-95 ${
-                      disbursementMethod === method.id
-                        ? 'border-blue-600 bg-sky-50 text-blue-950 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="text-xs font-black">{method.label}</div>
-                    <div className="text-[10px] text-slate-500 font-medium">{method.desc}</div>
-                  </button>
-                ))}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                  Disbursement Method *
+                </label>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  {disbursementMethod === 'momo' ? `${momoNetwork} MoMo Transfer` : disbursementMethod.toUpperCase()}
+                </span>
               </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'momo', label: 'Mobile Money', desc: 'Instant MoMo Transfer', icon: Smartphone },
+                  { id: 'cash', label: 'Cash Hand', desc: 'Direct Cash Payout', icon: Banknote },
+                  { id: 'bank', label: 'Bank Payout', desc: 'Direct Bank Transfer', icon: CreditCard }
+                ].map(method => {
+                  const Icon = method.icon;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setDisbursementMethod(method.id as any)}
+                      className={`p-2.5 text-center rounded-xl border-2 transition active:scale-95 flex flex-col items-center justify-center gap-1 ${
+                        disbursementMethod === method.id
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${disbursementMethod === method.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <div className="text-xs font-black">{method.label}</div>
+                      <div className="text-[9px] text-slate-500 font-medium leading-tight">{method.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* MoMo Destination Wallet Details */}
+              {disbursementMethod === 'momo' && (
+                <div className="p-3 rounded-xl bg-white border border-emerald-200 space-y-2 animate-fade-in">
+                  <div className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                    Borrower Mobile Money Wallet Details
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block mb-1">MoMo Phone Number *</label>
+                      <input
+                        type="tel"
+                        placeholder="0244123456"
+                        value={momoRecipientPhone}
+                        onChange={(e) => {
+                          setMomoRecipientPhone(e.target.value);
+                          setMomoNetwork(MOMOService.detectNetwork(e.target.value));
+                        }}
+                        className="w-full text-xs font-mono font-bold px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block mb-1">Network Provider</label>
+                      <select
+                        value={momoNetwork}
+                        onChange={(e) => setMomoNetwork(e.target.value as any)}
+                        className="w-full text-xs font-semibold px-2.5 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none bg-white"
+                      >
+                        <option value="MTN">MTN Mobile Money</option>
+                        <option value="Telecel">Telecel Cash</option>
+                        <option value="AT">AT Money</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block mb-1">Account / Registered Name</label>
+                    <input
+                      type="text"
+                      placeholder="Account holder name"
+                      value={momoRecipientName}
+                      onChange={(e) => setMomoRecipientName(e.target.value)}
+                      className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 3. Loan Duration & Tenure */}

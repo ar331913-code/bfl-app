@@ -28,11 +28,15 @@ import {
   Archive,
   History,
   Sparkles,
-  Plus
+  Plus,
+  Smartphone,
+  Send,
+  Banknote
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 import { CloudSyncService, CloudSnapshot } from '../services/cloudSyncService';
+import { MOMOService } from '../services/momoService';
 
 interface SettingsProps {
   auditLogs: AuditLog[];
@@ -75,6 +79,14 @@ export const Settings: React.FC<SettingsProps> = ({
   const [autoSmsOnRegister, setAutoSmsOnRegister] = useState(settings?.autoSmsOnRegister ?? true);
   const [autoSmsOnPayment, setAutoSmsOnPayment] = useState(settings?.autoSmsOnPayment ?? true);
   const [autoSmsOnDisburse, setAutoSmsOnDisburse] = useState(settings?.autoSmsOnDisburse ?? true);
+
+  // Mobile Money (MoMo) Disbursement Gateway state
+  const [momoProvider, setMomoProvider] = useState<'paystack' | 'manual_ussd' | 'mtn_open_api' | 'hubtel'>(settings?.momoProvider === 'manual_ussd' || settings?.momoProvider === 'mtn_open_api' || settings?.momoProvider === 'hubtel' ? settings.momoProvider : 'paystack');
+  const [momoPaystackSecretKey, setMomoPaystackSecretKey] = useState(settings?.momoPaystackSecretKey || settings?.momoApiKey || '');
+  const [momoEnvironment, setMomoEnvironment] = useState<'test' | 'live'>(settings?.momoEnvironment || 'test');
+  const [momoDefaultNetwork, setMomoDefaultNetwork] = useState<'MTN' | 'Telecel' | 'AT'>(settings?.momoDefaultNetwork || 'MTN');
+  const [isTestingMoMo, setIsTestingMoMo] = useState(false);
+  const [momoTestResult, setMomoTestResult] = useState<{ success: boolean; message: string; balanceGhs?: number } | null>(null);
 
   // Credentials change state (Username & Password)
   const [currentPassword, setCurrentPassword] = useState('');
@@ -608,7 +620,141 @@ export const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      {/* 4. Operator Security Credentials (Username & Password) */}
+      {/* 4. Mobile Money (MoMo) Loan Disbursement Gateway */}
+      <div className="p-5 rounded-3xl bg-white border-2 border-emerald-100 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <Smartphone className="w-4 h-4 text-emerald-600" />
+            Mobile Money (MoMo) Loan Disbursement
+          </h3>
+          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+            momoEnvironment === 'live' 
+              ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+              : 'bg-amber-100 text-amber-800 border-amber-300'
+          }`}>
+            {momoEnvironment === 'live' ? 'LIVE MODE (Real Payouts)' : 'TEST MODE (Sandbox)'}
+          </span>
+        </div>
+
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Disburse approved loan principals directly to customer phone wallets (<strong>MTN MoMo, Telecel Cash, AT Money</strong>) using <strong>Paystack Ghana</strong>.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">MoMo Provider</label>
+            <select
+              value={momoProvider}
+              onChange={(e) => setMomoProvider(e.target.value as any)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+            >
+              <option value="paystack">Paystack Ghana (Recommended - MTN/Telecel/AT)</option>
+              <option value="manual_ussd">1-Tap SIM USSD (*170# Phone Dialer)</option>
+              <option value="mtn_open_api">MTN MoMo Direct API (Disbursements)</option>
+              <option value="hubtel">Hubtel Ghana Payouts</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Environment Mode</label>
+            <select
+              value={momoEnvironment}
+              onChange={(e) => setMomoEnvironment(e.target.value as any)}
+              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+            >
+              <option value="test">Test Mode (Sandbox / Zero Real Money)</option>
+              <option value="live">Live Mode (Real Bank / MoMo Transfers)</option>
+            </select>
+          </div>
+        </div>
+
+        {momoProvider === 'paystack' && (
+          <div className="space-y-2.5 pt-1">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-700">Paystack Secret Key</label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {momoEnvironment === 'test' ? 'sk_test_...' : 'sk_live_...'}
+                </span>
+              </div>
+              <input
+                type="password"
+                placeholder={momoEnvironment === 'test' ? 'Enter test secret key (sk_test_...)' : 'Enter live secret key (sk_live_...)'}
+                value={momoPaystackSecretKey}
+                onChange={(e) => setMomoPaystackSecretKey(e.target.value)}
+                className="w-full text-xs font-mono px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Default Ghana Network</label>
+              <select
+                value={momoDefaultNetwork}
+                onChange={(e) => setMomoDefaultNetwork(e.target.value as any)}
+                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none bg-white"
+              >
+                <option value="MTN">MTN Mobile Money (MoMo)</option>
+                <option value="Telecel">Telecel Cash (formerly Vodafone Cash)</option>
+                <option value="AT">AT Money (formerly AirtelTigo)</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Test Connection / Balance Result */}
+        {momoTestResult && (
+          <div className={`p-3 rounded-xl text-xs font-bold flex items-start gap-2 ${
+            momoTestResult.success ? 'bg-emerald-50 text-emerald-900 border border-emerald-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}>
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">{momoTestResult.message}</div>
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            disabled={isTestingMoMo}
+            onClick={async () => {
+              setIsTestingMoMo(true);
+              setMomoTestResult(null);
+              const res = await MOMOService.testConnection({
+                ...settings!,
+                momoProvider,
+                momoPaystackSecretKey,
+                momoApiKey: momoPaystackSecretKey,
+                momoEnvironment
+              });
+              setMomoTestResult(res);
+              setIsTestingMoMo(false);
+            }}
+            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black rounded-xl border border-slate-300 transition active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isTestingMoMo ? 'animate-spin' : ''}`} />
+            {isTestingMoMo ? 'Testing...' : 'Test Connection & Balance'}
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await updateSettings({
+                momoProvider,
+                momoPaystackSecretKey,
+                momoApiKey: momoPaystackSecretKey,
+                momoEnvironment,
+                momoDefaultNetwork
+              });
+              setSaveMessage('Mobile Money Disbursement Gateway settings saved!');
+              setTimeout(() => setSaveMessage(null), 3000);
+            }}
+            className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-black rounded-xl shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5"
+          >
+            <Check className="w-3.5 h-3.5" /> Save MoMo Settings
+          </button>
+        </div>
+      </div>
+
+      {/* 5. Operator Security Credentials (Username & Password) */}
       <form onSubmit={handleChangeCredentialsSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
           <KeyRound className="w-4 h-4 text-blue-600" />
