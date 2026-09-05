@@ -59,23 +59,29 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   // Search filter for customer selection (name, phone, Ghana Card)
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
-  // Form State
+  // Form State - String based to allow clean entry with zero starting issues
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
     preselectedCustomerId || (customers.length > 0 ? customers[0].customerId : '')
   );
-  const [principalAmount, setPrincipalAmount] = useState<number>(3000);
-  const [interestRate, setInterestRate] = useState<number>(10);
+  const [principalInput, setPrincipalInput] = useState<string>('');
+  const [interestRateInput, setInterestRateInput] = useState<string>('10');
   const [interestType, setInterestType] = useState<InterestType>('flat');
-  const [durationValue, setDurationValue] = useState<number>(6);
+  const [durationValueInput, setDurationValueInput] = useState<string>('6');
   const [durationUnit, setDurationUnit] = useState<'days' | 'weeks' | 'months'>('weeks');
   const [repaymentFrequency, setRepaymentFrequency] = useState<RepaymentFrequency>('weekly');
   const [startDate, setStartDate] = useState<string>(todayStr);
   const [firstRepaymentDate, setFirstRepaymentDate] = useState<string>(
     format(addWeeks(new Date(), 1), 'yyyy-MM-dd')
   );
-  const [processingFee, setProcessingFee] = useState<number>(50);
-  const [penaltyRate, setPenaltyRate] = useState<number>(2.5);
+  const [penaltyRateInput, setPenaltyRateInput] = useState<string>('2.5');
   const [notes, setNotes] = useState<string>('');
+
+  // Parsed numerical values
+  const principalAmount = parseFloat(principalInput) || 0;
+  const interestRate = parseFloat(interestRateInput) || 0;
+  const durationValue = parseInt(durationValueInput, 10) || 0;
+  const penaltyRate = parseFloat(penaltyRateInput) || 0;
+  const processingFee = 0; // Processing fee removed from system as requested
 
   // Disbursement State
   const [disbursementMethod, setDisbursementMethod] = useState<'momo' | 'cash' | 'bank'>('momo');
@@ -156,7 +162,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         repaymentFrequency,
         startDate,
         firstRepaymentDate,
-        processingFee
+        processingFee: 0
       });
     } catch (err: any) {
       return null;
@@ -169,8 +175,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     durationUnit,
     repaymentFrequency,
     startDate,
-    firstRepaymentDate,
-    processingFee
+    firstRepaymentDate
   ]);
 
   if (!isOpen) return null;
@@ -546,11 +551,12 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <div className="relative">
                   <input
                     type="number"
-                    min="100"
-                    step="50"
-                    value={principalAmount}
-                    onChange={(e) => setPrincipalAmount(Number(e.target.value))}
-                    className="w-full text-sm font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+                    min="1"
+                    step="any"
+                    placeholder="Enter amount (e.g. 1000)"
+                    value={principalInput}
+                    onChange={(e) => setPrincipalInput(e.target.value)}
+                    className="w-full text-base font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none placeholder:text-slate-400 placeholder:font-normal"
                   />
                 </div>
               </div>
@@ -562,9 +568,10 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                     type="number"
                     min="0"
                     step="0.5"
-                    value={interestRate}
-                    onChange={(e) => setInterestRate(Number(e.target.value))}
-                    className="w-full text-sm font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+                    placeholder="e.g. 10"
+                    value={interestRateInput}
+                    onChange={(e) => setInterestRateInput(e.target.value)}
+                    className="w-full text-base font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -576,30 +583,32 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
                   Disbursement Method *
                 </label>
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {disbursementMethod === 'momo' ? `${momoNetwork} MoMo Transfer` : disbursementMethod.toUpperCase()}
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                  <Smartphone className="w-3 h-3 text-amber-700" />
+                  {disbursementMethod === 'momo' ? `MTN MoMo Transfer` : disbursementMethod.toUpperCase()}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'momo', label: 'Mobile Money', desc: 'Instant MoMo Transfer', icon: Smartphone },
+                  { id: 'momo', label: 'MTN MoMo', desc: 'Instant MoMo Transfer', icon: Smartphone },
                   { id: 'cash', label: 'Cash Hand', desc: 'Direct Cash Payout', icon: Banknote },
                   { id: 'bank', label: 'Bank Payout', desc: 'Direct Bank Transfer', icon: CreditCard }
                 ].map(method => {
                   const Icon = method.icon;
+                  const isSelected = disbursementMethod === method.id;
                   return (
                     <button
                       key={method.id}
                       type="button"
                       onClick={() => setDisbursementMethod(method.id as any)}
                       className={`p-2.5 text-center rounded-xl border-2 transition active:scale-95 flex flex-col items-center justify-center gap-1 ${
-                        disbursementMethod === method.id
-                          ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-xs'
+                        isSelected
+                          ? 'border-amber-500 bg-amber-50/80 text-amber-950 shadow-xs'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <Icon className={`w-4 h-4 ${disbursementMethod === method.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
                       <div className="text-xs font-black">{method.label}</div>
                       <div className="text-[9px] text-slate-500 font-medium leading-tight">{method.desc}</div>
                     </button>
@@ -609,24 +618,29 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
 
               {/* MoMo Destination Wallet Details */}
               {disbursementMethod === 'momo' && (
-                <div className="p-3 rounded-xl bg-white border border-emerald-200 space-y-2 animate-fade-in">
-                  <div className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
-                    <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                    Borrower Mobile Money Wallet Details
+                <div className="p-3.5 rounded-xl bg-white border border-amber-300 space-y-2.5 animate-fade-in shadow-xs">
+                  <div className="text-[11px] font-black text-amber-900 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-amber-600" />
+                      MTN Mobile Money Destination Wallet
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                      MTN Ghana
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1">MoMo Phone Number *</label>
+                      <label className="text-[10px] font-bold text-slate-600 block mb-1">MTN MoMo Number *</label>
                       <input
                         type="tel"
-                        placeholder="0244123456"
+                        placeholder="024XXXXXXX"
                         value={momoRecipientPhone}
                         onChange={(e) => {
                           setMomoRecipientPhone(e.target.value);
                           setMomoNetwork(MOMOService.detectNetwork(e.target.value));
                         }}
-                        className="w-full text-xs font-mono font-bold px-3 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none"
+                        className="w-full text-xs font-mono font-black px-3 py-2 rounded-lg border-2 border-amber-200 focus:border-amber-500 focus:outline-none bg-amber-50/30"
                       />
                     </div>
 
@@ -635,9 +649,9 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                       <select
                         value={momoNetwork}
                         onChange={(e) => setMomoNetwork(e.target.value as any)}
-                        className="w-full text-xs font-semibold px-2.5 py-2 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none bg-white"
+                        className="w-full text-xs font-bold px-2.5 py-2 rounded-lg border-2 border-amber-200 focus:border-amber-500 focus:outline-none bg-white"
                       >
-                        <option value="MTN">MTN Mobile Money</option>
+                        <option value="MTN">MTN Mobile Money (MoMo)</option>
                         <option value="Telecel">Telecel Cash</option>
                         <option value="AT">AT Money</option>
                       </select>
@@ -645,13 +659,13 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-slate-600 block mb-1">Account / Registered Name</label>
+                    <label className="text-[10px] font-bold text-slate-600 block mb-1">Registered Account Name</label>
                     <input
                       type="text"
                       placeholder="Account holder name"
                       value={momoRecipientName}
                       onChange={(e) => setMomoRecipientName(e.target.value)}
-                      className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 focus:border-emerald-500 focus:outline-none"
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -665,9 +679,10 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 <input
                   type="number"
                   min="1"
-                  value={durationValue}
-                  onChange={(e) => setDurationValue(Number(e.target.value))}
-                  className="w-full text-xs font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+                  placeholder="e.g. 6"
+                  value={durationValueInput}
+                  onChange={(e) => setDurationValueInput(e.target.value)}
+                  className="w-full text-base font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
                 />
               </div>
 
@@ -685,28 +700,15 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </div>
             </div>
 
-            {/* Dates & Fees */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Disbursement Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Processing Fee (GH₵)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={processingFee}
-                  onChange={(e) => setProcessingFee(Number(e.target.value))}
-                  className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-                />
-              </div>
+            {/* Disbursement Date */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">Disbursement Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+              />
             </div>
 
             {/* Live Financial Breakdown Summary Preview */}
@@ -757,26 +759,25 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                 {!customerActiveLoan && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
-
           </form>
         ) : (
-          /* 2. CONFIRMATION SCREEN */
-          <div className="p-5 overflow-y-auto space-y-4 flex-1 animate-fade-in">
-            <div className="text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
-              Confirm Loan Terms & Disbursement
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2 text-xs">
+          /* 3. CONFIRMATION STEP */
+          <div className="p-5 space-y-4 overflow-y-auto flex-1">
+            <div className="p-4 rounded-2xl bg-sky-50 border-2 border-sky-200 text-xs space-y-2">
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Borrower:</span>
-                <span className="font-black text-navy-950">{selectedCustomer?.fullName} ({selectedCustomer?.customerId})</span>
+                <span className="font-black text-navy-950">{selectedCustomer?.fullName}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Disbursement Method:</span>
-                <span className="font-black uppercase text-navy-950">
-                  {disbursementMethod.toUpperCase()}
-                </span>
+                <span className="font-bold text-amber-900 uppercase">{disbursementMethod === 'momo' ? `${momoNetwork} MoMo` : disbursementMethod}</span>
               </div>
+              {disbursementMethod === 'momo' && (
+                <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-slate-500 font-medium">MoMo Wallet Phone:</span>
+                  <span className="font-mono font-bold text-navy-950">{momoRecipientPhone}</span>
+                </div>
+              )}
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Principal Lent:</span>
                 <span className="font-black text-navy-950">{formatCurrency(calculation?.principalAmount)}</span>
@@ -788,10 +789,6 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Total Interest:</span>
                 <span className="font-bold text-blue-700">+{formatCurrency(calculation?.totalInterest)}</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                <span className="text-slate-500 font-medium">Processing Fee:</span>
-                <span className="font-bold text-navy-950">{formatCurrency(calculation?.processingFee)}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-1.5">
                 <span className="text-slate-500 font-medium">Total Amount To Repay:</span>

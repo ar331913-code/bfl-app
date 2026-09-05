@@ -60,11 +60,14 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   // Form State
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
   const [selectedInstallmentId, setSelectedInstallmentId] = useState<number | undefined>(undefined);
-  const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [amountInput, setAmountInput] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+
+  // Parsed amount
+  const amountPaid = parseFloat(amountInput) || 0;
 
   // Confirmation state
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
@@ -109,16 +112,16 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       if (preselectedInstallmentId && targetLoanSchedules.some(s => s.id === preselectedInstallmentId)) {
         setSelectedInstallmentId(preselectedInstallmentId);
         const sched = targetLoanSchedules.find(s => s.id === preselectedInstallmentId);
-        setAmountPaid(sched ? sched.remainingBalance : 0);
+        setAmountInput(sched ? String(sched.remainingBalance) : '');
       } else if (targetLoanSchedules.length > 0) {
         setSelectedInstallmentId(targetLoanSchedules[0].id);
-        setAmountPaid(targetLoanSchedules[0].remainingBalance);
+        setAmountInput(String(targetLoanSchedules[0].remainingBalance));
       } else if (targetLoan) {
         setSelectedInstallmentId(undefined);
-        setAmountPaid(targetLoan.outstandingBalance);
+        setAmountInput(String(targetLoan.outstandingBalance));
       } else {
         setSelectedInstallmentId(undefined);
-        setAmountPaid(0);
+        setAmountInput('');
       }
     }
   }, [isOpen, preselectedLoanId, preselectedInstallmentId, loans, schedules]);
@@ -142,11 +145,11 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
     if (targetLoanSchedules.length > 0) {
       setSelectedInstallmentId(targetLoanSchedules[0].id);
-      setAmountPaid(targetLoanSchedules[0].remainingBalance);
+      setAmountInput(String(targetLoanSchedules[0].remainingBalance));
     } else if (targetLoan) {
-      setAmountPaid(targetLoan.outstandingBalance);
+      setAmountInput(String(targetLoan.outstandingBalance));
     } else {
-      setAmountPaid(0);
+      setAmountInput('');
     }
   };
 
@@ -525,7 +528,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                     setSelectedInstallmentId(id);
                     if (id) {
                       const s = loanSchedules.find(item => item.id === id);
-                      if (s) setAmountPaid(s.remainingBalance);
+                      if (s) setAmountInput(String(s.remainingBalance));
                     }
                   }}
                   className="w-full text-xs font-bold px-3.5 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950 transition"
@@ -555,13 +558,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-lg">GH₵</span>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0.01"
                   required
-                  value={amountPaid || ''}
-                  onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                  placeholder="0.00"
-                  className="w-full text-xl font-black pl-14 pr-4 py-3 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder="Enter amount (e.g. 150)"
+                  className="w-full text-xl font-black pl-14 pr-4 py-3 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs placeholder:text-slate-400 placeholder:font-normal"
                 />
               </div>
 
@@ -571,7 +574,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   {loanSchedules.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setAmountPaid(loanSchedules[0].remainingBalance)}
+                      onClick={() => setAmountInput(String(loanSchedules[0].remainingBalance))}
                       className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 text-[11px] font-bold rounded-xl whitespace-nowrap active:scale-95 transition"
                     >
                       1 Installment ({formatCurrency(loanSchedules[0].remainingBalance)})
@@ -580,7 +583,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   {loanSchedules.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => setAmountPaid(loanSchedules[0].remainingBalance + loanSchedules[1].remainingBalance)}
+                      onClick={() => setAmountInput(String(loanSchedules[0].remainingBalance + loanSchedules[1].remainingBalance))}
                       className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 text-[11px] font-bold rounded-xl whitespace-nowrap active:scale-95 transition"
                     >
                       2 Installments ({formatCurrency(loanSchedules[0].remainingBalance + loanSchedules[1].remainingBalance)})
@@ -588,7 +591,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   )}
                   <button
                     type="button"
-                    onClick={() => setAmountPaid(currentLoan.outstandingBalance)}
+                    onClick={() => setAmountInput(String(currentLoan.outstandingBalance))}
                     className="px-2.5 py-1 bg-gradient-to-r from-sky-500 to-blue-600 text-white text-[11px] font-black rounded-xl whitespace-nowrap active:scale-95 transition shadow-xs"
                   >
                     Full Payoff ({formatCurrency(currentLoan.outstandingBalance)})
@@ -628,10 +631,11 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
                 Payment Channel
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'cash', label: 'Cash Hand', icon: Banknote, color: 'text-emerald-600' },
-                  { id: 'bank', label: 'Bank Transfer', icon: Building2, color: 'text-indigo-600' }
+                  { id: 'momo', label: 'MTN MoMo', desc: 'Mobile Money', icon: Smartphone, color: 'text-amber-600' },
+                  { id: 'cash', label: 'Cash Hand', desc: 'Physical Cash', icon: Banknote, color: 'text-emerald-600' },
+                  { id: 'bank', label: 'Bank Transfer', desc: 'Bank Deposit', icon: Building2, color: 'text-indigo-600' }
                 ].map(method => {
                   const Icon = method.icon;
                   const isSelected = paymentMethod === method.id;
@@ -640,13 +644,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                       key={method.id}
                       type="button"
                       onClick={() => setPaymentMethod(method.id as PaymentMethod)}
-                      className={`p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 text-xs font-black transition border-2 active:scale-95 ${
+                      className={`p-2.5 rounded-2xl flex flex-col items-center justify-center gap-1 text-xs font-black transition border-2 active:scale-95 ${
                         isSelected 
                           ? 'border-blue-600 bg-gradient-to-br from-sky-50 to-blue-50 text-blue-950 shadow-sm' 
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 ${isSelected ? 'text-blue-600' : method.color}`} />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : method.color}`} />
                       <span className="truncate">{method.label}</span>
                     </button>
                   );
