@@ -282,6 +282,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         <div className="p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-800 text-white flex items-center justify-between border-b border-sky-400/30">
           <div className="flex items-center gap-2">
             <button 
+              type="button"
               onClick={() => {
                 if (step > 1) setStep(prev => prev - 1);
                 else onClose();
@@ -296,11 +297,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 {existingCustomer ? 'Edit Client Dossier' : 'Register New Client'}
               </h2>
               <p className="text-[10px] text-sky-100 font-semibold">
-                Step {step} of 3 • {step === 1 ? 'Contact Info' : step === 2 ? 'Ghana Card & Live Camera' : 'Work & Notes'}
+                Level {step} of 3 • {step === 1 ? 'Personal & Contact Info' : step === 2 ? 'Ghana Card & Live Camera' : 'Work Particulars & Notes'}
               </p>
             </div>
           </div>
           <button 
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-full text-sky-200 hover:text-white hover:bg-white/10"
           >
@@ -311,32 +313,43 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         {/* Step Indicator Pills */}
         <div className="flex px-5 pt-3 gap-1.5 bg-slate-50 border-b border-slate-100">
           {[
-            { num: 1, label: '1. Contact' },
-            { num: 2, label: '2. Ghana Card & Photo' },
-            { num: 3, label: '3. Work & Notes' }
+            { num: 1, label: 'Level 1: Contact' },
+            { num: 2, label: 'Level 2: Ghana Card' },
+            { num: 3, label: 'Level 3: Work & Notes' }
           ].map(s => (
-            <div 
+            <button 
               key={s.num}
+              type="button"
               onClick={() => {
-                if (s.num === 1 || (s.num === 2 && validateStep1()) || (s.num === 3 && validateStep1() && validateStep2())) {
-                  setStep(s.num);
-                }
+                if (s.num === 1) setStep(1);
+                else if (s.num === 2 && validateStep1()) setStep(2);
+                else if (s.num === 3 && validateStep1() && validateStep2()) setStep(3);
               }}
-              className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition cursor-pointer ${
+              className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition ${
                 step === s.num 
                   ? 'bg-blue-600 text-white shadow-xs' 
                   : step > s.num
-                  ? 'bg-sky-100 text-blue-800'
-                  : 'bg-slate-200 text-slate-500'
+                  ? 'bg-sky-100 text-blue-800 hover:bg-sky-200'
+                  : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
               }`}
             >
               {s.label}
-            </div>
+            </button>
           ))}
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+        <form 
+          onSubmit={handleSubmit} 
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+              e.preventDefault();
+              if (step === 1) handleNext();
+              else if (step === 2) handleNext();
+            }
+          }}
+          className="p-5 overflow-y-auto space-y-4 flex-1"
+        >
           
           {/* STEP 1: CONTACT INFO */}
           {step === 1 && (
@@ -584,7 +597,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                   onClick={() => setStep(3)}
                   className="text-xs font-black text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95"
                 >
-                  <span>Skip Photos to Work & Notes</span>
+                  <span>Skip Photos to Level 3: Work & Notes</span>
                   <span>➔</span>
                 </button>
               </div>
@@ -704,6 +717,16 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           {step === 3 && (
             <div className="space-y-4 animate-fade-in">
               
+              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-black text-indigo-950">Level 3 of 3: Work Particulars & Notes</div>
+                  <div className="text-[10px] text-indigo-700 font-medium">Specify the client's work station, vehicle/shop details, and internal notes</div>
+                </div>
+                <div className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider">
+                  Final Step
+                </div>
+              </div>
+              
               {customerType === 'driver' ? (
                 <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-sky-50 border-2 border-blue-200 space-y-3">
                   <div className="flex items-center gap-1.5 text-xs font-black text-blue-950 uppercase tracking-wider">
@@ -813,28 +836,32 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           <div className="flex gap-2 pt-2 border-t border-slate-100">
             {step > 1 && (
               <button
+                key="btn-back"
                 type="button"
                 onClick={() => setStep(prev => prev - 1)}
                 className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
               >
-                Back
+                ← Back to Level {step - 1}
               </button>
             )}
 
             {step < 3 ? (
               <button
+                key={`btn-next-${step}`}
                 type="button"
                 onClick={handleNext}
                 className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
               >
-                <span>{step === 1 ? 'Next: Ghana Card & Photo (Step 2)' : 'Next: Work & Notes (Step 3)'}</span>
+                <span>{step === 1 ? 'Next: Ghana Card & Photo (Level 2)' : 'Next: Work & Notes (Level 3)'}</span>
                 <span>➔</span>
               </button>
             ) : (
               <button
-                type="submit"
+                key="btn-submit-registration"
+                type="button"
+                onClick={() => handleSubmit()}
                 disabled={isSubmitting}
-                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 {existingCustomer ? 'Save Changes' : 'Complete & Register Borrower'}
