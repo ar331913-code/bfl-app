@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" class="h-full bg-slate-100">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0284c7" />
+    <meta name="description" content="Professional microfinance, debt collection and loan management system in Ghana." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="B-F-L" />
+    <title>B-F-L Loan Manager</title>
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="./assets/index-Bb3WXC3J.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-core-DrqyFJG7.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-db-1ehStwr-.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-date-DgEV6IbJ.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-icons-DJlQ_F7r.js">
+    <link rel="modulepreload" crossorigin href="./assets/vendor-pdf-ByUctfV5.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-WqAkdoyz.css">
+  </head>
+  <body class="h-full antialiased font-sans text-slate-800 bg-slate-100 selection:bg-sky-500 selection:text-white select-none">
+    <div id="root" class="h-full"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        if (location.protocol.startsWith('http')) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+              .then((reg) => {
+                reg.update();
+                console.log('B-F-L Service Worker registered:', reg.scope);
+              })
+              .catch((err) => console.error('Service Worker registration failed:', err));
+          });
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          });
+        } else {
+          // Unregister any leftover service workers in desktop environment
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const reg of registrations) {
+              reg.unregister();
+            }
+          }).catch((err) => console.warn('Service worker unregister:', err));
+        }
+      }
+    </script>
+  </body>
+</html>
