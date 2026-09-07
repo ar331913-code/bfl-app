@@ -11,9 +11,13 @@
     "preview": "vite preview",
     "electron:dev": "concurrently \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && electron electron/main.cjs --dev\"",
     "build:desktop": "npm run build && electron-builder --win --dir",
-    "dist:exe": "npm run build && electron-builder --win nsis portable"
+    "dist:exe": "npm run build && electron-builder --win nsis portable",
+    "build:android": "npm run build && npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
