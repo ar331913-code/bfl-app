@@ -151,15 +151,42 @@ export const CameraModal: React.FC<CameraModalProps> = ({
         {/* Viewfinder Area */}
         <div className="relative aspect-3/4 bg-black flex items-center justify-center overflow-hidden">
           {error ? (
-            <div className="p-6 text-center text-white space-y-2">
-              <AlertCircle className="w-10 h-10 text-rose-400 mx-auto" />
-              <p className="text-xs font-bold text-rose-300">{error}</p>
-              <button
-                onClick={() => startCamera(currentFacingMode)}
-                className="mt-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl transition"
-              >
-                Try Again
-              </button>
+            <div className="p-6 text-center text-white space-y-3">
+              <AlertCircle className="w-10 h-10 text-amber-400 mx-auto" />
+              <p className="text-xs font-bold text-slate-200">{error}</p>
+              
+              <div className="flex flex-col gap-2 pt-1">
+                {/* Fallback Native Camera Button */}
+                <label className="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-1.5 transition">
+                  <Camera className="w-4 h-4" />
+                  <span>Use System Camera App</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture={currentFacingMode === 'user' ? 'user' : 'environment'}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          const base64 = reader.result as string;
+                          setCapturedPhoto(base64);
+                          setError('');
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+
+                <button
+                  onClick={() => startCamera(currentFacingMode)}
+                  className="px-4 py-2 bg-white/15 hover:bg-white/25 text-white text-xs font-bold rounded-xl transition"
+                >
+                  Retry Live Viewfinder
+                </button>
+              </div>
             </div>
           ) : capturedPhoto ? (
             <img src={capturedPhoto} alt="Captured" className="w-full h-full object-cover" />
