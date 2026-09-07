@@ -34,7 +34,7 @@ export class SMSService {
   }
 
   /**
-   * Generates a Payment Confirmation Receipt SMS with Live Balance
+   * Generates a Payment Confirmation Receipt SMS with Live Balance and Final Due Date
    */
   static generatePaymentReceiptSMS(data: SMSTemplateData): string {
     if (!data.payment || !data.loan) return '';
@@ -45,7 +45,10 @@ export class SMSService {
       return `B-F-L RECEIPT: Congratulations ${data.customer.fullName}! Payment of ${formatCurrency(data.payment.amountPaid)} received (Receipt: ${data.payment.paymentId}). Your Loan ${data.loan.loanId} is now 100% FULLY PAID OFF! Remaining Balance: GH₵0.00. Thank you for doing business with ${biz}.`;
     }
 
-    return `B-F-L RECEIPT: Dear ${data.customer.fullName}, payment of ${formatCurrency(data.payment.amountPaid)} received on ${formatDate(data.payment.paymentDate)} (Receipt: ${data.payment.paymentId}). Remaining Balance: ${formatCurrency(data.loan.outstandingBalance)}. Thank you, ${biz}.`;
+    const finalDueDate = data.loan.maturityDate ? formatDate(data.loan.maturityDate) : '';
+    const finalDueDateText = finalDueDate ? ` Final Due Date: ${finalDueDate}.` : '';
+
+    return `B-F-L RECEIPT: Dear ${data.customer.fullName}, payment of ${formatCurrency(data.payment.amountPaid)} received on ${formatDate(data.payment.paymentDate)} (Receipt: ${data.payment.paymentId}). Remaining Balance: ${formatCurrency(data.loan.outstandingBalance)}.${finalDueDateText} Thank you, ${biz}.`;
   }
 
   /**
@@ -55,7 +58,9 @@ export class SMSService {
     if (!data.schedule || !data.loan) return '';
     const biz = data.businessName || 'B-F-L';
     const bizPhone = data.businessPhone || '';
-    return `Payment Reminder: Dear ${data.customer.fullName}, your loan installment of ${formatCurrency(data.schedule.remainingBalance)} is due on ${formatDate(data.schedule.dueDate)}. Please remit via MoMo or cash. Contact: ${bizPhone}. - ${biz}`;
+    const finalDueDate = data.loan.maturityDate ? formatDate(data.loan.maturityDate) : '';
+    const finalDueDateText = finalDueDate ? ` (Final Loan Due Date: ${finalDueDate})` : '';
+    return `Payment Reminder: Dear ${data.customer.fullName}, your loan installment of ${formatCurrency(data.schedule.remainingBalance)} is due on ${formatDate(data.schedule.dueDate)}${finalDueDateText}. Please remit via MoMo or cash. Contact: ${bizPhone}. - ${biz}`;
   }
 
   /**

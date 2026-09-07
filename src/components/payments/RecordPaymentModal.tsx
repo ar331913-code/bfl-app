@@ -260,9 +260,10 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
     if (!currentCustomer || !completedPayment || !activeLoanObj) return;
     
     const isCompleted = activeLoanObj.status === 'completed' || activeLoanObj.outstandingBalance <= 0.01;
+    const finalDueDate = activeLoanObj.maturityDate ? formatDate(activeLoanObj.maturityDate) : '';
     const balanceLine = isCompleted
       ? `*STATUS: 100% FULLY PAID OFF! 🎉*\nRemaining Balance: GH₵0.00`
-      : `Remaining Balance: GH₵${activeLoanObj.outstandingBalance.toFixed(2)}`;
+      : `Remaining Balance: GH₵${activeLoanObj.outstandingBalance.toFixed(2)}${finalDueDate ? `\nFinal Due Date: ${finalDueDate}` : ''}`;
 
     const text = `*B-F-L PAYMENT RECEIPT*\n` +
       `Receipt No: ${completedPayment.paymentId}\n` +

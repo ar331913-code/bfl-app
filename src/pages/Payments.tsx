@@ -81,9 +81,10 @@ export const Payments: React.FC<PaymentsProps> = ({
     if (!cust || !loan) return;
 
     const isCompleted = loan.status === 'completed' || (loan.outstandingBalance || 0) <= 0.01;
+    const finalDueDate = loan.maturityDate ? formatDate(loan.maturityDate) : '';
     const balanceLine = isCompleted
       ? `*STATUS: 100% FULLY PAID OFF! 🎉*\nRemaining Balance: GH₵0.00`
-      : `Remaining Balance: GH₵${loan.outstandingBalance.toFixed(2)}`;
+      : `Remaining Balance: GH₵${loan.outstandingBalance.toFixed(2)}${finalDueDate ? `\nFinal Due Date: ${finalDueDate}` : ''}`;
 
     const text = `*B-F-L PAYMENT RECEIPT*\n` +
       `Receipt No: ${payment.paymentId}\n` +
