@@ -109,7 +109,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     }
   }, [selectedCustomerId, selectedCustomer]);
 
-  // Load existing loans to verify no multiple active loans
+  // Load existing loans and ensure valid selected customer
   useEffect(() => {
     async function loadLoans() {
       const allLoans = await db.loans.toArray();
@@ -118,11 +118,18 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     if (isOpen) {
       loadLoans();
       setCreatedLoanRecord(null);
+      setIsConfirming(false);
+      setError('');
+      setCustomerSearchQuery('');
       if (preselectedCustomerId) {
         setSelectedCustomerId(preselectedCustomerId);
+      } else if (!selectedCustomerId || !customers.some(c => c.customerId === selectedCustomerId)) {
+        if (customers.length > 0) {
+          setSelectedCustomerId(customers[0].customerId);
+        }
       }
     }
-  }, [isOpen, preselectedCustomerId]);
+  }, [isOpen, preselectedCustomerId, customers]);
 
   // Check if selected customer has an existing active or overdue loan
   const customerActiveLoan = useMemo(() => {
@@ -146,6 +153,15 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       return nameMatch || idMatch || phoneMatch || cardMatch;
     });
   }, [customers, customerSearchQuery]);
+
+  // If user searched and current selection is not in filtered list, auto-select first match
+  useEffect(() => {
+    if (customerSearchQuery.trim() && filteredCustomers.length > 0) {
+      if (!filteredCustomers.some(c => c.customerId === selectedCustomerId)) {
+        setSelectedCustomerId(filteredCustomers[0].customerId);
+      }
+    }
+  }, [customerSearchQuery, filteredCustomers]);
 
   // Calculate Loan in Real-Time
   const calculation = useMemo(() => {
@@ -182,12 +198,32 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
 
   const handleProceedToConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomerId) {
+    
+    // Resolve effective customer ID even if state had a race condition
+    let effectiveCustomerId = selectedCustomerId;
+    if (!effectiveCustomerId || !customers.some(c => c.customerId === effectiveCustomerId)) {
+      if (filteredCustomers.length > 0) {
+        effectiveCustomerId = filteredCustomers[0].customerId;
+        setSelectedCustomerId(effectiveCustomerId);
+      } else if (customers.length > 0) {
+        effectiveCustomerId = customers[0].customerId;
+        setSelectedCustomerId(effectiveCustomerId);
+      }
+    }
+
+    const currentCustomer = customers.find(c => c.customerId === effectiveCustomerId);
+
+    if (!effectiveCustomerId || !currentCustomer) {
       setError('Please select a customer.');
       return;
     }
-    if (customerActiveLoan && !ownerApprovalOverride) {
-      setError(`Cannot issue loan: ${selectedCustomer?.fullName} already has active loan ${customerActiveLoan.loanId} (Balance: GH₵${customerActiveLoan.outstandingBalance.toFixed(2)}). Owner / Manager approval is required.`);
+
+    const activeLoan = existingLoans.find(
+      l => l.customerId === effectiveCustomerId && isLoanOwing(l)
+    );
+
+    if (activeLoan && !ownerApprovalOverride) {
+      setError(`Cannot issue loan: ${currentCustomer.fullName} already has active loan ${activeLoan.loanId} (Balance: GH₵${activeLoan.outstandingBalance.toFixed(2)}). Owner / Manager approval is required.`);
       return;
     }
     if (!calculation) {
@@ -477,26 +513,32 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </div>
 
               {/* Customer Selector Dropdown */}
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => {
-                  setSelectedCustomerId(e.target.value);
-                  setOwnerApprovalOverride(false);
-                  setError('');
-                }}
-                className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-navy-950"
-              >
-                {filteredCustomers.map(c => {
-                  const hasActive = existingLoans.some(
-                    l => l.customerId === c.customerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
-                  );
-                  return (
-                    <option key={c.customerId} value={c.customerId}>
-                      {c.fullName} ({c.primaryPhone}) — {c.ghanaCardNumber} {hasActive ? '⛔ [HAS ACTIVE LOAN]' : '✓ [ELIGIBLE]'}
-                    </option>
-                  );
-                })}
-              </select>
+              {filteredCustomers.length === 0 ? (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold text-center">
+                  No matching borrowers found for "{customerSearchQuery}"
+                </div>
+              ) : (
+                <select
+                  value={selectedCustomerId}
+                  onChange={(e) => {
+                    setSelectedCustomerId(e.target.value);
+                    setOwnerApprovalOverride(false);
+                    setError('');
+                  }}
+                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-navy-950"
+                >
+                  {filteredCustomers.map(c => {
+                    const hasActive = existingLoans.some(
+                      l => l.customerId === c.customerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
+                    );
+                    return (
+                      <option key={c.customerId} value={c.customerId}>
+                        {c.fullName} ({c.primaryPhone}) — {c.ghanaCardNumber} {hasActive ? '⛔ [HAS ACTIVE LOAN]' : '✓ [ELIGIBLE]'}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
             {/* ALERT & OWNER OVERRIDE BANNER: Customer Already Has An Active Loan */}

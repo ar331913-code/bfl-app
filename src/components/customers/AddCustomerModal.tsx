@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { db } from '../../db';
 import { Customer, CustomerType } from '../../types';
 import { 
@@ -25,11 +25,13 @@ import { CameraModal } from '../common/CameraModal';
 import { SMSService } from '../../services/smsService';
 import { CloudSyncService } from '../../services/cloudSyncService';
 import { useAuth } from '../../context/AuthContext';
+import confetti from 'canvas-confetti';
 
 interface AddCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCustomerCreated: (customer: Customer) => void;
+  onOpenNewLoan?: (customerId: string) => void;
   existingCustomer?: Customer; // For editing
 }
 
@@ -37,10 +39,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   isOpen,
   onClose,
   onCustomerCreated,
+  onOpenNewLoan,
   existingCustomer
 }) => {
   const { settings } = useAuth();
   const [step, setStep] = useState<number>(1);
+  const [savedCustomer, setSavedCustomer] = useState<Customer | null>(null);
   const [customerType, setCustomerType] = useState<CustomerType>(existingCustomer?.customerType || 'driver');
   
   // Step 1: Personal & Contact
@@ -88,6 +92,39 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cardFrontInputRef = useRef<HTMLInputElement>(null);
   const cardBackInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state on modal open / customer switch
+  useEffect(() => {
+    if (isOpen) {
+      setSavedCustomer(null);
+      setStep(1);
+      setErrors({});
+      setCustomerType(existingCustomer?.customerType || 'driver');
+      setFullName(existingCustomer?.fullName || '');
+      setPrimaryPhone(existingCustomer?.primaryPhone || '');
+      setSecondaryPhone(existingCustomer?.secondaryPhone || '');
+      setMomoNumber(existingCustomer?.momoNumber || '');
+      setMomoNetwork(existingCustomer?.momoNetwork || 'MTN');
+      setMomoName(existingCustomer?.momoName || '');
+      setDateOfBirth(existingCustomer?.dateOfBirth || '1990-01-01');
+      setGender(existingCustomer?.gender || 'male');
+      setResidentialAddress(existingCustomer?.residentialAddress || '');
+      setWorkAddress(existingCustomer?.workAddress || '');
+      setGhanaCardNumber(existingCustomer?.ghanaCardNumber || 'GHA-');
+      setPhotoUrl(existingCustomer?.photoUrl || '');
+      setGhanaCardFrontUrl(existingCustomer?.ghanaCardFrontUrl || '');
+      setGhanaCardBackUrl(existingCustomer?.ghanaCardBackUrl || '');
+      setVehicleType(existingCustomer?.driverDetails?.vehicleType || '');
+      setRegistrationNumber(existingCustomer?.driverDetails?.registrationNumber || '');
+      setLicenseNumber(existingCustomer?.driverDetails?.licenseNumber || '');
+      setStationLocation(existingCustomer?.driverDetails?.stationLocation || '');
+      setBusinessName(existingCustomer?.traderDetails?.businessName || '');
+      setBusinessType(existingCustomer?.traderDetails?.businessType || '');
+      setMarketLocation(existingCustomer?.traderDetails?.marketLocation || '');
+      setStallNumber(existingCustomer?.traderDetails?.stallNumber || '');
+      setNotes(existingCustomer?.notes || '');
+    }
+  }, [isOpen, existingCustomer]);
 
   if (!isOpen) return null;
 
@@ -263,7 +300,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
       onCustomerCreated(newCustomer);
       CloudSyncService.triggerBackgroundSync();
-      onClose();
+      setSavedCustomer(newCustomer);
+      confetti({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.6 }
+      });
     } catch (err) {
       console.error('Failed to save customer', err);
       setErrors({ form: 'Failed to save customer. Please try again.' });
@@ -284,7 +326,8 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
             <button 
               type="button"
               onClick={() => {
-                if (step > 1) setStep(prev => prev - 1);
+                if (savedCustomer) onClose();
+                else if (step > 1) setStep(prev => prev - 1);
                 else onClose();
               }}
               className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-bold transition border border-white/20"
@@ -294,10 +337,16 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
             </button>
             <div>
               <h2 className="text-sm font-black text-white">
-                {existingCustomer ? 'Edit Client Dossier' : 'Register New Client'}
+                {savedCustomer 
+                  ? (existingCustomer ? 'Client Updated! 🎉' : 'Client Registered! 🎉')
+                  : existingCustomer 
+                  ? 'Edit Client Dossier' 
+                  : 'Register New Client'}
               </h2>
               <p className="text-[10px] text-sky-100 font-semibold">
-                Level {step} of 3 • {step === 1 ? 'Personal & Contact Info' : step === 2 ? 'Ghana Card & Live Camera' : 'Work Particulars & Notes'}
+                {savedCustomer
+                  ? 'Client record activated & synced to cloud'
+                  : `Level ${step} of 3 • ${step === 1 ? 'Personal & Contact Info' : step === 2 ? 'Ghana Card & Live Camera' : 'Work Particulars & Notes'}`}
               </p>
             </div>
           </div>
@@ -310,33 +359,132 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           </button>
         </div>
 
-        {/* Step Indicator Pills */}
-        <div className="flex px-5 pt-3 gap-1.5 bg-slate-50 border-b border-slate-100">
-          {[
-            { num: 1, label: 'Level 1: Contact' },
-            { num: 2, label: 'Level 2: Ghana Card' },
-            { num: 3, label: 'Level 3: Work & Notes' }
-          ].map(s => (
-            <button 
-              key={s.num}
-              type="button"
-              onClick={() => {
-                if (s.num === 1) setStep(1);
-                else if (s.num === 2 && validateStep1()) setStep(2);
-                else if (s.num === 3 && validateStep1() && validateStep2()) setStep(3);
-              }}
-              className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition ${
-                step === s.num 
-                  ? 'bg-blue-600 text-white shadow-xs' 
-                  : step > s.num
-                  ? 'bg-sky-100 text-blue-800 hover:bg-sky-200'
-                  : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {/* 1. SUCCESS CONFIRMATION SCREEN */}
+        {savedCustomer ? (
+          <div className="p-6 text-center space-y-4 animate-fade-in flex-1 overflow-y-auto">
+            <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/20 border-2 border-emerald-300">
+              <CheckCircle2 className="w-9 h-9 text-white" />
+            </div>
+
+            <div>
+              <div className="text-xs uppercase font-black tracking-wider text-emerald-600">
+                {existingCustomer ? 'Client Updated Successfully' : 'Client Created Successfully! 🎉'}
+              </div>
+              <div className="text-2xl font-black text-slate-950 mt-0.5">
+                {savedCustomer.fullName}
+              </div>
+              <div className="text-xs text-emerald-700 font-mono font-bold mt-1">
+                Client ID: #{savedCustomer.customerId}
+              </div>
+            </div>
+
+            {/* Client Summary Dossier Box */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-left text-xs space-y-2.5 text-slate-800">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Customer Category:</span>
+                <span className="font-black text-emerald-800 uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-[10px]">
+                  {savedCustomer.customerType}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Phone Number:</span>
+                <span className="font-mono font-bold text-slate-950">{savedCustomer.primaryPhone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Ghana Card PIN:</span>
+                <span className="font-mono font-bold text-slate-950">{savedCustomer.ghanaCardNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">MoMo Wallet:</span>
+                <span className="font-mono font-bold text-emerald-900">
+                  {savedCustomer.momoNumber || savedCustomer.primaryPhone} ({savedCustomer.momoNetwork || 'MTN'})
+                </span>
+              </div>
+              {savedCustomer.workAddress && (
+                <div className="flex justify-between border-t border-emerald-200 pt-1.5">
+                  <span className="text-slate-500 font-medium">Work / Station Location:</span>
+                  <span className="font-bold text-slate-950 truncate max-w-[220px]">{savedCustomer.workAddress}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2 pt-2">
+              {/* Quick Action: Issue Loan */}
+              {onOpenNewLoan && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cId = savedCustomer.customerId;
+                    onClose();
+                    onOpenNewLoan(cId);
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Issue Loan to this Client Now</span>
+                </button>
+              )}
+
+              {/* WhatsApp Welcome Message */}
+              <button
+                type="button"
+                onClick={() => {
+                  const cleanPhone = savedCustomer.primaryPhone.replace(/\D/g, '');
+                  const waPhone = cleanPhone.startsWith('0') ? '233' + cleanPhone.slice(1) : cleanPhone;
+                  const text = `*WELCOME TO ${settings?.businessName || 'B-F-L MICROFINANCE'}*\n\n` +
+                    `Dear ${savedCustomer.fullName},\n` +
+                    `Your client registration is complete! Your Client ID is *#${savedCustomer.customerId}*.\n\n` +
+                    `You are now eligible for microloans with flexible repayment terms.\n\n` +
+                    `For enquiries or assistance, reach us at ${settings?.businessPhone || 'our office'}.\n` +
+                    `Thank you for partnering with us!`;
+                  window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                }}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Send Welcome via WhatsApp</span>
+              </button>
+
+              {/* Done Button */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Step Indicator Pills */}
+            <div className="flex px-5 pt-3 gap-1.5 bg-slate-50 border-b border-slate-100">
+              {[
+                { num: 1, label: 'Level 1: Contact' },
+                { num: 2, label: 'Level 2: Ghana Card' },
+                { num: 3, label: 'Level 3: Work & Notes' }
+              ].map(s => (
+                <button 
+                  key={s.num}
+                  type="button"
+                  onClick={() => {
+                    if (s.num === 1) setStep(1);
+                    else if (s.num === 2 && validateStep1()) setStep(2);
+                    else if (s.num === 3 && validateStep1() && validateStep2()) setStep(3);
+                  }}
+                  className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition ${
+                    step === s.num 
+                      ? 'bg-blue-600 text-white shadow-xs' 
+                      : step > s.num
+                      ? 'bg-sky-100 text-blue-800 hover:bg-sky-200'
+                      : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
 
         {/* Form Body */}
         <form 
@@ -870,6 +1018,8 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           </div>
 
         </form>
+          </>
+        )}
 
         {/* Live Camera Viewfinder Modal */}
         <CameraModal

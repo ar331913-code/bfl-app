@@ -383,6 +383,10 @@ const MainApp: React.FC = () => {
         onCustomerCreated={(c) => {
           handleSelectCustomer(c);
         }}
+        onOpenNewLoan={(customerId) => {
+          setIsAddCustomerOpen(false);
+          handleOpenNewLoan(customerId);
+        }}
       />
 
       {/* Customer Profile Dossier Modal */}
