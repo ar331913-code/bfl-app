@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '21'
+          java-version: '17'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -62,8 +62,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: latest
-          name: "BFL Microfinance Android APK and Windows Setup"
+          tag_name: "v1.0.2"
+          name: "BFL Microfinance v1.0.2 (Android APK)"
           files: |
             build-output/BFL-Microfinance.apk
           draft: false
