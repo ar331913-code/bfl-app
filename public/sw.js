@@ -1,5 +1,5 @@
-// B-F-L Progressive Web App Service Worker v2 (High Performance)
-const CACHE_NAME = 'bfl-cache-v2';
+// B-F-L Progressive Web App Service Worker v3 (Network-First for HTML, Cache for Assets)
+const CACHE_NAME = 'bfl-cache-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -39,37 +39,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for static assets (JS, CSS, images, fonts)
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch update in background (stale-while-revalidate)
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {});
-        return cachedResponse;
-      }
+  const isHtml = event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html');
 
-      // If not in cache, fetch from network and store in cache
-      return fetch(event.request)
+  // Network-First for HTML/Navigation so users on mobile phones always get latest code instantly
+  if (isHtml) {
+    event.respondWith(
+      fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
         })
-        .catch(() => {
-          if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('./index.html');
+        .catch(() => caches.match(event.request).then((res) => res || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for JS, CSS, and static assets
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
-        });
+          return networkResponse;
+        })
+        .catch(() => null);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });

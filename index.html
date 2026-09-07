@@ -26,8 +26,18 @@
         if (location.protocol.startsWith('http')) {
           window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
-              .then((reg) => console.log('B-F-L Service Worker registered:', reg.scope))
+              .then((reg) => {
+                reg.update();
+                console.log('B-F-L Service Worker registered:', reg.scope);
+              })
               .catch((err) => console.error('Service Worker registration failed:', err));
+          });
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
           });
         } else {
           // Unregister any leftover service workers in desktop environment
