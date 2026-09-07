@@ -123,7 +123,14 @@ export class CloudSyncService {
       let pulledCount = 0;
       let pushedCount = 0;
 
-      // 2. Process Cloud Data -> Local Database (Bidirectional Merge)
+      // Local & Cloud Reset Generation Timestamps (Epoch Clock)
+      const localResetAt = localStorage.getItem('bfl_data_reset_at') || '1970-01-01T00:00:00.000Z';
+      const cloudResetAt = cloudData?.dataResetAt || '1970-01-01T00:00:00.000Z';
+
+      const cloudResetTime = new Date(cloudResetAt).getTime();
+      const localResetTime = new Date(localResetAt).getTime();
+
+      // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {
         const cloudCustomers: Customer[] = cloudData.customers 
           ? (Array.isArray(cloudData.customers) ? cloudData.customers : Object.values(cloudData.customers)) 
@@ -138,81 +145,119 @@ export class CloudSyncService {
           ? (Array.isArray(cloudData.payments) ? cloudData.payments : Object.values(cloudData.payments)) 
           : [];
 
-        // A. Merge Customers
-        for (const c of cloudCustomers) {
-          if (!c || !c.customerId) continue;
-          const existing = await db.customers.where('customerId').equals(c.customerId).first();
-          if (!existing) {
-            const { id, ...rest } = c;
-            await db.customers.add(rest as Customer);
-            pulledCount++;
-          } else {
-            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
-            const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
-            if (cloudUpdated >= localUpdated) {
-              await db.customers.update(existing.id!, {
-                ...c,
-                id: existing.id
-              });
+        if (cloudResetTime > localResetTime) {
+          // -------------------------------------------------------------
+          // CLOUD HAS BEEN CLEARED / RESET / RESTORED BY ANOTHER DEVICE
+          // -------------------------------------------------------------
+          // Wipe local tables completely and apply cloud data directly!
+          await db.transaction('rw', [
+            db.customers,
+            db.loans,
+            db.repaymentSchedules,
+            db.payments,
+            db.notifications,
+            db.auditLogs
+          ], async () => {
+            await db.customers.clear();
+            await db.loans.clear();
+            await db.repaymentSchedules.clear();
+            await db.payments.clear();
+            await db.notifications.clear();
+            await db.auditLogs.clear();
+
+            if (cloudCustomers.length) await db.customers.bulkAdd(cloudCustomers);
+            if (cloudLoans.length) await db.loans.bulkAdd(cloudLoans);
+            if (cloudSchedules.length) await db.repaymentSchedules.bulkAdd(cloudSchedules);
+            if (cloudPayments.length) await db.payments.bulkAdd(cloudPayments);
+          });
+
+          localStorage.setItem('bfl_data_reset_at', cloudResetAt);
+          pulledCount = cloudCustomers.length + cloudLoans.length + cloudPayments.length;
+        } else if (localResetTime > cloudResetTime) {
+          // -------------------------------------------------------------
+          // THIS DEVICE JUST RESET LOCALLY - PROCEED TO PUSH LOCAL STATE
+          // -------------------------------------------------------------
+        } else {
+          // -------------------------------------------------------------
+          // SAME GENERATION - 2-WAY BIDIRECTIONAL DIFFERENTIAL MERGE
+          // -------------------------------------------------------------
+
+          // A. Merge Customers
+          for (const c of cloudCustomers) {
+            if (!c || !c.customerId) continue;
+            const existing = await db.customers.where('customerId').equals(c.customerId).first();
+            if (!existing) {
+              const { id, ...rest } = c;
+              await db.customers.add(rest as Customer);
               pulledCount++;
+            } else {
+              const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+              const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
+              if (cloudUpdated >= localUpdated) {
+                await db.customers.update(existing.id!, {
+                  ...c,
+                  id: existing.id
+                });
+                pulledCount++;
+              }
             }
           }
-        }
 
-        // B. Merge Loans
-        for (const l of cloudLoans) {
-          if (!l || !l.loanId) continue;
-          const existing = await db.loans.where('loanId').equals(l.loanId).first();
-          if (!existing) {
-            const { id, ...rest } = l;
-            await db.loans.add(rest as Loan);
-            pulledCount++;
-          } else {
-            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
-            const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
-            if (cloudUpdated >= localUpdated) {
-              await db.loans.update(existing.id!, {
-                ...l,
-                id: existing.id
-              });
+          // B. Merge Loans
+          for (const l of cloudLoans) {
+            if (!l || !l.loanId) continue;
+            const existing = await db.loans.where('loanId').equals(l.loanId).first();
+            if (!existing) {
+              const { id, ...rest } = l;
+              await db.loans.add(rest as Loan);
               pulledCount++;
+            } else {
+              const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+              const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
+              if (cloudUpdated >= localUpdated) {
+                await db.loans.update(existing.id!, {
+                  ...l,
+                  id: existing.id
+                });
+                pulledCount++;
+              }
             }
           }
-        }
 
-        // C. Merge Schedules
-        for (const s of cloudSchedules) {
-          if (!s || !s.loanId) continue;
-          const existing = await db.repaymentSchedules
-            .where('loanId')
-            .equals(s.loanId)
-            .filter(item => item.installmentNumber === s.installmentNumber)
-            .first();
+          // C. Merge Schedules
+          for (const s of cloudSchedules) {
+            if (!s || !s.loanId) continue;
+            const existing = await db.repaymentSchedules
+              .where('loanId')
+              .equals(s.loanId)
+              .filter(item => item.installmentNumber === s.installmentNumber)
+              .first();
 
-          if (!existing) {
-            const { id, ...rest } = s;
-            await db.repaymentSchedules.add(rest as RepaymentSchedule);
-          } else {
-            await db.repaymentSchedules.update(existing.id!, {
-              ...s,
-              id: existing.id
-            });
+            if (!existing) {
+              const { id, ...rest } = s;
+              await db.repaymentSchedules.add(rest as RepaymentSchedule);
+            } else {
+              await db.repaymentSchedules.update(existing.id!, {
+                ...s,
+                id: existing.id
+              });
+            }
           }
-        }
 
-        // D. Merge Payments
-        for (const p of cloudPayments) {
-          if (!p || !p.paymentId) continue;
-          const existing = await db.payments.where('paymentId').equals(p.paymentId).first();
-          if (!existing) {
-            const { id, ...rest } = p;
-            await db.payments.add(rest as Payment);
-            pulledCount++;
-          } else {
-            await db.payments.update(existing.id!, {
-              ...p,
-              id: existing.id
-            });
+          // D. Merge Payments
+          for (const p of cloudPayments) {
+            if (!p || !p.paymentId) continue;
+            const existing = await db.payments.where('paymentId').equals(p.paymentId).first();
+            if (!existing) {
+              const { id, ...rest } = p;
+              await db.payments.add(rest as Payment);
+              pulledCount++;
+            } else {
+              await db.payments.update(existing.id!, {
+                ...p,
+                id: existing.id
+              });
+            }
           }
         }
       }
@@ -226,8 +271,11 @@ export class CloudSyncService {
       const unifiedSchedules = await db.repaymentSchedules.toArray();
       const unifiedPayments = await db.payments.toArray();
 
+      const effectiveResetAt = localStorage.getItem('bfl_data_reset_at') || cloudResetAt || new Date().toISOString();
+
       const cloudPayload = {
         orgId,
+        dataResetAt: effectiveResetAt,
         lastSyncedAt: new Date().toISOString(),
         customers: unifiedCustomers,
         loans: unifiedLoans,
@@ -289,7 +337,7 @@ export class CloudSyncService {
    * Force Overwrite Cloud Portfolio with current Local DB (e.g. on Purge or Reseed)
    * This bypasses the pull-merge phase and directly writes local state to Firebase.
    */
-  public static async forcePushLocalToCloud(): Promise<boolean> {
+  public static async forcePushLocalToCloud(explicitResetAt?: string): Promise<boolean> {
     try {
       const { orgId, endpoint } = await this.getCloudConfig();
       const unifiedCustomers = await db.customers.toArray();
@@ -297,8 +345,11 @@ export class CloudSyncService {
       const unifiedSchedules = await db.repaymentSchedules.toArray();
       const unifiedPayments = await db.payments.toArray();
 
+      const resetAt = explicitResetAt || localStorage.getItem('bfl_data_reset_at') || new Date().toISOString();
+
       const cloudPayload = {
         orgId,
+        dataResetAt: resetAt,
         lastSyncedAt: new Date().toISOString(),
         customers: unifiedCustomers,
         loans: unifiedLoans,
@@ -326,16 +377,20 @@ export class CloudSyncService {
    * Clear all portfolio data from both Local DB and Firebase Cloud
    */
   public static async clearAllPortfolioData(): Promise<void> {
+    const newResetTimestamp = new Date().toISOString();
+    localStorage.setItem('bfl_data_reset_at', newResetTimestamp);
     await db.resetAllData();
-    await this.forcePushLocalToCloud();
+    await this.forcePushLocalToCloud(newResetTimestamp);
   }
 
   /**
    * Reseed portfolio with fresh demo data both locally and in Firebase Cloud
    */
   public static async reseedPortfolioData(): Promise<void> {
+    const newResetTimestamp = new Date().toISOString();
+    localStorage.setItem('bfl_data_reset_at', newResetTimestamp);
     await seedInitialData(true);
-    await this.forcePushLocalToCloud();
+    await this.forcePushLocalToCloud(newResetTimestamp);
   }
 
   /**
@@ -450,6 +505,9 @@ export class CloudSyncService {
         throw new Error('Invalid snapshot payload');
       }
 
+      const newResetTimestamp = new Date().toISOString();
+      localStorage.setItem('bfl_data_reset_at', newResetTimestamp);
+
       const { customers = [], loans = [], repaymentSchedules = [], payments = [], settings = [] } = snapshot.data;
 
       // 1. Overwrite Local Dexie Database with Snapshot data
@@ -480,7 +538,7 @@ export class CloudSyncService {
       });
 
       // 2. Force Push Restored State to Active Firebase Endpoint
-      await this.forcePushLocalToCloud();
+      await this.forcePushLocalToCloud(newResetTimestamp);
 
       return {
         success: true,
