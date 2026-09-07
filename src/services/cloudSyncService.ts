@@ -36,6 +36,8 @@ export class CloudSyncService {
   private static lastSyncTimestamp: string | null = null;
   private static syncStatus: 'idle' | 'syncing' | 'synced' | 'error' | 'offline' = 'idle';
 
+  private static syncDebounceTimer: any = null;
+
   public static subscribe(callback: (status: 'idle' | 'syncing' | 'synced' | 'error' | 'offline', lastSync?: string) => void) {
     this.listeners.push(callback);
     callback(this.syncStatus, this.lastSyncTimestamp || undefined);
@@ -61,7 +63,6 @@ export class CloudSyncService {
       const cleanOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, '_');
       
       let base = (settings?.cloudSyncEndpoint && settings.cloudSyncEndpoint.trim()) || this.defaultCloudBaseUrl;
-      // Auto-correct any legacy placeholder endpoint
       if (base.includes('bfl-app-cloud-sync-default-rtdb')) {
         base = this.defaultCloudBaseUrl;
       }
@@ -75,8 +76,9 @@ export class CloudSyncService {
 
   /**
    * Full 2-Way Synchronization with Cloud
+   * Pulls remote changes, merges with local Dexie DB, reconciles financial balances, and pushes unified data to Cloud.
    */
-  public static async syncWithCloud(forcePush = false): Promise<SyncResult> {
+  public static async syncWithCloud(isUserInitiated = false): Promise<SyncResult> {
     if (this.isSyncing) {
       return {
         success: false,
@@ -91,7 +93,7 @@ export class CloudSyncService {
       this.notify('offline');
       return {
         success: false,
-        message: 'Device is offline. Changes are saved locally.',
+        message: 'Device is offline. Changes are saved safely on this device.',
         pushedCount: 0,
         pulledCount: 0,
         lastSyncedAt: this.lastSyncTimestamp || new Date().toISOString()
@@ -104,7 +106,7 @@ export class CloudSyncService {
     try {
       const { orgId, endpoint } = await this.getCloudConfig();
 
-      // 1. Fetch current cloud data
+      // 1. Fetch current cloud portfolio data
       let cloudData: any = null;
       try {
         const response = await fetch(endpoint, {
@@ -115,13 +117,13 @@ export class CloudSyncService {
           cloudData = await response.json();
         }
       } catch (err) {
-        console.warn('Cloud pull error, will attempt local push:', err);
+        console.warn('Cloud pull error, will push local data to restore cloud state:', err);
       }
 
       let pulledCount = 0;
       let pushedCount = 0;
 
-      // 2. Process Cloud Data -> Local Database
+      // 2. Process Cloud Data -> Local Database (Bidirectional Merge)
       if (cloudData && typeof cloudData === 'object') {
         const cloudCustomers: Customer[] = cloudData.customers 
           ? (Array.isArray(cloudData.customers) ? cloudData.customers : Object.values(cloudData.customers)) 
@@ -145,12 +147,15 @@ export class CloudSyncService {
             await db.customers.add(rest as Customer);
             pulledCount++;
           } else {
-            // Update local with cloud record
-            await db.customers.update(existing.id!, {
-              ...c,
-              id: existing.id
-            });
-            pulledCount++;
+            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+            const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
+            if (cloudUpdated >= localUpdated) {
+              await db.customers.update(existing.id!, {
+                ...c,
+                id: existing.id
+              });
+              pulledCount++;
+            }
           }
         }
 
@@ -163,11 +168,15 @@ export class CloudSyncService {
             await db.loans.add(rest as Loan);
             pulledCount++;
           } else {
-            await db.loans.update(existing.id!, {
-              ...l,
-              id: existing.id
-            });
-            pulledCount++;
+            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+            const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
+            if (cloudUpdated >= localUpdated) {
+              await db.loans.update(existing.id!, {
+                ...l,
+                id: existing.id
+              });
+              pulledCount++;
+            }
           }
         }
 
@@ -256,7 +265,7 @@ export class CloudSyncService {
 
       return {
         success: true,
-        message: `Synced with Firebase successfully (${unifiedCustomers.length} clients, ${unifiedLoans.length} loans)`,
+        message: `Synced with Cloud (${unifiedCustomers.length} clients, ${unifiedLoans.length} loans)`,
         pushedCount,
         pulledCount,
         lastSyncedAt: now
@@ -503,11 +512,15 @@ export class CloudSyncService {
   }
 
   /**
-   * Helper: Push single entity to cloud immediately after creation
+   * Helper: Push and reconcile single entity to cloud immediately after creation/update
    */
   public static triggerBackgroundSync() {
-    setTimeout(() => {
+    if (this.syncDebounceTimer) {
+      clearTimeout(this.syncDebounceTimer);
+    }
+    this.syncDebounceTimer = setTimeout(() => {
       this.syncWithCloud().catch(e => console.warn('Background sync failed:', e));
     }, 300);
   }
 }
+

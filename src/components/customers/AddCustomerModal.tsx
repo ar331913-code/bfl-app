@@ -262,7 +262,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       }
 
       onCustomerCreated(newCustomer);
-      CloudSyncService.forcePushLocalToCloud().catch(e => console.warn('Cloud sync error:', e));
+      CloudSyncService.triggerBackgroundSync();
       onClose();
     } catch (err) {
       console.error('Failed to save customer', err);

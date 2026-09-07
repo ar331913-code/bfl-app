@@ -42,6 +42,7 @@ export const Payments: React.FC<PaymentsProps> = ({
 
   const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
   const cashCollected = payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const momoCollected = payments.filter(p => p.paymentMethod === 'momo').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
   const bankCollected = payments.filter(p => p.paymentMethod === 'bank').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
 
   const filteredPayments = payments.filter(p => {
@@ -55,7 +56,13 @@ export const Payments: React.FC<PaymentsProps> = ({
 
     if (!matchesSearch) return false;
 
-    if (methodFilter !== 'all' && p.paymentMethod !== methodFilter) return false;
+    if (methodFilter !== 'all') {
+      if (methodFilter === 'cash') {
+        if (p.paymentMethod && p.paymentMethod !== 'cash') return false;
+      } else {
+        if (p.paymentMethod !== methodFilter) return false;
+      }
+    }
 
     return true;
   }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -115,8 +122,8 @@ export const Payments: React.FC<PaymentsProps> = ({
         </button>
       </div>
 
-      {/* 2. Top Summary KPI Cards (3-Column on desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 2. Top Summary KPI Cards (4-Column on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         
         {/* Total Collected Card */}
         <div className="bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 rounded-3xl p-4 sm:p-5 text-white shadow-xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
@@ -124,11 +131,27 @@ export const Payments: React.FC<PaymentsProps> = ({
             <span>Total Collected</span>
             <Receipt className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
             {formatCurrency(totalCollected)}
           </div>
-          <div className="text-[11px] text-sky-300 font-medium mt-1">
-            {payments.length} successful receipts issued
+          <div className="text-[10px] text-sky-300 font-medium mt-1">
+            {payments.length} receipts
+          </div>
+        </div>
+
+        {/* MTN MoMo Card */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-amber-300 shadow-sm flex flex-col justify-between bg-gradient-to-br from-amber-50/40 to-white">
+          <div className="flex items-center justify-between text-amber-900 text-xs font-bold uppercase tracking-wider mb-2">
+            <span>MTN MoMo</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
+              MoMo
+            </div>
+          </div>
+          <div className="text-xl sm:text-2xl font-black text-amber-950 tracking-tight">
+            {formatCurrency(momoCollected)}
+          </div>
+          <div className="text-[10px] text-amber-800 font-medium mt-1">
+            Mobile money transfers
           </div>
         </div>
 
@@ -140,10 +163,10 @@ export const Payments: React.FC<PaymentsProps> = ({
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             {formatCurrency(cashCollected)}
           </div>
-          <div className="text-[11px] text-emerald-700 font-medium mt-1">
+          <div className="text-[10px] text-emerald-700 font-medium mt-1">
             Physical cash collections
           </div>
         </div>
@@ -156,10 +179,10 @@ export const Payments: React.FC<PaymentsProps> = ({
               <Building2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             {formatCurrency(bankCollected)}
           </div>
-          <div className="text-[11px] text-indigo-700 font-medium mt-1">
+          <div className="text-[10px] text-indigo-700 font-medium mt-1">
             Direct bank deposits
           </div>
         </div>
@@ -185,7 +208,8 @@ export const Payments: React.FC<PaymentsProps> = ({
         <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs font-black shrink-0">
           {[
             { id: 'all', label: `All (${payments.length})` },
-            { id: 'cash', label: `Cash Hand (${payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).length})` },
+            { id: 'momo', label: `MTN MoMo (${payments.filter(p => p.paymentMethod === 'momo').length})` },
+            { id: 'cash', label: `Cash (${payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).length})` },
             { id: 'bank', label: `Bank (${payments.filter(p => p.paymentMethod === 'bank').length})` },
           ].map(tab => (
             <button
@@ -238,12 +262,20 @@ export const Payments: React.FC<PaymentsProps> = ({
                   </div>
 
                   <span className={`text-[10px] font-black px-2.5 py-1 rounded-xl uppercase shrink-0 shadow-xs flex items-center gap-1 ${
-                    payment.paymentMethod === 'bank'
+                    payment.paymentMethod === 'momo'
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : payment.paymentMethod === 'bank'
                       ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
                       : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                   }`}>
-                    {payment.paymentMethod === 'bank' ? <Building2 className="w-3 h-3" /> : <DollarSign className="w-3 h-3" />}
-                    <span>{payment.paymentMethod || 'cash'}</span>
+                    {payment.paymentMethod === 'momo' ? (
+                      <span className="font-extrabold text-[9px] bg-amber-400 text-slate-950 px-1 rounded">MoMo</span>
+                    ) : payment.paymentMethod === 'bank' ? (
+                      <Building2 className="w-3 h-3" />
+                    ) : (
+                      <DollarSign className="w-3 h-3" />
+                    )}
+                    <span>{payment.paymentMethod === 'momo' ? 'MTN MoMo' : (payment.paymentMethod || 'cash')}</span>
                   </span>
                 </div>
 

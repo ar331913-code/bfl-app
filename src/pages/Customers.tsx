@@ -342,8 +342,15 @@ export const Customers: React.FC<CustomersProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Phone:</span>
-                    <span className="font-semibold text-slate-900">{formatGhanaPhone(customer.primaryPhone)}</span>
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Phone & MoMo:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-semibold text-slate-900 font-mono">{formatGhanaPhone(customer.primaryPhone)}</span>
+                      {customer.momoNumber && (
+                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                          MoMo: {customer.momoNumber}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {customer.customerType === 'driver' && customer.driverDetails && (

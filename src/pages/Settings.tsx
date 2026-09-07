@@ -335,77 +335,119 @@ export const Settings: React.FC<SettingsProps> = ({
 
       {/* Settings Grid (Responsive 2-column on desktop) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* 1. Multi-Device Google Firebase Cloud Synchronization */}
-        <div className="lg:col-span-2 p-5 rounded-3xl bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950 text-white shadow-xl border border-sky-500/30 space-y-3.5 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-wider text-sky-300 flex items-center gap-1.5">
-            <Cloud className="w-4 h-4 text-sky-400" />
-            Google Firebase Cloud Database
-          </h3>
-          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/40 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-            Firebase Cloud Active
-          </span>
-        </div>
+        {/* 1. Multi-Device Cloud Synchronization & Pairing Center */}
+        <div className="lg:col-span-2 p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 text-white shadow-2xl border border-sky-500/30 space-y-4 relative overflow-hidden">
+          {/* Background Ambient Glow */}
+          <div className="absolute top-0 right-0 -mr-8 -mt-8 w-48 h-48 bg-sky-500/20 rounded-full blur-3xl pointer-events-none" />
 
-        <p className="text-[11px] text-slate-300 leading-relaxed">
-          All client registrations, loans, schedules, and payments are automatically saved to <strong>Google Firebase Cloud</strong>. When you or your agents open the app on another phone or computer with the same <strong>Organization Sync Key</strong>, everything updates in real time!
-        </p>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                  Multi-Device Cloud Sync (Laptop & Phone)
+                </h3>
+                <p className="text-[11px] text-sky-200/70 font-medium">
+                  Bidirectional real-time sync across Windows, Android, and Web
+                </p>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <div>
-            <label className="text-[11px] font-bold text-sky-200 block mb-1">
-              Firebase Organization Sync Key
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. BFL-GHANA-MAIN"
-              value={cloudSyncOrgId}
-              onChange={(e) => setCloudSyncOrgId(e.target.value)}
-              className="w-full text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500"
-            />
+            <span className="text-[10px] font-black px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1.5 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>2-Way Auto-Sync Active</span>
+            </span>
           </div>
 
-          <div>
-            <label className="text-[11px] font-bold text-sky-200 block mb-1">
-              Firebase Database Endpoint URL
-            </label>
-            <input
-              type="text"
-              placeholder="https://your-project.firebaseio.com"
-              value={cloudSyncEndpoint}
-              onChange={(e) => setCloudSyncEndpoint(e.target.value)}
-              className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
-            />
+          {/* Quick Pairing Box */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+            <div className="text-xs font-bold text-sky-200 flex items-center justify-between">
+              <span>Organization Sync Pairing Key</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(cloudSyncOrgId || 'BFL-GHANA-MAIN');
+                  setCloudSyncMessage('Organization Key copied to clipboard! Paste this on your phone.');
+                  setTimeout(() => setCloudSyncMessage(null), 3500);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-[10px] font-bold border border-sky-400/30 transition active:scale-95 flex items-center gap-1"
+              >
+                <span>📋 Copy Pairing Key</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              To pair your phone with your laptop, make sure both devices have the <strong>exact same Organization Key</strong> below. Any borrower, loan disbursement, or payment collected on either device will automatically sync within seconds!
+            </p>
           </div>
-        </div>
 
-        {cloudSyncMessage && (
-          <div className="p-2.5 rounded-xl bg-sky-500/20 border border-sky-400/50 text-sky-200 text-xs font-bold flex items-center gap-2 animate-fade-in">
-            <Check className="w-4 h-4 text-sky-400" />
-            <span>{cloudSyncMessage}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-bold text-sky-200 block mb-1">
+                Organization Sync Key (Must Match on All Devices)
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="e.g. BFL-GHANA-MAIN"
+                  value={cloudSyncOrgId}
+                  onChange={(e) => setCloudSyncOrgId(e.target.value)}
+                  className="flex-1 text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCloudSyncOrgId('BFL-GHANA-MAIN')}
+                  className="px-2.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-[10px] font-bold text-sky-300 border border-white/15 shrink-0"
+                  title="Reset to default key"
+                >
+                  Reset Default
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-sky-200 block mb-1">
+                Cloud Database Hub
+              </label>
+              <input
+                type="text"
+                placeholder="https://bfl-microfinance-default-rtdb.firebaseio.com"
+                value={cloudSyncEndpoint}
+                onChange={(e) => setCloudSyncEndpoint(e.target.value)}
+                className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
+              />
+            </div>
           </div>
-        )}
 
-        <button
-          type="button"
-          onClick={handleTriggerCloudSync}
-          disabled={isCloudSyncing}
-          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-98 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50"
-        >
-          {isCloudSyncing ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Synchronizing with Cloud...</span>
-            </>
-          ) : (
-            <>
-              <Cloud className="w-4 h-4" />
-              <span>Sync All Data Across Devices Now</span>
-            </>
+          {cloudSyncMessage && (
+            <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center gap-2 animate-fade-in shadow-xs">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{cloudSyncMessage}</span>
+            </div>
           )}
-        </button>
-      </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleTriggerCloudSync}
+              disabled={isCloudSyncing}
+              className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-98 text-white text-xs font-black rounded-xl shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50"
+            >
+              {isCloudSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Syncing Laptop & Phone...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Sync Data with Phone Now</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
 
       {/* 2. Business Information & Loan Defaults */}
       <form onSubmit={handleSaveSettings} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-4">

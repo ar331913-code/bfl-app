@@ -303,7 +303,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       }
 
       onLoanCreated(newLoan);
-      CloudSyncService.forcePushLocalToCloud().catch(e => console.warn('Cloud sync error:', e));
+      CloudSyncService.triggerBackgroundSync();
 
       confetti({
         particleCount: 70,
