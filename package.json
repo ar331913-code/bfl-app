@@ -1,7 +1,7 @@
 {
   "name": "b-f-l",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {

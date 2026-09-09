@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p android/app/src/main/assets/public
           cp -r dist/* android/app/src/main/assets/public/
-          echo '{"appId":"com.bfl.microfinance","appName":"BFL Microfinance","webDir":"dist"}' > android/app/src/main/assets/capacitor.config.json
+          echo '{"appId":"com.bfl.microfinance","appName":"BFL","webDir":"dist"}' > android/app/src/main/assets/capacitor.config.json
           CI=true npx @capacitor/cli sync android || true
 
       - name: Make Gradle Executable
@@ -65,22 +65,26 @@ jobs:
       - name: Rename APK Output
         run: |
           mkdir -p build-output
+          cp android/app/build/outputs/apk/debug/app-debug.apk build-output/BFL.apk
           cp android/app/build/outputs/apk/debug/app-debug.apk build-output/BFL-Microfinance.apk
 
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BFL-Microfinance-Android-APK
-          path: build-output/BFL-Microfinance.apk
+          name: BFL-Android-APK
+          path: |
+            build-output/BFL.apk
+            build-output/BFL-Microfinance.apk
           retention-days: 30
 
       - name: Create or Update Release with APK
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: "v1.0.2"
-          name: "BFL Microfinance v1.0.2 (Android APK)"
+          tag_name: "v1.0.3"
+          name: "BFL v1.0.3 (Android APK)"
           files: |
+            build-output/BFL.apk
             build-output/BFL-Microfinance.apk
           draft: false
           prerelease: false
