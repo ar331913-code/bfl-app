@@ -62,7 +62,7 @@ export interface Customer {
 }
 
 export type InterestType = 'flat' | 'reducing_balance' | 'fixed_sum';
-export type RepaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly';
+export type RepaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom_date';
 export type LoanStatus = 
   | 'active' 
   | 'due_today' 

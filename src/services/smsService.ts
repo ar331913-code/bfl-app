@@ -74,6 +74,22 @@ export class SMSService {
   }
 
   /**
+   * Generates an Outstanding / Remaining Balance Reminder SMS
+   */
+  static generateBalanceReminderSMS(data: SMSTemplateData & { totalBalance?: number; dueDate?: string }): string {
+    const biz = data.businessName || 'B-F-L';
+    const bizPhone = data.businessPhone ? ` Inquiries / MoMo: ${data.businessPhone}.` : '';
+    const balance = data.totalBalance !== undefined 
+      ? data.totalBalance 
+      : (data.loan?.outstandingBalance || 0);
+    const dueInfo = data.dueDate 
+      ? ` Due Date: ${formatDate(data.dueDate)}.` 
+      : (data.loan?.maturityDate ? ` Due Date: ${formatDate(data.loan.maturityDate)}.` : '');
+
+    return `Dear ${data.customer.fullName}, this is a gentle reminder from ${biz} regarding your active outstanding loan balance of ${formatCurrency(balance)}.${dueInfo} Kindly remit your payment to keep your account in good standing.${bizPhone} Thank you, ${biz}.`;
+  }
+
+  /**
    * Normalize Ghanaian phone number to International format (233XXXXXXXXX)
    */
   static normalizeGhanaPhone(phone: string): string {

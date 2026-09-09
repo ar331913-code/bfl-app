@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
     switch (activeTab) {
       case 'customers': return 'Clients Directory';
       case 'loans': return 'Loan Portfolio';
-      case 'payments': return 'Collections & Payments';
+      case 'payments': return 'Payments & Ledger';
       case 'notifications': return 'Alerts & Due Dates';
       case 'reports': return 'Reports & Analytics';
       case 'settings': return 'Settings & Security';

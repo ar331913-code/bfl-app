@@ -311,7 +311,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <DollarSign className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs sm:text-sm font-black text-white leading-tight truncate">Collect Pay</div>
+              <div className="text-xs sm:text-sm font-black text-white leading-tight truncate">Record Payment</div>
               <div className="text-[10px] sm:text-xs text-sky-100 font-semibold truncate">Record receipt</div>
             </div>
           </button>
@@ -344,7 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
                 <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900">
-                  Collections & Reminders
+                  Repayments & Reminders
                 </h3>
               </div>
 
@@ -366,7 +366,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onClick={() => setActiveCollectionTab('upcoming')}
                   className={`px-2.5 py-1 rounded-lg transition ${activeCollectionTab === 'upcoming' ? 'bg-white text-blue-900 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  Next 7 Days ({upcomingSchedules.length})
+                  Upcoming ({upcomingSchedules.length})
                 </button>
               </div>
             </div>
@@ -378,11 +378,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             )}
 
-            <div className="space-y-2.5 pt-3">
+            {/* Sub-tab Lists */}
+            <div className="space-y-3 pt-3">
               {activeCollectionTab === 'due_today' && (
                 dueTodayLoans.length === 0 ? (
                   <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                    🎉 No loan installments due today!
+                    No active loan installments due today.
                   </div>
                 ) : (
                   dueTodayLoans.map(loan => {
@@ -390,17 +391,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     return (
                       <div 
                         key={loan.loanId}
-                        className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-200 flex items-center justify-between gap-3 overflow-hidden"
+                        className="p-3.5 rounded-2xl bg-sky-50/60 border border-sky-200 flex items-center justify-between gap-3 overflow-hidden"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="text-xs sm:text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
                             <span>{loan.customerName}</span>
-                            <span className="text-[10px] font-bold text-sky-800 bg-sky-200/70 px-1.5 py-0.2 rounded font-mono">
+                            <span className="text-[10px] font-bold text-sky-800 bg-sky-200 px-1.5 py-0.2 rounded font-mono">
                               {loan.loanId}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-600 truncate mt-0.5">
-                            Due Today: <strong className="text-sky-950 font-black font-mono">{formatCurrency(loan.installmentAmount)}</strong>
+                          <div className="text-xs text-sky-900 font-bold truncate mt-0.5">
+                            Installment Due: <strong className="font-mono text-slate-950 font-black">{formatCurrency(loan.installmentAmount)}</strong>
                           </div>
                           {cust?.primaryPhone && (
                             <div className="text-[11px] text-slate-500 truncate font-mono">
@@ -423,7 +424,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => sendSMSReminder(cust, loan)}
-                                className="p-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-blue-800 transition active:scale-95"
+                                className="p-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 transition active:scale-95"
                                 title="1-Click SMS Reminder"
                               >
                                 <Send className="w-4 h-4" />
@@ -436,7 +437,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             className="px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1"
                           >
                             <DollarSign className="w-3.5 h-3.5" />
-                            <span>Collect</span>
+                            <span>Record Payment</span>
                           </button>
                         </div>
                       </div>
@@ -502,7 +503,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             className="px-3 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1"
                           >
                             <DollarSign className="w-3.5 h-3.5" />
-                            <span>Collect</span>
+                            <span>Record Payment</span>
                           </button>
                         </div>
                       </div>
@@ -550,7 +551,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             onClick={() => onOpenRecordPayment(sched.loanId)}
                             className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition"
                           >
-                            Collect
+                            Record Payment
                           </button>
                         </div>
                       </div>
@@ -638,7 +639,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onClick={() => onNavigate('payments')}
             className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition text-center"
           >
-            View All Collection Records →
+            View All Payment Records →
           </button>
         </div>
 

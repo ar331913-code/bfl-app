@@ -69,7 +69,9 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
   else if (durationUnit === 'weeks') totalDays = durationValue * 7;
   else if (durationUnit === 'months') totalDays = durationValue * 30;
 
-  if (repaymentFrequency === 'daily') {
+  if (repaymentFrequency === 'custom_date') {
+    totalInstallments = 1;
+  } else if (repaymentFrequency === 'daily') {
     totalInstallments = durationUnit === 'days' ? durationValue : (durationUnit === 'weeks' ? durationValue * 6 : durationValue * 26);
   } else if (repaymentFrequency === 'weekly') {
     totalInstallments = durationUnit === 'weeks' ? durationValue : Math.max(1, Math.round(totalDays / 7));
@@ -138,6 +140,7 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     else if (repaymentFrequency === 'weekly') firstDate = addWeeks(baseStart, 1);
     else if (repaymentFrequency === 'biweekly') firstDate = addWeeks(baseStart, 2);
     else if (repaymentFrequency === 'monthly') firstDate = addMonths(baseStart, 1);
+    else if (repaymentFrequency === 'custom_date') firstDate = addWeeks(baseStart, 1);
   }
 
   const schedulePreview: LoanCalculationResult['schedulePreview'] = [];

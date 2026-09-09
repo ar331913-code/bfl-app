@@ -73,6 +73,10 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [firstRepaymentDate, setFirstRepaymentDate] = useState<string>(
     format(addWeeks(new Date(), 1), 'yyyy-MM-dd')
   );
+  const [customRepaymentDate, setCustomRepaymentDate] = useState<string>(
+    format(addWeeks(new Date(), 2), 'yyyy-MM-dd')
+  );
+  const [customRepaymentTime, setCustomRepaymentTime] = useState<string>('17:00');
   const [penaltyRateInput, setPenaltyRateInput] = useState<string>('2.5');
   const [notes, setNotes] = useState<string>('');
 
@@ -166,18 +170,18 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   // Calculate Loan in Real-Time
   const calculation = useMemo(() => {
     try {
-      if (principalAmount <= 0 || durationValue <= 0 || interestRate < 0) {
+      if (principalAmount <= 0 || (repaymentFrequency !== 'custom_date' && durationValue <= 0) || interestRate < 0) {
         return null;
       }
       return calculateLoan({
         principalAmount,
         interestRate,
         interestType,
-        durationValue,
-        durationUnit,
+        durationValue: repaymentFrequency === 'custom_date' ? 1 : durationValue,
+        durationUnit: repaymentFrequency === 'custom_date' ? 'days' : durationUnit,
         repaymentFrequency,
         startDate,
-        firstRepaymentDate,
+        firstRepaymentDate: repaymentFrequency === 'custom_date' ? customRepaymentDate : firstRepaymentDate,
         processingFee: 0
       });
     } catch (err: any) {
@@ -191,7 +195,8 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     durationUnit,
     repaymentFrequency,
     startDate,
-    firstRepaymentDate
+    firstRepaymentDate,
+    customRepaymentDate
   ]);
 
   if (!isOpen) return null;
@@ -714,43 +719,117 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               )}
             </div>
 
-            {/* 3. Loan Duration & Tenure */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Loan Duration *</label>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 6"
-                  value={durationValueInput}
-                  onChange={(e) => setDurationValueInput(e.target.value)}
-                  className="w-full text-base font-black px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-                />
+            {/* 3. Repayment Frequency & Schedule Type */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-3">
+              <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                Repayment Schedule & Frequency *
+              </label>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'daily', label: 'Daily', desc: 'Daily installment', icon: Clock },
+                  { id: 'weekly', label: 'Weekly', desc: 'Weekly payments', icon: Calendar },
+                  { id: 'monthly', label: 'Monthly', desc: 'Monthly payments', icon: Layers },
+                  { id: 'custom_date', label: 'Exact Date', desc: 'Exact date & time', icon: Clock }
+                ].map(freq => {
+                  const Icon = freq.icon;
+                  const isSelected = repaymentFrequency === freq.id;
+                  return (
+                    <button
+                      key={freq.id}
+                      type="button"
+                      onClick={() => {
+                        setRepaymentFrequency(freq.id as RepaymentFrequency);
+                        if (freq.id === 'daily') setDurationUnit('days');
+                        else if (freq.id === 'weekly') setDurationUnit('weeks');
+                        else if (freq.id === 'monthly') setDurationUnit('months');
+                      }}
+                      className={`p-2.5 rounded-xl border-2 transition active:scale-95 flex flex-col items-center justify-center text-center gap-1 ${
+                        isSelected
+                          ? 'border-blue-600 bg-sky-50 text-blue-950 font-black shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-semibold'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                      <span className="text-xs">{freq.label}</span>
+                      <span className="text-[9px] text-slate-400 font-medium leading-none">{freq.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Duration Unit</label>
-                <select
-                  value={durationUnit}
-                  onChange={(e) => setDurationUnit(e.target.value as any)}
-                  className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                >
-                  <option value="weeks">Weeks</option>
-                  <option value="months">Months</option>
-                  <option value="days">Days</option>
-                </select>
-              </div>
-            </div>
+              {/* Conditional duration / exact date inputs */}
+              {repaymentFrequency !== 'custom_date' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Duration *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 6"
+                      value={durationValueInput}
+                      onChange={(e) => setDurationValueInput(e.target.value)}
+                      className="w-full text-sm font-black px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
 
-            {/* Disbursement Date */}
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Disbursement Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-              />
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Duration Unit</label>
+                    <select
+                      value={durationUnit}
+                      onChange={(e) => setDurationUnit(e.target.value as any)}
+                      className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    >
+                      <option value="weeks">Weeks</option>
+                      <option value="months">Months</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-black text-blue-900 block mb-1">Exact Due Date *</label>
+                    <input
+                      type="date"
+                      min={startDate}
+                      value={customRepaymentDate}
+                      onChange={(e) => setCustomRepaymentDate(e.target.value)}
+                      className="w-full text-xs font-black px-3 py-2 rounded-xl border-2 border-blue-500 focus:border-blue-600 focus:outline-none bg-white text-slate-950 shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Due Time (Optional)</label>
+                    <input
+                      type="time"
+                      value={customRepaymentTime}
+                      onChange={(e) => setCustomRepaymentTime(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Live Financial Breakdown Summary Preview */}

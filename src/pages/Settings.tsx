@@ -31,7 +31,13 @@ import {
   Plus,
   Smartphone,
   Send,
-  Banknote
+  Banknote,
+  Key,
+  Eye,
+  EyeOff,
+  ShieldAlert,
+  ArrowRight,
+  Delete
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
@@ -47,7 +53,49 @@ export const Settings: React.FC<SettingsProps> = ({
   auditLogs,
   onDataReset
 }) => {
-  const { settings, updateSettings, changeCredentials, lockSession } = useAuth();
+  const { settings, updateSettings, changeCredentials, lockSession, verifyAdminAccess } = useAuth();
+  
+  // Settings PIN / Password Lock state
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [pinInput, setPinInput] = useState<string>('');
+  const [pinError, setPinError] = useState<string>('');
+  const [isVerifyingPin, setIsVerifyingPin] = useState<boolean>(false);
+  const [showPinMask, setShowPinMask] = useState<boolean>(true);
+
+  const handleUnlockSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pinInput.trim()) {
+      setPinError('Please enter the Administrator PIN or Password');
+      return;
+    }
+    setIsVerifyingPin(true);
+    setPinError('');
+    try {
+      const isValid = await verifyAdminAccess(pinInput);
+      if (isValid) {
+        setIsUnlocked(true);
+        setPinInput('');
+        setPinError('');
+      } else {
+        setPinError('Invalid PIN or Password. Access denied.');
+      }
+    } catch {
+      setPinError('Authentication error. Please try again.');
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
+
+  const handlePinKeyClick = (val: string) => {
+    setPinError('');
+    if (val === 'clear') {
+      setPinInput('');
+    } else if (val === 'backspace') {
+      setPinInput(prev => prev.slice(0, -1));
+    } else {
+      setPinInput(prev => prev + val);
+    }
+  };
 
   // Business settings state
   const [businessName, setBusinessName] = useState(settings?.businessName || 'B-F-L Micro Credit');
@@ -302,6 +350,117 @@ export const Settings: React.FC<SettingsProps> = ({
     reader.readAsText(file);
   };
 
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4 animate-fade-in text-slate-800">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border-2 border-sky-100 overflow-hidden">
+          
+          {/* Lock Header */}
+          <div className="p-6 bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 text-white text-center space-y-2 relative overflow-hidden">
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 flex items-center justify-center mx-auto shadow-xl shadow-amber-500/25 ring-4 ring-white/10 animate-pulse">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-lg font-black tracking-tight text-white">Settings Protected</h2>
+            <p className="text-xs text-sky-200 font-medium max-w-xs mx-auto">
+              Enter Administrator PIN or Password to access system configuration, pairing keys, and security controls.
+            </p>
+          </div>
+
+          {/* Form & PIN Pad */}
+          <form onSubmit={handleUnlockSettings} className="p-6 space-y-4">
+            <div>
+              <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
+                Admin Password / PIN
+              </label>
+              <div className="relative">
+                <input
+                  type={showPinMask ? "password" : "text"}
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value);
+                    setPinError('');
+                  }}
+                  placeholder="Enter admin password or PIN..."
+                  autoFocus
+                  className="w-full text-base font-black px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-600 focus:outline-none bg-slate-50 focus:bg-white text-slate-900 transition tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPinMask(!showPinMask)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition p-1"
+                >
+                  {showPinMask ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Touch Keypad for Fast Entry */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'backspace'].map((key) => {
+                if (key === 'clear') {
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handlePinKeyClick('clear')}
+                      className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-xs font-black text-slate-600 transition"
+                    >
+                      Clear
+                    </button>
+                  );
+                }
+                if (key === 'backspace') {
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handlePinKeyClick('backspace')}
+                      className="py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 flex items-center justify-center transition"
+                    >
+                      <Delete className="w-4 h-4" />
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handlePinKeyClick(key)}
+                    className="py-3 rounded-2xl bg-slate-50 hover:bg-sky-50 hover:border-sky-300 border border-slate-200 active:scale-95 text-base font-black text-slate-900 transition shadow-xs"
+                  >
+                    {key}
+                  </button>
+                );
+              })}
+            </div>
+
+            {pinError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-2xl flex items-center gap-2 animate-fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{pinError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isVerifyingPin}
+              className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/25 transition flex items-center justify-center gap-2"
+            >
+              {isVerifyingPin ? (
+                <span>Verifying...</span>
+              ) : (
+                <>
+                  <Key className="w-4 h-4" />
+                  <span>Unlock Settings</span>
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 pb-24 animate-fade-in text-slate-800">
       
@@ -316,14 +475,24 @@ export const Settings: React.FC<SettingsProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={lockSession}
-          type="button"
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition"
-        >
-          <Lock className="w-3.5 h-3.5" />
-          <span>Lock App</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsUnlocked(false)}
+            type="button"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold shadow-xs active:scale-95 transition"
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-700" />
+            <span>Lock Settings</span>
+          </button>
+          <button
+            onClick={lockSession}
+            type="button"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Lock App</span>
+          </button>
+        </div>
       </div>
 
       {saveMessage && (

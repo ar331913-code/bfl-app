@@ -10,6 +10,7 @@ interface AuthContextType {
   showLanding: boolean;
   setShowLanding: (show: boolean) => void;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  verifyAdminAccess: (pinOrPass: string) => Promise<boolean>;
   changeCredentials: (currentPassword: string, newUsername: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
   lockSession: () => void;
   unlockSession: () => void;
@@ -151,6 +152,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, message: 'Invalid username or password. Access Denied.' };
   };
 
+  const verifyAdminAccess = async (pinOrPass: string): Promise<boolean> => {
+    if (!pinOrPass || !pinOrPass.trim()) return false;
+    const currentPassHash = settings?.passwordHash || (await sha256('admin123'));
+    const enteredPassHash = await sha256(pinOrPass.trim());
+    return enteredPassHash === currentPassHash;
+  };
+
   const changeCredentials = async (
     currentPassword: string,
     newUsername: string,
@@ -249,6 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         showLanding,
         setShowLanding,
         login,
+        verifyAdminAccess,
         changeCredentials,
         lockSession,
         unlockSession,

@@ -11,9 +11,12 @@ import {
   Filter,
   DollarSign,
   Wallet,
-  TrendingUp
+  TrendingUp,
+  MessageSquare
 } from 'lucide-react';
 import { formatCurrency, formatDate, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
+import { SMSService } from '../services/smsService';
+import { useAuth } from '../context/AuthContext';
 
 interface LoansProps {
   loans: Loan[];
@@ -27,11 +30,13 @@ interface LoansProps {
 
 export const Loans: React.FC<LoansProps> = ({
   loans,
+  customers = [],
   initialFilter = 'active',
   onSelectLoan,
   onOpenNewLoan,
   onOpenRecordPayment
 }) => {
+  const { settings } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter);
 
@@ -133,7 +138,7 @@ export const Loans: React.FC<LoansProps> = ({
               {dueTodayLoans.length}
             </div>
             <div className={`text-[10px] font-bold truncate ${statusFilter === 'due_today' ? 'text-sky-200' : 'text-slate-500'}`}>
-              Ready to collect
+              Due for payment
             </div>
           </div>
           <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-bold ${
@@ -351,14 +356,43 @@ export const Loans: React.FC<LoansProps> = ({
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {!isCompleted && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenRecordPayment(loan.loanId)}
-                        className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-xs transition flex items-center gap-1"
-                      >
-                        <DollarSign className="w-3.5 h-3.5" />
-                        <span>Collect</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const loanCust = customers.find(c => c.customerId === loan.customerId) || {
+                              fullName: loan.customerName || 'Borrower',
+                              primaryPhone: loan.momoRecipientPhone || '',
+                              customerId: loan.customerId
+                            } as Customer;
+
+                            if (loanCust.primaryPhone) {
+                              const smsMsg = SMSService.generateBalanceReminderSMS({
+                                customer: loanCust,
+                                loan,
+                                totalBalance: getTrueOutstanding(loan),
+                                dueDate: loan.maturityDate || loan.firstRepaymentDate,
+                                businessName: settings?.businessName,
+                                businessPhone: settings?.businessPhone
+                              });
+                              SMSService.dispatchSMS(loanCust.primaryPhone, smsMsg, settings);
+                            }
+                          }}
+                          className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl transition shadow-xs"
+                          title="Send SMS Balance Reminder"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenRecordPayment(loan.loanId)}
+                          className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-xs transition flex items-center gap-1"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                          <span>Record Payment</span>
+                        </button>
+                      </>
                     )}
                     <button
                       type="button"

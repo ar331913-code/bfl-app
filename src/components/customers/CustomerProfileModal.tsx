@@ -292,7 +292,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 className="w-full py-3 bg-gradient-to-r from-rose-600 via-rose-700 to-red-700 hover:from-rose-700 hover:to-red-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-1.5"
               >
                 <DollarSign className="w-4 h-4" />
-                Collect / Record Repayment Now
+                Record Payment Now
               </button>
             </div>
           ) : (

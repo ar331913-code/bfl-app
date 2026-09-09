@@ -63,6 +63,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [amountInput, setAmountInput] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
+  const [paymentTime, setPaymentTime] = useState<string>(format(new Date(), 'HH:mm'));
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
@@ -186,7 +187,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
         paymentMethod,
         referenceNumber,
         notes,
-        paymentDate
+        paymentDate: `${paymentDate} ${paymentTime}`
       });
 
       if (!result.success) {
@@ -659,8 +660,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
             </div>
 
-            {/* 6. Transaction Reference & Payment Date */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 6. Transaction Reference, Payment Date & Exact Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
                 <label className="text-[11px] font-bold text-slate-700 block mb-1">
                   Receipt / Bank Ref (Optional)
@@ -675,11 +676,21 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">Payment Date</label>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Payment Date *</label>
                 <input
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">Payment Time</label>
+                <input
+                  type="time"
+                  value={paymentTime}
+                  onChange={(e) => setPaymentTime(e.target.value)}
                   className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950"
                 />
               </div>

@@ -72,10 +72,11 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
         businessPhone: settings?.businessPhone
       });
     } else {
-      text = SMSService.generateDueReminderSMS({
+      text = SMSService.generateBalanceReminderSMS({
         customer,
         loan,
-        schedule: nextSched || loanSchedules[0],
+        totalBalance: trueOutstanding,
+        dueDate: nextSched?.dueDate || loan.maturityDate || loan.firstRepaymentDate,
         businessName: settings?.businessName,
         businessPhone: settings?.businessPhone
       });

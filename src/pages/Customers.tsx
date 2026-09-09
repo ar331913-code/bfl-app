@@ -8,6 +8,7 @@ import {
   Store, 
   Phone, 
   MessageCircle, 
+  MessageSquare,
   ChevronRight, 
   AlertTriangle,
   CheckCircle2,
@@ -21,6 +22,8 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
+import { SMSService } from '../services/smsService';
+import { useAuth } from '../context/AuthContext';
 
 interface CustomersProps {
   customers: Customer[];
@@ -39,6 +42,7 @@ export const Customers: React.FC<CustomersProps> = ({
   onOpenNewLoan,
   onOpenRecordPayment
 }) => {
+  const { settings } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [primaryTab, setPrimaryTab] = useState<'all' | 'owing' | 'debt_free'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'driver' | 'trader'>('all');
@@ -407,8 +411,8 @@ export const Customers: React.FC<CustomersProps> = ({
                     <a
                       href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
                         isOwing 
-                          ? `Hello ${customer.fullName}, this is a gentle reminder from B-F-L regarding your active balance of ${formatCurrency(debtInfo?.totalOwing || 0)}.`
-                          : `Hello ${customer.fullName}, greetings from B-F-L. Thank you for your good repayment record with us.`
+                          ? `Hello ${customer.fullName}, this is a gentle reminder from ${settings?.businessName || 'B-F-L'} regarding your active balance of ${formatCurrency(debtInfo?.totalOwing || 0)}.`
+                          : `Hello ${customer.fullName}, greetings from ${settings?.businessName || 'B-F-L'}. Thank you for your good repayment record with us.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -418,7 +422,25 @@ export const Customers: React.FC<CustomersProps> = ({
                       <MessageCircle className="w-3.5 h-3.5" />
                     </a>
 
-                    {/* Action Button: Collect or Issue */}
+                    {/* 1-Click SMS Reminder Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const smsMsg = SMSService.generateBalanceReminderSMS({
+                          customer,
+                          totalBalance: debtInfo?.totalOwing || 0,
+                          businessName: settings?.businessName,
+                          businessPhone: settings?.businessPhone
+                        });
+                        SMSService.dispatchSMS(customer.primaryPhone, smsMsg, settings);
+                      }}
+                      className="p-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 transition shadow-xs"
+                      title="Send SMS Balance Reminder"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Action Button: Record Payment or Issue Loan */}
                     {isOwing && debtInfo?.activeLoanId && onOpenRecordPayment ? (
                       <button
                         type="button"
@@ -426,7 +448,7 @@ export const Customers: React.FC<CustomersProps> = ({
                         className="px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1"
                       >
                         <DollarSign className="w-3.5 h-3.5" />
-                        <span>Collect</span>
+                        <span>Record Payment</span>
                       </button>
                     ) : onOpenNewLoan ? (
                       <button

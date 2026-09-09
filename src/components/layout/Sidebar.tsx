@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'customers', label: 'Clients Directory', icon: Users },
     { id: 'loans', label: 'Loan Portfolio', icon: Banknote, badge: overdueCount > 0 ? overdueCount : undefined, badgeColor: 'bg-rose-500' },
-    { id: 'payments', label: 'Collections & Payments', icon: Receipt },
+    { id: 'payments', label: 'Payments & Ledger', icon: Receipt },
     { id: 'notifications', label: 'Alerts & Due Dates', icon: Bell, badge: unreadCount > 0 ? unreadCount : undefined, badgeColor: 'bg-amber-500' },
     { id: 'reports', label: 'Reports & Analytics', icon: FileText },
     { id: 'settings', label: 'Settings & Security', icon: SettingsIcon },
