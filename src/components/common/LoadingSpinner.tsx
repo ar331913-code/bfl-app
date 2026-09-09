@@ -19,7 +19,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message = 'Loadi
 
       <div className="text-center space-y-1.5">
         <h3 className="text-sm font-black tracking-wider uppercase text-white">
-          B-F-L Microfinance
+          B-F-L
         </h3>
         <p className="text-xs text-sky-300/80 font-medium">
           {message}

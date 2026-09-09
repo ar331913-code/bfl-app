@@ -113,7 +113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const intlPhone = rawPhone.startsWith('233') ? rawPhone : (rawPhone.startsWith('0') ? '233' + rawPhone.slice(1) : rawPhone);
     const amount = schedule ? formatCurrency(schedule.remainingBalance) : formatCurrency(loan.outstandingBalance);
     const dueDate = schedule ? formatDate(schedule.dueDate) : formatDate(loan.maturityDate || loan.firstRepaymentDate);
-    const biz = settings?.businessName || 'B-F-L Microfinance';
+    const biz = settings?.businessName || 'B-F-L';
     const bizPhone = settings?.businessPhone || '';
 
     const text = `Hello ${customer.fullName},\n\nThis is a friendly reminder from *${biz}* regarding your Loan *${loan.loanId}*.\n\n• Outstanding Installment: *${amount}*\n• Due Date: *${dueDate}*\n\nPlease make your repayment via MTN Mobile Money or cash.\n${bizPhone ? `Contact: ${bizPhone}\n` : ''}Thank you!`;

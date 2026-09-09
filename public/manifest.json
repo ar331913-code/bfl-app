@@ -2,7 +2,7 @@
   "id": "/bfl-app/",
   "short_name": "B-F-L",
   "name": "B-F-L Loan Manager",
-  "description": "Professional microfinance, debt collection and loan management system in Ghana.",
+  "description": "Professional debt collection and loan management system in Ghana.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "./",

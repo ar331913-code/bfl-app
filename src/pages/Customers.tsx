@@ -407,8 +407,8 @@ export const Customers: React.FC<CustomersProps> = ({
                     <a
                       href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
                         isOwing 
-                          ? `Hello ${customer.fullName}, this is a gentle reminder from B-F-L Microfinance regarding your active balance of ${formatCurrency(debtInfo?.totalOwing || 0)}.`
-                          : `Hello ${customer.fullName}, greetings from B-F-L Microfinance. Thank you for your good repayment record with us.`
+                          ? `Hello ${customer.fullName}, this is a gentle reminder from B-F-L regarding your active balance of ${formatCurrency(debtInfo?.totalOwing || 0)}.`
+                          : `Hello ${customer.fullName}, greetings from B-F-L. Thank you for your good repayment record with us.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

@@ -89,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 GH₵
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium leading-none mt-0.5">Microfinance Manager</p>
+            <p className="text-[11px] text-slate-400 font-medium leading-none mt-0.5">Loan Portfolio Manager</p>
           </div>
         </div>
       </div>

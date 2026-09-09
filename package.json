@@ -52,7 +52,7 @@
   },
   "build": {
     "appId": "com.bfl.microfinance",
-    "productName": "BFL Microfinance",
+    "productName": "BFL",
     "directories": {
       "output": "release"
     },
@@ -74,7 +74,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "BFL Microfinance",
+      "shortcutName": "BFL",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",

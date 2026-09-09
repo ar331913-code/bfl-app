@@ -14,7 +14,7 @@ function createWindow() {
     height: 860,
     minWidth: 960,
     minHeight: 640,
-    title: 'B-F-L Microfinance & Loan Ledger',
+    title: 'B-F-L Loan Ledger',
     icon: path.join(__dirname, '../public/icon-512.png'),
     backgroundColor: '#0f172a',
     show: false,

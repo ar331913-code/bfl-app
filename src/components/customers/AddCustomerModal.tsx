@@ -188,15 +188,14 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
   const handleNext = () => {
     if (step === 1 && !validateStep1()) return;
-    if (step === 2 && !validateStep2()) return;
-    setStep(prev => Math.min(3, prev + 1));
+    setStep(2);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    // CRITICAL: Prevent early submit from mobile keyboard Enter/Go on Step 1 or 2
-    if (step < 3) {
+    // If on Step 1, advance to Step 2
+    if (step === 1) {
       handleNext();
       return;
     }
@@ -230,9 +229,9 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         customerType,
         primaryPhone: primaryPhone.trim(),
         secondaryPhone: secondaryPhone.trim() || undefined,
-        momoNumber: momoNumber.trim() || primaryPhone.trim(),
-        momoNetwork: momoNetwork || 'MTN',
-        momoName: momoName.trim() || fullName.trim(),
+        momoNumber: primaryPhone.trim(),
+        momoNetwork: 'MTN',
+        momoName: fullName.trim(),
         residentialAddress: residentialAddress.trim() || 'Accra, Ghana',
         workAddress: workAddress.trim() || stationLocation.trim() || marketLocation.trim() || residentialAddress.trim() || 'Accra, Ghana',
         ghanaCardNumber: finalGhanaCard,
@@ -241,16 +240,16 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         ghanaCardBackUrl: ghanaCardBackUrl || undefined,
         
         driverDetails: customerType === 'driver' ? {
-          vehicleType: vehicleType.trim() || 'Trotro / Taxi',
-          registrationNumber: registrationNumber.trim() || 'Unregistered',
+          vehicleType: vehicleType.trim() || 'Commercial Driver',
+          registrationNumber: registrationNumber.trim() || 'Registered',
           licenseNumber: licenseNumber.trim() || 'N/A',
-          stationLocation: stationLocation.trim() || workAddress.trim() || 'Local Station'
+          stationLocation: workAddress.trim() || stationLocation.trim() || 'Station / Route'
         } : undefined,
 
         traderDetails: customerType === 'trader' ? {
-          businessName: businessName.trim() || 'Market Trade',
+          businessName: businessName.trim() || 'Trade Business',
           businessType: businessType.trim() || 'Retail & Wholesale',
-          marketLocation: marketLocation.trim() || workAddress.trim() || 'Market Center',
+          marketLocation: workAddress.trim() || marketLocation.trim() || 'Market Location',
           stallNumber: stallNumber.trim() || undefined
         } : undefined,
 
@@ -346,7 +345,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <p className="text-[10px] text-sky-100 font-semibold">
                 {savedCustomer
                   ? 'Client record activated & synced to cloud'
-                  : `Level ${step} of 3 • ${step === 1 ? 'Personal & Contact Info' : step === 2 ? 'Ghana Card & Live Camera' : 'Work Particulars & Notes'}`}
+                  : `Level ${step} of 2 • ${step === 1 ? 'Personal & Contact Info' : 'Ghana Card & Photos'}`}
               </p>
             </div>
           </div>
@@ -387,18 +386,18 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Phone Number:</span>
+                <span className="text-slate-500 font-medium">Primary Telephone:</span>
                 <span className="font-mono font-bold text-slate-950">{savedCustomer.primaryPhone}</span>
               </div>
+              {savedCustomer.secondaryPhone && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">Secondary Phone:</span>
+                  <span className="font-mono font-medium text-slate-700">{savedCustomer.secondaryPhone}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Ghana Card PIN:</span>
                 <span className="font-mono font-bold text-slate-950">{savedCustomer.ghanaCardNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">MoMo Wallet:</span>
-                <span className="font-mono font-bold text-emerald-900">
-                  {savedCustomer.momoNumber || savedCustomer.primaryPhone} ({savedCustomer.momoNetwork || 'MTN'})
-                </span>
               </div>
               {savedCustomer.workAddress && (
                 <div className="flex justify-between border-t border-emerald-200 pt-1.5">
@@ -432,7 +431,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 onClick={() => {
                   const cleanPhone = savedCustomer.primaryPhone.replace(/\D/g, '');
                   const waPhone = cleanPhone.startsWith('0') ? '233' + cleanPhone.slice(1) : cleanPhone;
-                  const text = `*WELCOME TO ${settings?.businessName || 'B-F-L MICROFINANCE'}*\n\n` +
+                  const text = `*WELCOME TO ${settings?.businessName || 'B-F-L'}*\n\n` +
                     `Dear ${savedCustomer.fullName},\n` +
                     `Your client registration is complete! Your Client ID is *#${savedCustomer.customerId}*.\n\n` +
                     `You are now eligible for microloans with flexible repayment terms.\n\n` +
@@ -458,12 +457,11 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           </div>
         ) : (
           <>
-            {/* Step Indicator Pills */}
+            {/* Step Indicator Pills (2 Levels) */}
             <div className="flex px-5 pt-3 gap-1.5 bg-slate-50 border-b border-slate-100">
               {[
-                { num: 1, label: 'Level 1: Contact' },
-                { num: 2, label: 'Level 2: Ghana Card' },
-                { num: 3, label: 'Level 3: Work & Notes' }
+                { num: 1, label: 'Level 1: Contact & Info' },
+                { num: 2, label: 'Level 2: Ghana Card & Photo' }
               ].map(s => (
                 <button 
                   key={s.num}
@@ -471,13 +469,10 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                   onClick={() => {
                     if (s.num === 1) setStep(1);
                     else if (s.num === 2 && validateStep1()) setStep(2);
-                    else if (s.num === 3 && validateStep1() && validateStep2()) setStep(3);
                   }}
                   className={`flex-1 py-1.5 text-center text-[10px] font-black rounded-lg transition ${
                     step === s.num 
                       ? 'bg-blue-600 text-white shadow-xs' 
-                      : step > s.num
-                      ? 'bg-sky-100 text-blue-800 hover:bg-sky-200'
                       : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
                   }`}
                 >
@@ -493,7 +488,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
             if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
               e.preventDefault();
               if (step === 1) handleNext();
-              else if (step === 2) handleNext();
+              else handleSubmit();
             }
           }}
           className="p-5 overflow-y-auto space-y-4 flex-1"
@@ -523,7 +518,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     </div>
                     <div className="text-left">
                       <div className="text-xs font-black">Commercial Driver</div>
-                      <div className="text-[10px] text-slate-500 font-medium">Trotro / Taxi / Okada</div>
+                      <div className="text-[10px] text-slate-400 font-medium">Trotro / Taxi / Okada</div>
                     </div>
                   </button>
 
@@ -532,40 +527,42 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     onClick={() => setCustomerType('trader')}
                     className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition active:scale-95 ${
                       customerType === 'trader'
-                        ? 'border-sky-600 bg-sky-50 text-blue-950 shadow-sm'
+                        ? 'border-blue-600 bg-blue-50 text-blue-900 shadow-sm'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${customerType === 'trader' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${customerType === 'trader' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                       <Store className="w-4 h-4" />
                     </div>
                     <div className="text-left">
                       <div className="text-xs font-black">Market Trader</div>
-                      <div className="text-[10px] text-slate-500 font-medium">Shop / Stall Owner</div>
+                      <div className="text-[10px] text-slate-400 font-medium">Shop / Stall Owner</div>
                     </div>
                   </button>
                 </div>
               </div>
 
-              {/* Full Name */}
+              {/* Full Legal Name */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">Full Legal Name *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Kwame Emmanuel Boateng"
-                  value={fullName}
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
-                  }}
-                  className={`w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 focus:outline-none ${
-                    errors.fullName ? 'border-rose-400 focus:border-rose-600 bg-rose-50/30' : 'border-slate-200 focus:border-sky-500'
-                  }`}
-                />
-                {errors.fullName && <p className="text-[11px] text-rose-600 font-bold mt-0.5">{errors.fullName}</p>}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="e.g. Kwame Emmanuel Boateng"
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      if (errors.fullName) setErrors(prev => ({ ...prev, fullName: '' }));
+                    }}
+                    className={`w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 focus:outline-none ${
+                      errors.fullName ? 'border-rose-400 focus:border-rose-600 bg-rose-50/30' : 'border-slate-200 focus:border-sky-500'
+                    }`}
+                  />
+                  {errors.fullName && <p className="text-[11px] text-rose-600 font-bold mt-0.5">{errors.fullName}</p>}
+                </div>
               </div>
 
-              {/* Phone Numbers */}
+              {/* Telephones */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">Primary Telephone *</label>
@@ -592,66 +589,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                     value={secondaryPhone}
                     onChange={(e) => setSecondaryPhone(e.target.value)}
                     className="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* MTN Mobile Money Wallet Details */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 to-yellow-50/50 border-2 border-amber-200 space-y-2.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-black text-amber-950 flex items-center gap-1.5">
-                    <Smartphone className="w-4 h-4 text-amber-600" />
-                    MTN Mobile Money (MoMo) Wallet
-                  </div>
-                  {primaryPhone && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMomoNumber(primaryPhone);
-                        setMomoName(fullName);
-                        setMomoNetwork('MTN');
-                      }}
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-900 transition active:scale-95"
-                    >
-                      Copy from Primary Phone
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-amber-900 block mb-1">MoMo Number</label>
-                    <input
-                      type="tel"
-                      placeholder="024 412 3456"
-                      value={momoNumber}
-                      onChange={(e) => setMomoNumber(e.target.value)}
-                      className="w-full text-xs font-mono font-bold px-3 py-2 rounded-xl border border-amber-300 focus:border-amber-500 focus:outline-none bg-white text-slate-950"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-amber-900 block mb-1">Network Provider</label>
-                    <select
-                      value={momoNetwork}
-                      onChange={(e) => setMomoNetwork(e.target.value as any)}
-                      className="w-full text-xs font-bold px-2.5 py-2 rounded-xl border border-amber-300 focus:border-amber-500 focus:outline-none bg-white text-slate-950"
-                    >
-                      <option value="MTN">MTN Mobile Money</option>
-                      <option value="Telecel">Telecel Cash</option>
-                      <option value="AT">AT Money</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-amber-900 block mb-1">Registered MoMo Name</label>
-                  <input
-                    type="text"
-                    placeholder="Name as registered on MoMo SIM"
-                    value={momoName}
-                    onChange={(e) => setMomoName(e.target.value)}
-                    className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-amber-300 focus:border-amber-500 focus:outline-none bg-white text-slate-950"
                   />
                 </div>
               </div>
@@ -705,6 +642,18 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                   </select>
                 </div>
               </div>
+              
+              {/* Operator Notes */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Operator Notes (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Reliability, cashflow pattern, guarantor notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full text-xs font-medium p-3 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+                />
+              </div>
 
             </div>
           )}
@@ -712,7 +661,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           {/* STEP 2: GHANA CARD DETAILS & LIVE CAMERA CAPTURE */}
           {step === 2 && (
             <div className="space-y-4 animate-fade-in">
-              {/* Ghana Card Field (Clean with no validity message) */}
+              {/* Ghana Card Field */}
               <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-black text-navy-950 uppercase tracking-wider flex items-center gap-1.5">
@@ -731,23 +680,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 />
               </div>
 
-              {/* Photos & Documents Header with Skip Option */}
-              <div className="flex items-center justify-between pt-1">
-                <div>
-                  <span className="text-xs font-black text-navy-950 uppercase tracking-wider block">
-                    Photos & Documents
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">Optional — You can take photo or skip</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setStep(3)}
-                  className="text-xs font-black text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95"
-                >
-                  <span>Skip Photos to Level 3: Work & Notes</span>
-                  <span>➔</span>
-                </button>
+              {/* Photos & Documents Header */}
+              <div>
+                <span className="text-xs font-black text-navy-950 uppercase tracking-wider block">
+                  Photos & Documents (Optional)
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">Take photos with camera or upload from files</span>
               </div>
 
               {/* Live Camera & Photos Section */}
@@ -861,117 +799,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
             </div>
           )}
 
-          {/* STEP 3: WORK DETAILS & OPERATOR NOTES */}
-          {step === 3 && (
-            <div className="space-y-4 animate-fade-in">
-              
-              <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-black text-indigo-950">Level 3 of 3: Work Particulars & Notes</div>
-                  <div className="text-[10px] text-indigo-700 font-medium">Specify the client's work station, vehicle/shop details, and internal notes</div>
-                </div>
-                <div className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[10px] font-black uppercase tracking-wider">
-                  Final Step
-                </div>
-              </div>
-              
-              {customerType === 'driver' ? (
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-sky-50 border-2 border-blue-200 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-blue-950 uppercase tracking-wider">
-                    <Car className="w-4 h-4 text-blue-600" /> Driver & Vehicle Information
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Vehicle Type</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Trotro / Taxi"
-                        value={vehicleType}
-                        onChange={(e) => setVehicleType(e.target.value)}
-                        className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Registration / Plate</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. GT 4920-21"
-                        value={registrationNumber}
-                        onChange={(e) => setRegistrationNumber(e.target.value)}
-                        className="w-full text-xs font-bold font-mono px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Station / Route Location</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Circle - Kaneshie Station"
-                      value={stationLocation}
-                      onChange={(e) => setStationLocation(e.target.value)}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-200 space-y-3">
-                  <div className="flex items-center gap-1.5 text-xs font-black text-blue-950 uppercase tracking-wider">
-                    <Store className="w-4 h-4 text-sky-600" /> Trader & Business Particulars
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Business Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Mansa Wax Wholesale"
-                        value={businessName}
-                        onChange={(e) => setBusinessName(e.target.value)}
-                        className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Market Stall No.</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Shop D-14"
-                        value={stallNumber}
-                        onChange={(e) => setStallNumber(e.target.value)}
-                        className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Market Location</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Makola Market Central"
-                      value={marketLocation}
-                      onChange={(e) => setMarketLocation(e.target.value)}
-                      className="w-full text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Operator Notes */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Operator Notes (Optional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="Reliability, cashflow pattern, guarantor notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full text-xs font-medium p-3 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-            </div>
-          )}
-
           {/* Errors banner */}
           {errors.form && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-1.5">
@@ -986,21 +813,21 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <button
                 key="btn-back"
                 type="button"
-                onClick={() => setStep(prev => prev - 1)}
+                onClick={() => setStep(1)}
                 className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition"
               >
-                ← Back to Level {step - 1}
+                ← Back to Level 1
               </button>
             )}
 
-            {step < 3 ? (
+            {step === 1 ? (
               <button
-                key={`btn-next-${step}`}
+                key="btn-next-1"
                 type="button"
                 onClick={handleNext}
                 className="flex-1 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 text-white text-xs font-black rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
               >
-                <span>{step === 1 ? 'Next: Ghana Card & Photo (Level 2)' : 'Next: Work & Notes (Level 3)'}</span>
+                <span>Next: Ghana Card & Photo (Level 2)</span>
                 <span>➔</span>
               </button>
             ) : (
