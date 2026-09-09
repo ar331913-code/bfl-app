@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { BflLogo } from '../common/BflLogo';
 
 interface WelcomeLandingProps {
   onGetStarted: () => void;
@@ -21,20 +22,16 @@ export const WelcomeLanding: React.FC<WelcomeLandingProps> = ({ onGetStarted }) 
       <main className="max-w-xs mx-auto w-full flex flex-col items-center text-center space-y-6 animate-fade-in my-auto py-8">
         
         {/* Large B-F-L Emblem */}
-        <div className="relative">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 p-1 shadow-2xl shadow-sky-500/30 flex items-center justify-center animate-pulse">
-            <div className="w-full h-full rounded-[22px] bg-slate-950 flex items-center justify-center text-sky-400 font-black text-3xl tracking-widest">
-              BFL
-            </div>
-          </div>
-          <div className="absolute -bottom-2 -right-2 bg-sky-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md font-mono">
+        <div className="relative group">
+          <BflLogo size="xl" />
+          <div className="absolute -bottom-2 -right-2 bg-sky-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md font-mono border-2 border-slate-950">
             GH₵
           </div>
         </div>
 
         {/* Title and Short Description */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-black text-white tracking-tight">
+          <h1 className="text-3xl font-black text-white tracking-tight font-outfit">
             B-F-L
           </h1>
           <p className="text-xs text-slate-400 font-medium leading-relaxed max-w-[260px] mx-auto">

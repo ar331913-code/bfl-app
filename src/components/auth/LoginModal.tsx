@@ -10,6 +10,7 @@ import {
   AlertCircle, 
   LogIn 
 } from 'lucide-react';
+import { BflLogo } from '../common/BflLogo';
 
 export const LoginModal: React.FC = () => {
   const { isLocked, isAuthenticated, showLanding, setShowLanding, login, settings } = useAuth();
@@ -69,13 +70,11 @@ export const LoginModal: React.FC = () => {
 
         {/* Brand Icon & Heading */}
         <div className="flex flex-col items-center text-center mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 p-0.5 shadow-lg shadow-sky-500/20 mb-2 flex items-center justify-center">
-            <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center text-white">
-              <Lock className="w-6 h-6 text-sky-400" />
-            </div>
+          <div className="mb-2">
+            <BflLogo size="lg" />
           </div>
 
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">
+          <h2 className="text-lg font-black text-slate-900 tracking-tight font-outfit">
             {settings?.businessName || 'B-F-L'}
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">

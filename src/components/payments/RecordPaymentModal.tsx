@@ -20,7 +20,8 @@ import {
   Building2,
   Check,
   TrendingUp,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatGhanaPhone, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { recordPayment } from '../../services/paymentService';
@@ -59,7 +60,6 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
   // Form State
   const [selectedLoanId, setSelectedLoanId] = useState<string>('');
-  const [selectedInstallmentId, setSelectedInstallmentId] = useState<number | undefined>(undefined);
   const [amountInput, setAmountInput] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentDate, setPaymentDate] = useState<string>(todayStr);
@@ -93,6 +93,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       setNotes('');
       setReferenceNumber('');
       setPaymentDate(todayStr);
+      setPaymentTime(format(new Date(), 'HH:mm'));
 
       let targetLoanId = '';
       if (preselectedLoanId && loans.some(l => l.loanId === preselectedLoanId)) {
@@ -106,49 +107,26 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       setSelectedLoanId(targetLoanId);
 
       const targetLoan = loans.find(l => l.loanId === targetLoanId);
-      const targetLoanSchedules = schedules
-        .filter(s => s.loanId === targetLoanId && s.remainingBalance > 0.01)
-        .sort((a, b) => a.installmentNumber - b.installmentNumber);
-
-      if (preselectedInstallmentId && targetLoanSchedules.some(s => s.id === preselectedInstallmentId)) {
-        setSelectedInstallmentId(preselectedInstallmentId);
-        const sched = targetLoanSchedules.find(s => s.id === preselectedInstallmentId);
-        setAmountInput(sched ? String(sched.remainingBalance) : '');
-      } else if (targetLoanSchedules.length > 0) {
-        setSelectedInstallmentId(targetLoanSchedules[0].id);
-        setAmountInput(String(targetLoanSchedules[0].remainingBalance));
-      } else if (targetLoan) {
-        setSelectedInstallmentId(undefined);
-        setAmountInput(String(targetLoan.outstandingBalance));
+      if (targetLoan) {
+        setAmountInput(String(getTrueOutstanding(targetLoan)));
       } else {
-        setSelectedInstallmentId(undefined);
         setAmountInput('');
       }
     }
-  }, [isOpen, preselectedLoanId, preselectedInstallmentId, loans, schedules]);
+  }, [isOpen, preselectedLoanId, loans]);
 
   const currentLoan = loans.find(l => l.loanId === selectedLoanId);
   const currentCustomer = customers.find(c => c.customerId === currentLoan?.customerId);
-
-  const loanSchedules = schedules
-    .filter(s => s.loanId === selectedLoanId && s.remainingBalance > 0.01)
-    .sort((a, b) => a.installmentNumber - b.installmentNumber);
+  const currentOwing = currentLoan ? getTrueOutstanding(currentLoan) : 0;
+  const halfAmount = currentLoan ? Math.round((currentOwing / 2) * 100) / 100 : 0;
 
   const handleLoanChange = (newLoanId: string) => {
     setSelectedLoanId(newLoanId);
-    setSelectedInstallmentId(undefined);
     setError('');
 
     const targetLoan = loans.find(l => l.loanId === newLoanId);
-    const targetLoanSchedules = schedules
-      .filter(s => s.loanId === newLoanId && s.remainingBalance > 0.01)
-      .sort((a, b) => a.installmentNumber - b.installmentNumber);
-
-    if (targetLoanSchedules.length > 0) {
-      setSelectedInstallmentId(targetLoanSchedules[0].id);
-      setAmountInput(String(targetLoanSchedules[0].remainingBalance));
-    } else if (targetLoan) {
-      setAmountInput(String(targetLoan.outstandingBalance));
+    if (targetLoan) {
+      setAmountInput(String(getTrueOutstanding(targetLoan)));
     } else {
       setAmountInput('');
     }
@@ -182,7 +160,6 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       const result = await recordPayment({
         loanId: currentLoan.loanId,
         customerId: currentLoan.customerId,
-        installmentId: selectedInstallmentId,
         amountPaid,
         paymentMethod,
         referenceNumber,
@@ -437,41 +414,51 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </select>
             </div>
 
-            {/* 2. Hero Borrower Balance Card */}
+            {/* 2. Client Balance Overview Card */}
             {currentLoan && (
               <div className="p-4 rounded-3xl bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50 border-2 border-sky-200 text-xs space-y-3 shadow-xs">
                 
-                {/* Top Row: Customer Info */}
+                {/* Client Info Header */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-xs font-black text-slate-950 truncate">
+                    <div className="text-sm font-black text-slate-950 truncate font-outfit">
                       {currentCustomer?.fullName || currentLoan.customerName}
                     </div>
                     <div className="text-[11px] text-slate-500 font-medium">
-                      {currentCustomer ? formatGhanaPhone(currentCustomer.primaryPhone) : currentLoan.customerId} • Loan {currentLoan.loanId}
+                      {currentCustomer ? formatGhanaPhone(currentCustomer.primaryPhone) : currentLoan.customerId} • Loan #{currentLoan.loanId}
                     </div>
                   </div>
 
                   <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase shrink-0 ${
                     currentLoan.status === 'overdue' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
-                    currentLoan.status === 'due_today' ? 'bg-sky-100 text-blue-900 border border-sky-300' :
+                    currentLoan.status === 'due_today' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
                     'bg-blue-100 text-blue-800 border border-blue-300'
                   }`}>
                     {currentLoan.status.replace('_', ' ')}
                   </span>
                 </div>
 
-                {/* Progress bar */}
-                <div className="space-y-1 pt-1">
-                  <div className="flex justify-between text-[11px] font-bold text-slate-600">
-                    <span>
-                      Paid So Far: <strong className="text-blue-700">{formatCurrency(currentLoan.totalPaid)}</strong>
-                    </span>
-                    <span>
-                      Total Loan Due: <strong>{formatCurrency(currentLoan.totalRepayment)}</strong>
-                    </span>
+                {/* 3 Stats Columns */}
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-sky-200/60 text-center">
+                  <div className="bg-white/80 p-2 rounded-2xl border border-sky-100">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Total Loan</span>
+                    <strong className="text-xs font-black text-slate-900">{formatCurrency(currentLoan.totalRepayment)}</strong>
                   </div>
-                  <div className="w-full bg-white rounded-full h-2 overflow-hidden border border-sky-200 p-0.5">
+
+                  <div className="bg-white/80 p-2 rounded-2xl border border-sky-100">
+                    <span className="text-[10px] text-slate-500 font-bold block uppercase">Paid So Far</span>
+                    <strong className="text-xs font-black text-emerald-700">{formatCurrency(currentLoan.totalPaid)}</strong>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-2xl border-2 border-rose-200 shadow-xs">
+                    <span className="text-[10px] text-rose-600 font-bold block uppercase">Amount Owing</span>
+                    <strong className="text-xs font-black text-rose-700">{formatCurrency(currentOwing)}</strong>
+                  </div>
+                </div>
+
+                {/* Visual Repayment Progress Bar */}
+                <div className="space-y-1 pt-0.5">
+                  <div className="w-full bg-white rounded-full h-2.5 overflow-hidden border border-sky-200 p-0.5">
                     <div 
                       className="h-full rounded-full bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600 transition-all duration-300"
                       style={{ width: `${Math.min(100, Math.round((((currentLoan.totalPaid || 0) + (amountPaid || 0)) / (currentLoan.totalRepayment || 1)) * 100))}%` }}
@@ -479,83 +466,21 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   </div>
                 </div>
 
-                {/* Outstanding & Live Projection Highlight */}
-                <div className="pt-2 border-t border-sky-200/80 space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                      Before Payment Balance:
-                    </span>
-                    <span className="text-slate-900 font-bold">
-                      {formatCurrency(getTrueOutstanding(currentLoan))}
-                    </span>
-                  </div>
-
-                  {amountPaid > 0 && (
-                    <div className="p-2.5 bg-white rounded-2xl border border-sky-200 flex items-center justify-between shadow-xs animate-fade-in">
-                      <div>
-                        <span className="text-blue-950 font-black text-[10px] uppercase block">
-                          Projected Balance After Payment:
-                        </span>
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          Deducting {formatCurrency(amountPaid)}
-                        </span>
-                      </div>
-
-                      {amountPaid >= getTrueOutstanding(currentLoan) - 0.05 ? (
-                        <span className="bg-sky-100 text-blue-900 border border-sky-300 text-[11px] font-black px-2.5 py-1 rounded-xl flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 text-blue-600" />
-                          GH₵0.00 (100% PAID OFF 🎉)
-                        </span>
-                      ) : (
-                        <span className="text-rose-700 font-black text-sm">
-                          {formatCurrency(Math.max(0, getTrueOutstanding(currentLoan) - amountPaid))}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
-            {/* 3. Installment Allocation Selector */}
-            {loanSchedules.length > 0 && (
-              <div>
-                <label className="text-xs font-black text-slate-700 uppercase tracking-wider block mb-1.5">
-                  Allocate Installment (Waterfall Schedule)
-                </label>
-                <select
-                  value={selectedInstallmentId || ''}
-                  onChange={(e) => {
-                    const id = e.target.value ? Number(e.target.value) : undefined;
-                    setSelectedInstallmentId(id);
-                    if (id) {
-                      const s = loanSchedules.find(item => item.id === id);
-                      if (s) setAmountInput(String(s.remainingBalance));
-                    }
-                  }}
-                  className="w-full text-xs font-bold px-3.5 py-2.5 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-slate-950 transition"
-                >
-                  <option value="">Auto-allocate across oldest unpaid installments</option>
-                  {loanSchedules.map(s => (
-                    <option key={s.id} value={s.id}>
-                      Installment #{s.installmentNumber} — Due {formatDate(s.dueDate)} ({formatCurrency(s.remainingBalance)} remaining)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* 4. Payment Amount Input with Quick Preset Chips */}
+            {/* 3. Easy Amount Selection (Full Payoff, Half, or Custom) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                  Amount Received (GH₵) *
+                  Amount to Pay (GH₵) *
                 </label>
                 <span className="text-[11px] font-bold text-blue-700">
-                  Max: {formatCurrency(currentLoan?.outstandingBalance || 0)}
+                  Total Owing: {formatCurrency(currentOwing)}
                 </span>
               </div>
 
+              {/* Large Input */}
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400 text-lg">GH₵</span>
                 <input
@@ -565,66 +490,77 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   required
                   value={amountInput}
                   onChange={(e) => setAmountInput(e.target.value)}
-                  placeholder="Enter amount (e.g. 150)"
-                  className="w-full text-xl font-black pl-14 pr-4 py-3 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs placeholder:text-slate-400 placeholder:font-normal"
+                  placeholder="0.00"
+                  className="w-full text-2xl font-black pl-14 pr-4 py-3.5 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs placeholder:text-slate-300 font-outfit"
                 />
               </div>
 
-              {/* Quick Amount Chips */}
-              {currentLoan && (
-                <div className="flex items-center gap-1.5 mt-2 overflow-x-auto pb-1 no-scrollbar">
-                  {loanSchedules.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setAmountInput(String(loanSchedules[0].remainingBalance))}
-                      className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 text-[11px] font-bold rounded-xl whitespace-nowrap active:scale-95 transition"
-                    >
-                      1 Installment ({formatCurrency(loanSchedules[0].remainingBalance)})
-                    </button>
-                  )}
-                  {loanSchedules.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setAmountInput(String(loanSchedules[0].remainingBalance + loanSchedules[1].remainingBalance))}
-                      className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 text-[11px] font-bold rounded-xl whitespace-nowrap active:scale-95 transition"
-                    >
-                      2 Installments ({formatCurrency(loanSchedules[0].remainingBalance + loanSchedules[1].remainingBalance)})
-                    </button>
-                  )}
+              {/* Simple Quick Preset Buttons */}
+              {currentLoan && currentOwing > 0 && (
+                <div className="grid grid-cols-2 gap-2 mt-2.5">
+                  {/* Full Payment Button */}
                   <button
                     type="button"
-                    onClick={() => setAmountInput(String(currentLoan.outstandingBalance))}
-                    className="px-2.5 py-1 bg-gradient-to-r from-sky-500 to-blue-600 text-white text-[11px] font-black rounded-xl whitespace-nowrap active:scale-95 transition shadow-xs"
+                    onClick={() => setAmountInput(String(currentOwing))}
+                    className={`py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border-2 ${
+                      amountPaid === currentOwing
+                        ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-blue-600 shadow-md'
+                        : 'bg-sky-50 hover:bg-sky-100 text-blue-900 border-sky-200'
+                    }`}
                   >
-                    Full Payoff ({formatCurrency(currentLoan.outstandingBalance)})
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Full Payment ({formatCurrency(currentOwing)})</span>
                   </button>
+
+                  {/* Half Payment Button */}
+                  {currentOwing > 10 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmountInput(String(halfAmount))}
+                      className={`py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border-2 ${
+                        amountPaid === halfAmount
+                          ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-blue-600 shadow-md'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Half Payment ({formatCurrency(halfAmount)})</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Live Projected Settlement Banner */}
+            {/* 4. Live Clear Balance Calculation Result */}
             {amountPaid > 0 && currentLoan && (
-              <div className={`p-3 rounded-2xl text-xs font-bold flex items-center justify-between border-2 animate-fade-in ${
+              <div className={`p-3.5 rounded-2xl text-xs font-bold border-2 animate-fade-in space-y-1.5 ${
                 willBeFullySettled 
-                  ? 'bg-sky-100 text-blue-950 border-sky-300 shadow-xs'
-                  : 'bg-slate-50 text-slate-700 border-slate-200'
+                  ? 'bg-emerald-50 text-emerald-950 border-emerald-300 shadow-xs'
+                  : 'bg-slate-50 text-slate-800 border-slate-200'
               }`}>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Balance Before Payment:</span>
+                  <span className="font-bold">{formatCurrency(currentOwing)}</span>
+                </div>
+                <div className="flex items-center justify-between text-blue-700">
+                  <span className="font-medium">Amount Paying Now:</span>
+                  <span className="font-bold">- {formatCurrency(amountPaid)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/80">
+                  <span className="font-black text-slate-900 uppercase tracking-wider text-[11px]">
+                    New Remaining Balance:
+                  </span>
                   {willBeFullySettled ? (
-                    <>
-                      <Sparkles className="w-4 h-4 text-blue-700 shrink-0" />
-                      <span>100% FULL PAYOFF! Loan will be marked settled.</span>
-                    </>
+                    <span className="bg-emerald-600 text-white px-2.5 py-0.5 rounded-full text-xs font-black flex items-center gap-1 shadow-xs">
+                      <Check className="w-3.5 h-3.5" />
+                      GH₵0.00 (100% PAID OFF 🎉)
+                    </span>
                   ) : (
-                    <>
-                      <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span>Projected balance after pay:</span>
-                    </>
+                    <span className="text-rose-700 font-black text-base font-outfit">
+                      {formatCurrency(projectedRemaining)}
+                    </span>
                   )}
                 </div>
-                <strong className={willBeFullySettled ? 'text-blue-900 text-sm' : 'text-slate-950 text-sm'}>
-                  {formatCurrency(projectedRemaining)}
-                </strong>
               </div>
             )}
 
@@ -707,9 +643,9 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Review & Confirm Repayment</span>
+                <span>Review & Confirm Payment</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -719,7 +655,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           /* 3. CONFIRMATION SCREEN */
           <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 animate-fade-in">
             <div className="text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
-              Verify Repayment Details
+              Verify Payment Details
             </div>
 
             <div className="p-4 rounded-3xl bg-slate-50 border-2 border-sky-100 space-y-2.5 text-xs">
@@ -732,8 +668,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 <span className="font-mono font-bold text-slate-950">{currentLoan?.loanId}</span>
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-2 gap-2">
-                <span className="text-slate-500 font-medium">Amount Received:</span>
-                <span className="font-black text-blue-700 text-lg">{formatCurrency(amountPaid)}</span>
+                <span className="text-slate-500 font-medium">Amount Paying:</span>
+                <span className="font-black text-blue-700 text-lg font-outfit">{formatCurrency(amountPaid)}</span>
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-2 gap-2">
                 <span className="text-slate-500 font-medium">Payment Mode:</span>
@@ -746,8 +682,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 </div>
               )}
               <div className="flex justify-between items-center gap-2 pt-1">
-                <span className="text-slate-500 font-medium">Projected Balance:</span>
-                <span className="font-black text-slate-950 text-sm">
+                <span className="text-slate-500 font-medium">New Remaining Balance:</span>
+                <span className="font-black text-slate-950 text-sm font-outfit">
                   {formatCurrency(projectedRemaining)}
                 </span>
               </div>
@@ -757,7 +693,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsConfirming(false)}
-                className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-700 text-xs font-black hover:bg-slate-200 transition"
+                className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-700 text-xs font-black hover:bg-slate-200 transition cursor-pointer"
               >
                 Modify
               </button>
@@ -766,7 +702,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleFinalSubmit}
-                className="flex-1 py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-1.5"
+                className="flex-1 py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Confirm & Issue Receipt

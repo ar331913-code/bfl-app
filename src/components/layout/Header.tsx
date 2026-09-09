@@ -16,6 +16,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { AppNotification } from '../../types';
+import { BflLogo } from '../common/BflLogo';
 import { CloudSyncService } from '../../services/cloudSyncService';
 
 interface HeaderProps {
@@ -111,11 +112,9 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => onNavigate('dashboard')}
               className="flex lg:hidden items-center gap-2 cursor-pointer select-none group shrink-0"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 flex items-center justify-center font-black text-white text-xs shadow-md ring-2 ring-sky-400/40 group-hover:scale-105 transition">
-                BFL
-              </div>
+              <BflLogo size="sm" />
               <div className="flex items-center gap-1.5">
-                <span className="font-black tracking-tight text-white text-base drop-shadow-xs">B-F-L</span>
+                <span className="font-black tracking-tight text-white text-base drop-shadow-xs font-outfit">B-F-L</span>
                 <span className="text-[9px] uppercase tracking-wider font-extrabold bg-sky-400/20 text-sky-300 border border-sky-400/30 px-1.5 py-0.2 rounded-md font-mono shadow-xs">
                   GH₵
                 </span>
@@ -166,10 +165,10 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenRecordPayment && (
               <button
                 onClick={() => onOpenRecordPayment()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition border border-indigo-500/30 active:scale-95 shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 text-xs font-bold transition border border-indigo-500/30 active:scale-95 shadow-xs cursor-pointer"
               >
                 <Receipt className="w-3.5 h-3.5 text-indigo-300" />
-                <span>+ Repayment</span>
+                <span>+ Record Payment</span>
               </button>
             )}
           </div>

@@ -16,6 +16,7 @@ import {
   LogOut,
   Search
 } from 'lucide-react';
+import { BflLogo } from '../common/BflLogo';
 import { AppNotification } from '../../types';
 import { CloudSyncService } from '../../services/cloudSyncService';
 
@@ -79,12 +80,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-400 via-blue-600 to-indigo-600 flex items-center justify-center font-black text-white text-base shadow-lg ring-2 ring-sky-400/40 group-hover:scale-105 transition">
-            BFL
-          </div>
+          <BflLogo size="md" />
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-black text-base tracking-tight text-white">B-F-L</span>
+              <span className="font-black text-base tracking-tight text-white font-outfit">B-F-L</span>
               <span className="text-[10px] uppercase font-mono font-bold bg-sky-400/20 text-sky-300 border border-sky-400/30 px-1.5 py-0.5 rounded-md">
                 GH₵
               </span>

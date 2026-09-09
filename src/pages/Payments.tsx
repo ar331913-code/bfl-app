@@ -116,10 +116,10 @@ export const Payments: React.FC<PaymentsProps> = ({
         <button
           onClick={onOpenRecordPayment}
           type="button"
-          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md flex items-center gap-1.5 transition shrink-0"
+          className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md flex items-center gap-1.5 transition shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Record Repayment</span>
+          <span>+ Record Payment</span>
         </button>
       </div>
 
