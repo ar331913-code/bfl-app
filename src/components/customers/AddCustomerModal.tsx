@@ -434,12 +434,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                   const text = `*WELCOME TO ${settings?.businessName || 'B-F-L'}*\n\n` +
                     `Dear ${savedCustomer.fullName},\n` +
                     `Your client registration is complete! Your Client ID is *#${savedCustomer.customerId}*.\n\n` +
-                    `You are now eligible for microloans with flexible repayment terms.\n\n` +
+                    `You are now eligible for loans with flexible repayment terms.\n\n` +
                     `For enquiries or assistance, reach us at ${settings?.businessPhone || 'our office'}.\n` +
                     `Thank you for partnering with us!`;
                   window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
                 }}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Smartphone className="w-4 h-4" />
                 <span>Send Welcome via WhatsApp</span>
@@ -449,9 +449,10 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition"
+                className="w-full py-3 bg-slate-950 hover:bg-slate-800 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                Done
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Done</span>
               </button>
             </div>
           </div>

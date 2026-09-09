@@ -381,9 +381,10 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black rounded-2xl transition"
+                className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                Done
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Done</span>
               </button>
             </div>
           </div>
@@ -639,11 +640,18 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
             )}
 
-            {/* Submit Action */}
-            <div className="pt-2">
+            {/* Submit Action & Done Button */}
+            <div className="pt-2 flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-black rounded-2xl transition cursor-pointer"
+              >
+                Done
+              </button>
               <button
                 type="submit"
-                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-lg shadow-sky-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Review & Confirm Payment</span>
                 <ArrowRight className="w-4 h-4" />

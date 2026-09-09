@@ -98,7 +98,7 @@ export const Settings: React.FC<SettingsProps> = ({
   };
 
   // Business settings state
-  const [businessName, setBusinessName] = useState(settings?.businessName || 'B-F-L Micro Credit');
+  const [businessName, setBusinessName] = useState(settings?.businessName || 'B-F-L');
   const [businessPhone, setBusinessPhone] = useState(settings?.businessPhone || '+233 24 412 3456');
   const [businessAddress, setBusinessAddress] = useState(settings?.businessAddress || 'Accra, Ghana');
 

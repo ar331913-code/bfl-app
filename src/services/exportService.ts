@@ -26,7 +26,7 @@ export function generateLoanStatementPDF(
   settings?: SystemSettings
 ): void {
   const doc = new jsPDF();
-  const businessName = settings?.businessName || 'B-F-L LOAN MANAGEMENT';
+  const businessName = settings?.businessName || 'B-F-L';
   const businessPhone = settings?.businessPhone || '+233 24 412 3456';
   const businessAddress = settings?.businessAddress || 'Accra, Ghana';
 
@@ -124,7 +124,7 @@ export function generatePaymentReceiptPDF(
     format: [100, 150] // Mini thermal receipt layout
   });
 
-  const businessName = settings?.businessName || 'B-F-L MICRO CREDIT';
+  const businessName = settings?.businessName || 'B-F-L';
   const businessPhone = settings?.businessPhone || '+233 24 412 3456';
 
   // Receipt Header

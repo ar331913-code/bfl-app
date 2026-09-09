@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const list = await db.settings.toArray();
       if (list.length > 0) {
         const current = list[0];
-        if (current.businessName === 'B-F-L Micro Credit' || current.businessName === 'B-F-L Microfinance') {
+        if (current.businessName && /micro/i.test(current.businessName)) {
           current.businessName = 'B-F-L';
           await db.settings.update(current.id!, { businessName: 'B-F-L' });
         }

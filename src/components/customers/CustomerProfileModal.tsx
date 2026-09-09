@@ -251,7 +251,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                       Current Debt Status: OWING
                     </div>
                     <div className="text-[11px] text-rose-700 font-medium">
-                      {activeLoans.length} active microloan{activeLoans.length === 1 ? '' : 's'} in repayment
+                      {activeLoans.length} active loan{activeLoans.length === 1 ? '' : 's'} in repayment
                     </div>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
               </div>
 
               <p className="text-[11px] text-slate-600 font-medium">
-                This borrower is completely settled and eligible for new microloan disbursements.
+                This borrower is completely settled and eligible for new loan disbursements.
               </p>
 
               {/* Issue New Loan Button */}
@@ -326,7 +326,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 onClick={() => (onOpenCreateLoan || onOpenNewLoan)?.(customer.customerId)}
                 className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-2"
               >
-                <PlusCircle className="w-4 h-4" /> Issue New Microloan to {customer.fullName.split(' ')[0]}
+                <PlusCircle className="w-4 h-4" /> Issue New Loan to {customer.fullName.split(' ')[0]}
               </button>
             </div>
           )}
@@ -547,7 +547,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
 
             {customerLoans.length === 0 ? (
               <div className="p-6 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
-                No loans issued yet. Tap &ldquo;Issue New Microloan&rdquo; to disburse.
+                No loans issued yet. Tap &ldquo;Issue New Loan&rdquo; to disburse.
               </div>
             ) : (
               <div className="space-y-2.5">

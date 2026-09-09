@@ -385,7 +385,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                   ? 'Loan Disbursed! 🎉' 
                   : isConfirming 
                   ? 'Confirm Loan Terms' 
-                  : 'Issue New Microloan'}
+                  : 'Issue New Loan'}
               </h2>
               <p className="text-[10px] text-sky-100 font-semibold">
                 {createdLoanRecord 

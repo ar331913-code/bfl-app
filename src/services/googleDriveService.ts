@@ -39,7 +39,7 @@ export class GoogleDriveBackupService {
         totalCustomers: customers.length,
         totalLoans: loans.length,
         totalPhotos: photosCount,
-        businessName: settings[0]?.businessName || 'B-F-L Micro Credit'
+        businessName: settings[0]?.businessName || 'B-F-L'
       },
       customers,
       loans,

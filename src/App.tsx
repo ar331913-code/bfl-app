@@ -380,8 +380,8 @@ const MainApp: React.FC = () => {
           setEditingCustomer(undefined);
         }}
         existingCustomer={editingCustomer}
-        onCustomerCreated={(c) => {
-          handleSelectCustomer(c);
+        onCustomerCreated={(_c) => {
+          // Allow the Success Confirmation screen in AddCustomerModal to display to the user
         }}
         onOpenNewLoan={(customerId) => {
           setIsAddCustomerOpen(false);
