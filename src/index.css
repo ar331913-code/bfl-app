@@ -26,23 +26,55 @@
   }
 }
 
-/* Custom Executive Scrollbar */
+/* Custom Executive Scrollbar - Enhanced for Easy Scrolling */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #94a3b8 rgba(241, 245, 249, 0.6);
+}
+
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(241, 245, 249, 0.7);
+  border-radius: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(37, 99, 235, 0.25);
-  border-radius: 9999px;
+  background: #94a3b8;
+  border-radius: 8px;
+  border: 2px solid rgba(241, 245, 249, 0.7);
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(37, 99, 235, 0.45);
+  background: #64748b;
+  border: 2px solid rgba(241, 245, 249, 0.7);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #3b82f6;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.85);
 }
 
 .no-scrollbar::-webkit-scrollbar {
