@@ -62,7 +62,13 @@ export const Customers: React.FC<CustomersProps> = ({
     }
   }
 
-  const safeCustomers = (customers || []).filter((c): c is Customer => Boolean(c && c.customerId));
+  const safeCustomers = React.useMemo(() => {
+    const map = new Map<string, Customer>();
+    for (const c of (customers || [])) {
+      if (c && c.customerId) map.set(c.customerId, c);
+    }
+    return Array.from(map.values());
+  }, [customers]);
   const owingCustomers = safeCustomers.filter(c => owingCustomerMap.has(c.customerId));
   const debtFreeCustomers = safeCustomers.filter(c => !owingCustomerMap.has(c.customerId));
 

@@ -129,6 +129,94 @@ export class BFLDatabase extends Dexie {
     }
   }
 
+  // Deduplicate all tables to permanently ensure no cloned records exist
+  async deduplicateDatabaseTables(): Promise<{
+    customersRemoved: number;
+    loansRemoved: number;
+    schedulesRemoved: number;
+    paymentsRemoved: number;
+  }> {
+    let customersRemoved = 0;
+    let loansRemoved = 0;
+    let schedulesRemoved = 0;
+    let paymentsRemoved = 0;
+
+    try {
+      // 1. Customers
+      const allCustomers = await this.customers.toArray();
+      const seenCustomerIds = new Map<string, number>();
+      const duplicateCustomerIds: number[] = [];
+      for (const c of allCustomers) {
+        if (!c.customerId || !c.id) continue;
+        if (seenCustomerIds.has(c.customerId)) {
+          duplicateCustomerIds.push(c.id);
+        } else {
+          seenCustomerIds.set(c.customerId, c.id);
+        }
+      }
+      if (duplicateCustomerIds.length > 0) {
+        await this.customers.bulkDelete(duplicateCustomerIds);
+        customersRemoved = duplicateCustomerIds.length;
+      }
+
+      // 2. Loans
+      const allLoans = await this.loans.toArray();
+      const seenLoanIds = new Map<string, number>();
+      const duplicateLoanIds: number[] = [];
+      for (const l of allLoans) {
+        if (!l.loanId || !l.id) continue;
+        if (seenLoanIds.has(l.loanId)) {
+          duplicateLoanIds.push(l.id);
+        } else {
+          seenLoanIds.set(l.loanId, l.id);
+        }
+      }
+      if (duplicateLoanIds.length > 0) {
+        await this.loans.bulkDelete(duplicateLoanIds);
+        loansRemoved = duplicateLoanIds.length;
+      }
+
+      // 3. Schedules
+      const allSchedules = await this.repaymentSchedules.toArray();
+      const seenScheduleKeys = new Map<string, number>();
+      const duplicateScheduleIds: number[] = [];
+      for (const s of allSchedules) {
+        if (!s.loanId || !s.id) continue;
+        const key = `${s.loanId}-${s.installmentNumber}`;
+        if (seenScheduleKeys.has(key)) {
+          duplicateScheduleIds.push(s.id);
+        } else {
+          seenScheduleKeys.set(key, s.id);
+        }
+      }
+      if (duplicateScheduleIds.length > 0) {
+        await this.repaymentSchedules.bulkDelete(duplicateScheduleIds);
+        schedulesRemoved = duplicateScheduleIds.length;
+      }
+
+      // 4. Payments
+      const allPayments = await this.payments.toArray();
+      const seenPaymentIds = new Map<string, number>();
+      const duplicatePaymentIds: number[] = [];
+      for (const p of allPayments) {
+        if (!p.paymentId || !p.id) continue;
+        if (seenPaymentIds.has(p.paymentId)) {
+          duplicatePaymentIds.push(p.id);
+        } else {
+          seenPaymentIds.set(p.paymentId, p.id);
+        }
+      }
+      if (duplicatePaymentIds.length > 0) {
+        await this.payments.bulkDelete(duplicatePaymentIds);
+        paymentsRemoved = duplicatePaymentIds.length;
+      }
+    } catch (e) {
+      console.warn('Error during database deduplication:', e);
+    }
+
+    return { customersRemoved, loansRemoved, schedulesRemoved, paymentsRemoved };
+  }
+
   // Clear all transactional data for fresh start
   async resetAllData(): Promise<void> {
     await this.transaction('rw', [

@@ -45,15 +45,23 @@ export const Loans: React.FC<LoansProps> = ({
     setStatusFilter(initialFilter);
   }, [initialFilter]);
 
-  const activeLoans = (loans || []).filter(l => isLoanOwing(l));
-  const dueTodayLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'due_today');
-  const overdueLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'overdue');
-  const completedLoans = (loans || []).filter(l => !isLoanOwing(l));
+  const safeLoans = React.useMemo(() => {
+    const map = new Map<string, Loan>();
+    for (const l of (loans || [])) {
+      if (l && l.loanId) map.set(l.loanId, l);
+    }
+    return Array.from(map.values());
+  }, [loans]);
+
+  const activeLoans = safeLoans.filter(l => isLoanOwing(l));
+  const dueTodayLoans = safeLoans.filter(l => isLoanOwing(l) && l.status === 'due_today');
+  const overdueLoans = safeLoans.filter(l => isLoanOwing(l) && l.status === 'overdue');
+  const completedLoans = safeLoans.filter(l => !isLoanOwing(l));
 
   const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
-  const totalPrincipal = (loans || []).reduce((sum, l) => sum + (l.principalAmount || 0), 0);
+  const totalPrincipal = safeLoans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
 
-  const filteredLoans = (loans || []).filter(l => {
+  const filteredLoans = safeLoans.filter(l => {
     if (!l) return false;
     const matchesSearch = 
       (l.loanId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import { Customer, Loan, Payment, RepaymentSchedule } from './types';
@@ -58,17 +58,43 @@ const MainApp: React.FC = () => {
   const [loanInitialFilter, setLoanInitialFilter] = useState<string>('active');
 
   // Reactive Data from IndexedDB with safe fallbacks
-  const customers = useLiveQuery(() => db.customers.toArray(), []) ?? [];
-  const loans = useLiveQuery(() => db.loans.toArray(), []) ?? [];
+  const rawCustomers = useLiveQuery(() => db.customers.toArray(), []) ?? [];
+  const rawLoans = useLiveQuery(() => db.loans.toArray(), []) ?? [];
   const schedules = useLiveQuery(() => db.repaymentSchedules.toArray(), []) ?? [];
-  const payments = useLiveQuery(() => db.payments.toArray(), []) ?? [];
+  const rawPayments = useLiveQuery(() => db.payments.toArray(), []) ?? [];
   const notifications = useLiveQuery(() => db.notifications.toArray(), []) ?? [];
   const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) ?? [];
+
+  // Strictly deduplicated reactive collections
+  const customers = useMemo(() => {
+    const map = new Map<string, Customer>();
+    for (const c of rawCustomers) {
+      if (c && c.customerId) map.set(c.customerId, c);
+    }
+    return Array.from(map.values());
+  }, [rawCustomers]);
+
+  const loans = useMemo(() => {
+    const map = new Map<string, Loan>();
+    for (const l of rawLoans) {
+      if (l && l.loanId) map.set(l.loanId, l);
+    }
+    return Array.from(map.values());
+  }, [rawLoans]);
+
+  const payments = useMemo(() => {
+    const map = new Map<string, Payment>();
+    for (const p of rawPayments) {
+      if (p && p.paymentId) map.set(p.paymentId, p);
+    }
+    return Array.from(map.values());
+  }, [rawPayments]);
 
   // Fast startup: render immediately from local storage, sync with cloud in background
   useEffect(() => {
     async function init() {
       try {
+        await db.deduplicateDatabaseTables();
         const hasExistingSettings = (await db.settings.count()) > 0;
         await initDefaultSettings();
 
@@ -187,7 +213,7 @@ const MainApp: React.FC = () => {
   };
 
   const canGoBack = activeTab !== 'dashboard' || isSearchOpen || isProfileOpen || isLoanDetailOpen || isAddCustomerOpen || isCreateLoanOpen || isRecordPaymentOpen;
-  const overdueCount = loans.filter(l => l.status === 'overdue').length;
+  const overdueCount = loans.filter((l: Loan) => l && l.status === 'overdue').length;
 
   const { isAuthenticated, isLocked, showLanding, setShowLanding } = useAuth();
 
@@ -436,7 +462,7 @@ const MainApp: React.FC = () => {
       {/* Loan Details & Statement Modal */}
       <LoanDetailModal
         loan={selectedDetailLoan}
-        customer={(customers || []).find(c => c && c.customerId === selectedDetailLoan?.customerId)}
+        customer={(customers || []).find((c: Customer) => Boolean(c && c.customerId === selectedDetailLoan?.customerId))}
         schedules={schedules}
         payments={payments}
         isOpen={isLoanDetailOpen}
@@ -464,7 +490,7 @@ const MainApp: React.FC = () => {
         preselectedLoanId={paymentLoanId}
         preselectedInstallmentId={paymentInstallmentId}
         onPaymentSuccess={(payment: Payment) => {
-          const targetLoan = loans.find(l => l.loanId === payment.loanId);
+          const targetLoan = loans.find((l: Loan) => l && l.loanId === payment.loanId);
           if (targetLoan) {
             handleSelectLoan(targetLoan);
           }

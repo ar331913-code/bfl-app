@@ -132,18 +132,43 @@ export class CloudSyncService {
 
       // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {
-        const cloudCustomers: Customer[] = cloudData.customers 
+        const rawCloudCustomers: Customer[] = cloudData.customers 
           ? (Array.isArray(cloudData.customers) ? cloudData.customers : Object.values(cloudData.customers)) 
           : [];
-        const cloudLoans: Loan[] = cloudData.loans 
+        const rawCloudLoans: Loan[] = cloudData.loans 
           ? (Array.isArray(cloudData.loans) ? cloudData.loans : Object.values(cloudData.loans)) 
           : [];
-        const cloudSchedules: RepaymentSchedule[] = cloudData.repaymentSchedules 
+        const rawCloudSchedules: RepaymentSchedule[] = cloudData.repaymentSchedules 
           ? (Array.isArray(cloudData.repaymentSchedules) ? cloudData.repaymentSchedules : Object.values(cloudData.repaymentSchedules)) 
           : [];
-        const cloudPayments: Payment[] = cloudData.payments 
+        const rawCloudPayments: Payment[] = cloudData.payments 
           ? (Array.isArray(cloudData.payments) ? cloudData.payments : Object.values(cloudData.payments)) 
           : [];
+
+        // Deduplicate in-memory cloud arrays by unique business keys
+        const cloudCustMap = new Map<string, Customer>();
+        for (const c of rawCloudCustomers) {
+          if (c && c.customerId) cloudCustMap.set(c.customerId, c);
+        }
+        const cloudCustomers = Array.from(cloudCustMap.values());
+
+        const cloudLoanMap = new Map<string, Loan>();
+        for (const l of rawCloudLoans) {
+          if (l && l.loanId) cloudLoanMap.set(l.loanId, l);
+        }
+        const cloudLoans = Array.from(cloudLoanMap.values());
+
+        const cloudSchedMap = new Map<string, RepaymentSchedule>();
+        for (const s of rawCloudSchedules) {
+          if (s && s.loanId) cloudSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+        }
+        const cloudSchedules = Array.from(cloudSchedMap.values());
+
+        const cloudPayMap = new Map<string, Payment>();
+        for (const p of rawCloudPayments) {
+          if (p && p.paymentId) cloudPayMap.set(p.paymentId, p);
+        }
+        const cloudPayments = Array.from(cloudPayMap.values());
 
         if (cloudResetTime > localResetTime) {
           // -------------------------------------------------------------
@@ -182,15 +207,22 @@ export class CloudSyncService {
           // SAME GENERATION - 2-WAY BIDIRECTIONAL DIFFERENTIAL MERGE
           // -------------------------------------------------------------
 
-          // A. Merge Customers
+          // A. Merge Customers with automatic duplicate purging
           for (const c of cloudCustomers) {
             if (!c || !c.customerId) continue;
-            const existing = await db.customers.where('customerId').equals(c.customerId).first();
-            if (!existing) {
+            const existingMatches = await db.customers.where('customerId').equals(c.customerId).toArray();
+            if (existingMatches.length === 0) {
               const { id, ...rest } = c;
               await db.customers.add(rest as Customer);
               pulledCount++;
             } else {
+              if (existingMatches.length > 1) {
+                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+                if (duplicatesToDelete.length > 0) {
+                  await db.customers.bulkDelete(duplicatesToDelete);
+                }
+              }
+              const existing = existingMatches[0];
               const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
               const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
               if (cloudUpdated >= localUpdated) {
@@ -203,15 +235,22 @@ export class CloudSyncService {
             }
           }
 
-          // B. Merge Loans
+          // B. Merge Loans with automatic duplicate purging
           for (const l of cloudLoans) {
             if (!l || !l.loanId) continue;
-            const existing = await db.loans.where('loanId').equals(l.loanId).first();
-            if (!existing) {
+            const existingMatches = await db.loans.where('loanId').equals(l.loanId).toArray();
+            if (existingMatches.length === 0) {
               const { id, ...rest } = l;
               await db.loans.add(rest as Loan);
               pulledCount++;
             } else {
+              if (existingMatches.length > 1) {
+                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+                if (duplicatesToDelete.length > 0) {
+                  await db.loans.bulkDelete(duplicatesToDelete);
+                }
+              }
+              const existing = existingMatches[0];
               const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
               const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
               if (cloudUpdated >= localUpdated) {
@@ -224,19 +263,26 @@ export class CloudSyncService {
             }
           }
 
-          // C. Merge Schedules
+          // C. Merge Schedules with automatic duplicate purging
           for (const s of cloudSchedules) {
             if (!s || !s.loanId) continue;
-            const existing = await db.repaymentSchedules
+            const existingMatches = await db.repaymentSchedules
               .where('loanId')
               .equals(s.loanId)
               .filter(item => item.installmentNumber === s.installmentNumber)
-              .first();
+              .toArray();
 
-            if (!existing) {
+            if (existingMatches.length === 0) {
               const { id, ...rest } = s;
               await db.repaymentSchedules.add(rest as RepaymentSchedule);
             } else {
+              if (existingMatches.length > 1) {
+                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+                if (duplicatesToDelete.length > 0) {
+                  await db.repaymentSchedules.bulkDelete(duplicatesToDelete);
+                }
+              }
+              const existing = existingMatches[0];
               await db.repaymentSchedules.update(existing.id!, {
                 ...s,
                 id: existing.id
@@ -244,15 +290,22 @@ export class CloudSyncService {
             }
           }
 
-          // D. Merge Payments
+          // D. Merge Payments with automatic duplicate purging
           for (const p of cloudPayments) {
             if (!p || !p.paymentId) continue;
-            const existing = await db.payments.where('paymentId').equals(p.paymentId).first();
-            if (!existing) {
+            const existingMatches = await db.payments.where('paymentId').equals(p.paymentId).toArray();
+            if (existingMatches.length === 0) {
               const { id, ...rest } = p;
               await db.payments.add(rest as Payment);
               pulledCount++;
             } else {
+              if (existingMatches.length > 1) {
+                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+                if (duplicatesToDelete.length > 0) {
+                  await db.payments.bulkDelete(duplicatesToDelete);
+                }
+              }
+              const existing = existingMatches[0];
               await db.payments.update(existing.id!, {
                 ...p,
                 id: existing.id
@@ -265,11 +318,38 @@ export class CloudSyncService {
       // Reconcile loan balances against all payments after pull
       await reconcileAllLoanBalances();
 
-      // 3. Push Local Unified Dataset to Cloud
-      const unifiedCustomers = await db.customers.toArray();
-      const unifiedLoans = await db.loans.toArray();
-      const unifiedSchedules = await db.repaymentSchedules.toArray();
-      const unifiedPayments = await db.payments.toArray();
+      // Permanent local table deduplication pass
+      await db.deduplicateDatabaseTables();
+
+      // 3. Push Local Unified Dataset to Cloud (Guaranteed Unique)
+      const rawUnifiedCustomers = await db.customers.toArray();
+      const rawUnifiedLoans = await db.loans.toArray();
+      const rawUnifiedSchedules = await db.repaymentSchedules.toArray();
+      const rawUnifiedPayments = await db.payments.toArray();
+
+      const uCustMap = new Map<string, Customer>();
+      for (const c of rawUnifiedCustomers) {
+        if (c && c.customerId) uCustMap.set(c.customerId, c);
+      }
+      const unifiedCustomers = Array.from(uCustMap.values());
+
+      const uLoanMap = new Map<string, Loan>();
+      for (const l of rawUnifiedLoans) {
+        if (l && l.loanId) uLoanMap.set(l.loanId, l);
+      }
+      const unifiedLoans = Array.from(uLoanMap.values());
+
+      const uSchedMap = new Map<string, RepaymentSchedule>();
+      for (const s of rawUnifiedSchedules) {
+        if (s && s.loanId) uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+      }
+      const unifiedSchedules = Array.from(uSchedMap.values());
+
+      const uPayMap = new Map<string, Payment>();
+      for (const p of rawUnifiedPayments) {
+        if (p && p.paymentId) uPayMap.set(p.paymentId, p);
+      }
+      const unifiedPayments = Array.from(uPayMap.values());
 
       const effectiveResetAt = localStorage.getItem('bfl_data_reset_at') || cloudResetAt || new Date().toISOString();
 
@@ -340,10 +420,36 @@ export class CloudSyncService {
   public static async forcePushLocalToCloud(explicitResetAt?: string): Promise<boolean> {
     try {
       const { orgId, endpoint } = await this.getCloudConfig();
-      const unifiedCustomers = await db.customers.toArray();
-      const unifiedLoans = await db.loans.toArray();
-      const unifiedSchedules = await db.repaymentSchedules.toArray();
-      const unifiedPayments = await db.payments.toArray();
+      await db.deduplicateDatabaseTables();
+
+      const rawUnifiedCustomers = await db.customers.toArray();
+      const rawUnifiedLoans = await db.loans.toArray();
+      const rawUnifiedSchedules = await db.repaymentSchedules.toArray();
+      const rawUnifiedPayments = await db.payments.toArray();
+
+      const uCustMap = new Map<string, Customer>();
+      for (const c of rawUnifiedCustomers) {
+        if (c && c.customerId) uCustMap.set(c.customerId, c);
+      }
+      const unifiedCustomers = Array.from(uCustMap.values());
+
+      const uLoanMap = new Map<string, Loan>();
+      for (const l of rawUnifiedLoans) {
+        if (l && l.loanId) uLoanMap.set(l.loanId, l);
+      }
+      const unifiedLoans = Array.from(uLoanMap.values());
+
+      const uSchedMap = new Map<string, RepaymentSchedule>();
+      for (const s of rawUnifiedSchedules) {
+        if (s && s.loanId) uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+      }
+      const unifiedSchedules = Array.from(uSchedMap.values());
+
+      const uPayMap = new Map<string, Payment>();
+      for (const p of rawUnifiedPayments) {
+        if (p && p.paymentId) uPayMap.set(p.paymentId, p);
+      }
+      const unifiedPayments = Array.from(uPayMap.values());
 
       const resetAt = explicitResetAt || localStorage.getItem('bfl_data_reset_at') || new Date().toISOString();
 
