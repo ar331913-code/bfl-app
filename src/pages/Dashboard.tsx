@@ -73,39 +73,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setIsSyncing(false);
   };
 
-  // Aggregate Metrics
-  const totalCustomers = customers.length;
-  const activeLoans = loans.filter(l => isLoanOwing(l));
-  const overdueLoans = loans.filter(l => isLoanOwing(l) && l.status === 'overdue');
-  const dueTodayLoans = loans.filter(l => isLoanOwing(l) && l.status === 'due_today');
-  const fullyPaidLoans = loans.filter(l => l.status === 'completed' || (l.outstandingBalance || 0) <= 0.01);
+  // Aggregate Metrics with robust safeguards
+  const totalCustomers = (customers || []).length;
+  const activeLoans = (loans || []).filter(l => isLoanOwing(l));
+  const overdueLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'overdue');
+  const dueTodayLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'due_today');
+  const fullyPaidLoans = (loans || []).filter(l => l.status === 'completed' || (l.outstandingBalance || 0) <= 0.01);
 
-  const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const totalCollected = (payments || []).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
   const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
-  const totalDisbursed = loans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
-  const totalInterestExpected = loans.reduce((sum, l) => sum + (l.totalInterest || 0), 0);
+  const totalDisbursed = (loans || []).reduce((sum, l) => sum + (l.principalAmount || 0), 0);
+  const totalInterestExpected = (loans || []).reduce((sum, l) => sum + (l.totalInterest || 0), 0);
 
   // Schedules due today
   const activeLoanIds = new Set(activeLoans.map(l => l.loanId));
-  const dueTodaySchedules = schedules.filter(s => activeLoanIds.has(s.loanId) && s.status === 'due_today' && s.remainingBalance > 0.01);
-  const dueTodayAmount = dueTodaySchedules.reduce((sum, s) => sum + s.remainingBalance, 0);
+  const dueTodaySchedules = (schedules || []).filter(s => s && activeLoanIds.has(s.loanId) && s.status === 'due_today' && (s.remainingBalance || 0) > 0.01);
+  const dueTodayAmount = dueTodaySchedules.reduce((sum, s) => sum + (s.remainingBalance || 0), 0);
 
   // Overdue schedules
-  const overdueSchedules = schedules.filter(s => activeLoanIds.has(s.loanId) && s.status === 'overdue' && s.remainingBalance > 0.01);
-  const overdueAmount = overdueSchedules.reduce((sum, s) => sum + s.remainingBalance, 0);
+  const overdueSchedules = (schedules || []).filter(s => s && activeLoanIds.has(s.loanId) && s.status === 'overdue' && (s.remainingBalance || 0) > 0.01);
+  const overdueAmount = overdueSchedules.reduce((sum, s) => sum + (s.remainingBalance || 0), 0);
 
   // Upcoming in next 7 days
   const now = new Date();
   const nextWeek = new Date();
   nextWeek.setDate(now.getDate() + 7);
-  const upcomingSchedules = schedules.filter(s => {
-    if (!activeLoanIds.has(s.loanId) || s.status === 'paid' || s.remainingBalance <= 0.01) return false;
-    const due = new Date(s.dueDate);
-    return due > now && due <= nextWeek;
+  const upcomingSchedules = (schedules || []).filter(s => {
+    if (!s || !activeLoanIds.has(s.loanId) || s.status === 'paid' || (s.remainingBalance || 0) <= 0.01) return false;
+    if (!s.dueDate) return false;
+    try {
+      const due = new Date(s.dueDate);
+      return due > now && due <= nextWeek;
+    } catch {
+      return false;
+    }
   });
 
   // Recent payments stream
-  const recentPayments = [...payments].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 7);
+  const recentPayments = [...(payments || [])].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 7);
 
   // Send 1-Click WhatsApp reminder
   const sendWhatsAppReminder = (customer: Customer, loan: Loan, schedule?: RepaymentSchedule) => {

@@ -45,18 +45,19 @@ export const Loans: React.FC<LoansProps> = ({
     setStatusFilter(initialFilter);
   }, [initialFilter]);
 
-  const activeLoans = loans.filter(l => isLoanOwing(l));
-  const dueTodayLoans = loans.filter(l => isLoanOwing(l) && l.status === 'due_today');
-  const overdueLoans = loans.filter(l => isLoanOwing(l) && l.status === 'overdue');
-  const completedLoans = loans.filter(l => !isLoanOwing(l));
+  const activeLoans = (loans || []).filter(l => isLoanOwing(l));
+  const dueTodayLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'due_today');
+  const overdueLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'overdue');
+  const completedLoans = (loans || []).filter(l => !isLoanOwing(l));
 
   const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
-  const totalPrincipal = loans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
+  const totalPrincipal = (loans || []).reduce((sum, l) => sum + (l.principalAmount || 0), 0);
 
-  const filteredLoans = loans.filter(l => {
+  const filteredLoans = (loans || []).filter(l => {
+    if (!l) return false;
     const matchesSearch = 
-      l.loanId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.customerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.loanId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.customerId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (l.customerName && l.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (!matchesSearch) return false;

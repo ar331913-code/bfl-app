@@ -57,13 +57,13 @@ const MainApp: React.FC = () => {
 
   const [loanInitialFilter, setLoanInitialFilter] = useState<string>('active');
 
-  // Reactive Data from IndexedDB
-  const customers = useLiveQuery(() => db.customers.toArray(), []) || [];
-  const loans = useLiveQuery(() => db.loans.toArray(), []) || [];
-  const schedules = useLiveQuery(() => db.repaymentSchedules.toArray(), []) || [];
-  const payments = useLiveQuery(() => db.payments.toArray(), []) || [];
-  const notifications = useLiveQuery(() => db.notifications.toArray(), []) || [];
-  const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) || [];
+  // Reactive Data from IndexedDB with safe fallbacks
+  const customers = useLiveQuery(() => db.customers.toArray(), []) ?? [];
+  const loans = useLiveQuery(() => db.loans.toArray(), []) ?? [];
+  const schedules = useLiveQuery(() => db.repaymentSchedules.toArray(), []) ?? [];
+  const payments = useLiveQuery(() => db.payments.toArray(), []) ?? [];
+  const notifications = useLiveQuery(() => db.notifications.toArray(), []) ?? [];
+  const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) ?? [];
 
   // Fast startup: render immediately from local storage, sync with cloud in background
   useEffect(() => {

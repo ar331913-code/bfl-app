@@ -47,10 +47,10 @@ export const Customers: React.FC<CustomersProps> = ({
   const [primaryTab, setPrimaryTab] = useState<'all' | 'owing' | 'debt_free'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'driver' | 'trader'>('all');
 
-  // Map outstanding debt per customer
+  // Map outstanding debt per customer with safeguards
   const owingCustomerMap = new Map<string, { totalOwing: number; activeLoanId: string; isOverdue: boolean }>();
-  for (const loan of loans) {
-    if (isLoanOwing(loan)) {
+  for (const loan of (loans || [])) {
+    if (loan && isLoanOwing(loan)) {
       const balance = getTrueOutstanding(loan);
       const prev = owingCustomerMap.get(loan.customerId);
       const isOverdue = loan.status === 'overdue' || (prev?.isOverdue ?? false);
@@ -62,8 +62,8 @@ export const Customers: React.FC<CustomersProps> = ({
     }
   }
 
-  const owingCustomers = customers.filter(c => owingCustomerMap.has(c.customerId));
-  const debtFreeCustomers = customers.filter(c => !owingCustomerMap.has(c.customerId));
+  const owingCustomers = (customers || []).filter(c => c && owingCustomerMap.has(c.customerId));
+  const debtFreeCustomers = (customers || []).filter(c => c && !owingCustomerMap.has(c.customerId));
 
   const totalMoneyOwing = Array.from(owingCustomerMap.values()).reduce((sum, item) => sum + item.totalOwing, 0);
   const overdueCount = Array.from(owingCustomerMap.values()).filter(item => item.isOverdue).length;

@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenRecordPayment
 }) => {
   const { lockSession } = useAuth();
-  const unreadCount = unreadNotifications.filter(n => !n.isRead).length;
+  const unreadCount = (unreadNotifications || []).filter(n => n && !n.isRead).length;
 
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error' | 'offline'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<string | undefined>(undefined);

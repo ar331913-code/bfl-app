@@ -37,22 +37,23 @@ export const Payments: React.FC<PaymentsProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
 
-  const customerMap = new Map(customers.map(c => [c.customerId, c]));
-  const loanMap = new Map(loans.map(l => [l.loanId, l]));
+  const customerMap = new Map((customers || []).map(c => [c.customerId, c]));
+  const loanMap = new Map((loans || []).map(l => [l.loanId, l]));
 
-  const totalCollected = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const cashCollected = payments.filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const momoCollected = payments.filter(p => p.paymentMethod === 'momo').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-  const bankCollected = payments.filter(p => p.paymentMethod === 'bank').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const totalCollected = (payments || []).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const cashCollected = (payments || []).filter(p => p.paymentMethod === 'cash' || !p.paymentMethod).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const momoCollected = (payments || []).filter(p => p.paymentMethod === 'momo').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const bankCollected = (payments || []).filter(p => p.paymentMethod === 'bank').reduce((sum, p) => sum + (p.amountPaid || 0), 0);
 
-  const filteredPayments = payments.filter(p => {
+  const filteredPayments = (payments || []).filter(p => {
+    if (!p) return false;
     const cust = customerMap.get(p.customerId);
     const matchesSearch = 
-      p.paymentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.loanId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.customerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.paymentId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.loanId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.customerId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.referenceNumber && p.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (cust && cust.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
+      (cust && cust.fullName && cust.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
 
     if (!matchesSearch) return false;
 
