@@ -210,6 +210,20 @@ export class BFLDatabase extends Dexie {
         await this.payments.bulkDelete(duplicatePaymentIds);
         paymentsRemoved = duplicatePaymentIds.length;
       }
+
+      // 5. Settings (Ensure strictly 1 record exists)
+      const allSettings = await this.settings.toArray();
+      if (allSettings.length > 1) {
+        allSettings.sort((a, b) => {
+          const timeA = new Date(a.updatedAt || '1970-01-01').getTime();
+          const timeB = new Date(b.updatedAt || '1970-01-01').getTime();
+          return timeB - timeA;
+        });
+        const duplicateSettingsIds = allSettings.slice(1).map(s => s.id!).filter(Boolean);
+        if (duplicateSettingsIds.length > 0) {
+          await this.settings.bulkDelete(duplicateSettingsIds);
+        }
+      }
     } catch (e) {
       console.warn('Error during database deduplication:', e);
     }

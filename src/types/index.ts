@@ -234,6 +234,7 @@ export interface SystemSettings {
   cloudSyncOrgId?: string; // Organization / Tenant ID e.g. "BFL-GHANA-HQ"
   cloudSyncEndpoint?: string; // Optional custom cloud sync URL
   cloudLastSyncedAt?: string;
+  updatedAt?: string;
 }
 
 export interface MoMoDisbursementResult {

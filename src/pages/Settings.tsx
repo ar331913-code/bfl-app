@@ -141,6 +141,10 @@ export const Settings: React.FC<SettingsProps> = ({
   const [newUsername, setNewUsername] = useState(settings?.username || 'admin');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [isUpdatingCreds, setIsUpdatingCreds] = useState(false);
   const [credMessage, setCredMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // General message
@@ -296,7 +300,7 @@ export const Settings: React.FC<SettingsProps> = ({
       return;
     }
     if (newPassword && newPassword !== confirmPassword) {
-      setCredMessage({ type: 'error', text: 'New passwords do not match.' });
+      setCredMessage({ type: 'error', text: 'New passwords do not match. Please re-type.' });
       return;
     }
     if (newPassword && newPassword.length < 4) {
@@ -304,15 +308,24 @@ export const Settings: React.FC<SettingsProps> = ({
       return;
     }
 
-    const res = await changeCredentials(currentPassword, newUsername, newPassword || undefined);
-    if (res.success) {
-      setCredMessage({ type: 'success', text: res.message });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => setCredMessage(null), 3000);
-    } else {
-      setCredMessage({ type: 'error', text: res.message });
+    setIsUpdatingCreds(true);
+    setCredMessage(null);
+
+    try {
+      const res = await changeCredentials(currentPassword, newUsername, newPassword || undefined);
+      if (res.success) {
+        setCredMessage({ type: 'success', text: res.message });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setCredMessage(null), 5000);
+      } else {
+        setCredMessage({ type: 'error', text: res.message });
+      }
+    } catch (err: any) {
+      setCredMessage({ type: 'error', text: err?.message || 'Failed to update credentials.' });
+    } finally {
+      setIsUpdatingCreds(false);
     }
   };
 
@@ -967,25 +980,43 @@ export const Settings: React.FC<SettingsProps> = ({
 
       {/* 5. Operator Security Credentials (Username & Password) */}
       <form onSubmit={handleChangeCredentialsSubmit} className="p-5 rounded-3xl bg-white border-2 border-sky-100 shadow-sm space-y-3.5">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-          <KeyRound className="w-4 h-4 text-blue-600" />
-          Operator Login Credentials (Username & Password)
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+            <KeyRound className="w-4 h-4 text-blue-600" />
+            Operator Login Credentials (Username & Password)
+          </h3>
+          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-blue-800 border border-sky-200">
+            Multi-Device Sync Enabled
+          </span>
+        </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Updating your username or password here saves to this device and automatically synchronizes to all connected devices (phones, laptops, and tablets) via your Organization Key.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">Current Password *</label>
-            <input
-              type="password"
-              placeholder="Enter current password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showCurrentPass ? "text" : "password"}
+                placeholder="Enter current password (default: admin123)"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2.5 pr-10 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPass(!showCurrentPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Username</label>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Username *</label>
             <input
               type="text"
               placeholder="e.g. admin"
@@ -996,44 +1027,73 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">New Password</label>
-            <input
-              type="password"
-              placeholder="Leave blank to keep current"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showNewPass ? "text" : "password"}
+                placeholder="Leave blank to keep current password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2.5 pr-10 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPass(!showNewPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">Confirm New Password</label>
-            <input
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPass ? "text" : "password"}
+                placeholder="Re-type new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full text-xs font-semibold px-3 py-2.5 pr-10 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPass(!showConfirmPass)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 
         {credMessage && (
-          <div className={`p-2.5 rounded-xl text-xs flex items-center gap-1.5 font-bold ${
+          <div className={`p-3 rounded-xl text-xs flex items-center gap-2 font-bold animate-fade-in ${
             credMessage.type === 'success' ? 'bg-sky-50 text-blue-900 border border-sky-300' : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}>
-            <AlertCircle className="w-3.5 h-3.5" />
-            {credMessage.text}
+            {credMessage.type === 'success' ? <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />}
+            <span>{credMessage.text}</span>
           </div>
         )}
 
         <button
           type="submit"
-          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition"
+          disabled={isUpdatingCreds}
+          className="w-full py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md transition flex items-center justify-center gap-1.5 disabled:opacity-60"
         >
-          Update Operator Credentials
+          {isUpdatingCreds ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>Updating & Syncing...</span>
+            </>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              <span>Update & Sync Operator Credentials</span>
+            </>
+          )}
         </button>
       </form>
 

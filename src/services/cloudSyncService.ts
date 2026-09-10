@@ -170,6 +170,41 @@ export class CloudSyncService {
         }
         const cloudPayments = Array.from(cloudPayMap.values());
 
+        // Process Settings & Credentials Sync
+        if (cloudData.settings && typeof cloudData.settings === 'object') {
+          try {
+            const cloudSettings = cloudData.settings as SystemSettings;
+            const localSettingsList = await db.settings.toArray();
+            const localSettings = localSettingsList[0];
+
+            const cloudSettingsTime = new Date(cloudSettings.updatedAt || '1970-01-01').getTime();
+            const localSettingsTime = new Date(localSettings?.updatedAt || '1970-01-01').getTime();
+
+            const defaultHash = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+            const localIsDefault = !localSettings?.passwordHash || localSettings.passwordHash === defaultHash;
+            const cloudIsCustom = cloudSettings.passwordHash && cloudSettings.passwordHash !== defaultHash;
+
+            if (cloudSettingsTime > localSettingsTime || (localIsDefault && cloudIsCustom)) {
+              const merged: SystemSettings = {
+                ...(localSettings || {}),
+                ...cloudSettings,
+                id: localSettings?.id || 1
+              };
+
+              if (localSettings?.id) {
+                await db.settings.update(localSettings.id, merged);
+              } else {
+                await db.settings.put(merged);
+              }
+
+              localStorage.setItem('bfl_cached_auth_settings', JSON.stringify(merged));
+              window.dispatchEvent(new CustomEvent('bfl_settings_updated', { detail: merged }));
+            }
+          } catch (settErr) {
+            console.warn('Failed to merge remote settings:', settErr);
+          }
+        }
+
         if (cloudResetTime > localResetTime) {
           // -------------------------------------------------------------
           // CLOUD HAS BEEN CLEARED / RESET / RESTORED BY ANOTHER DEVICE
@@ -353,6 +388,9 @@ export class CloudSyncService {
 
       const effectiveResetAt = localStorage.getItem('bfl_data_reset_at') || cloudResetAt || new Date().toISOString();
 
+      const rawSettingsList = await db.settings.toArray();
+      const activeSettings = rawSettingsList[0];
+
       const cloudPayload = {
         orgId,
         dataResetAt: effectiveResetAt,
@@ -360,7 +398,38 @@ export class CloudSyncService {
         customers: unifiedCustomers,
         loans: unifiedLoans,
         repaymentSchedules: unifiedSchedules,
-        payments: unifiedPayments
+        payments: unifiedPayments,
+        settings: activeSettings ? {
+          operatorName: activeSettings.operatorName || 'Loan Administrator',
+          businessName: activeSettings.businessName || 'B-F-L',
+          businessPhone: activeSettings.businessPhone || '+233 24 412 3456',
+          businessAddress: activeSettings.businessAddress || 'Accra, Ghana',
+          username: activeSettings.username || 'admin',
+          passwordHash: activeSettings.passwordHash || '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+          defaultInterestRate: activeSettings.defaultInterestRate ?? 10,
+          defaultInterestType: activeSettings.defaultInterestType || 'flat',
+          defaultFrequency: activeSettings.defaultFrequency || 'weekly',
+          defaultDurationValue: activeSettings.defaultDurationValue ?? 8,
+          defaultDurationUnit: activeSettings.defaultDurationUnit || 'weeks',
+          enablePenalties: activeSettings.enablePenalties ?? true,
+          defaultPenaltyRate: activeSettings.defaultPenaltyRate ?? 2.5,
+          gracePeriodDays: activeSettings.gracePeriodDays ?? 2,
+          autoLockMinutes: activeSettings.autoLockMinutes ?? 10,
+          biometricEnabled: activeSettings.biometricEnabled ?? false,
+          salt: activeSettings.salt || 'bfl_salt_2026',
+          smsReminderTemplate: activeSettings.smsReminderTemplate || 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.',
+          smsProvider: activeSettings.smsProvider,
+          smsApiKey: activeSettings.smsApiKey,
+          smsSenderId: activeSettings.smsSenderId,
+          autoSmsOnRegister: activeSettings.autoSmsOnRegister,
+          autoSmsOnPayment: activeSettings.autoSmsOnPayment,
+          autoSmsOnDisburse: activeSettings.autoSmsOnDisburse,
+          momoProvider: activeSettings.momoProvider,
+          momoPaystackSecretKey: activeSettings.momoPaystackSecretKey,
+          momoEnvironment: activeSettings.momoEnvironment,
+          momoDefaultNetwork: activeSettings.momoDefaultNetwork,
+          updatedAt: activeSettings.updatedAt || new Date().toISOString()
+        } : undefined
       };
 
       try {
@@ -381,9 +450,8 @@ export class CloudSyncService {
       this.lastSyncTimestamp = now;
 
       // Update settings with last sync
-      const currentSettings = await db.settings.toArray();
-      if (currentSettings.length > 0 && currentSettings[0].id) {
-        await db.settings.update(currentSettings[0].id, {
+      if (activeSettings && activeSettings.id) {
+        await db.settings.update(activeSettings.id, {
           cloudLastSyncedAt: new Date().toISOString(),
           cloudSyncEndpoint: endpoint.replace(/\/portfolios\/.*$/, '')
         });
@@ -453,6 +521,9 @@ export class CloudSyncService {
 
       const resetAt = explicitResetAt || localStorage.getItem('bfl_data_reset_at') || new Date().toISOString();
 
+      const rawSettingsList = await db.settings.toArray();
+      const activeSettings = rawSettingsList[0];
+
       const cloudPayload = {
         orgId,
         dataResetAt: resetAt,
@@ -460,7 +531,38 @@ export class CloudSyncService {
         customers: unifiedCustomers,
         loans: unifiedLoans,
         repaymentSchedules: unifiedSchedules,
-        payments: unifiedPayments
+        payments: unifiedPayments,
+        settings: activeSettings ? {
+          operatorName: activeSettings.operatorName || 'Loan Administrator',
+          businessName: activeSettings.businessName || 'B-F-L',
+          businessPhone: activeSettings.businessPhone || '+233 24 412 3456',
+          businessAddress: activeSettings.businessAddress || 'Accra, Ghana',
+          username: activeSettings.username || 'admin',
+          passwordHash: activeSettings.passwordHash || '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918',
+          defaultInterestRate: activeSettings.defaultInterestRate ?? 10,
+          defaultInterestType: activeSettings.defaultInterestType || 'flat',
+          defaultFrequency: activeSettings.defaultFrequency || 'weekly',
+          defaultDurationValue: activeSettings.defaultDurationValue ?? 8,
+          defaultDurationUnit: activeSettings.defaultDurationUnit || 'weeks',
+          enablePenalties: activeSettings.enablePenalties ?? true,
+          defaultPenaltyRate: activeSettings.defaultPenaltyRate ?? 2.5,
+          gracePeriodDays: activeSettings.gracePeriodDays ?? 2,
+          autoLockMinutes: activeSettings.autoLockMinutes ?? 10,
+          biometricEnabled: activeSettings.biometricEnabled ?? false,
+          salt: activeSettings.salt || 'bfl_salt_2026',
+          smsReminderTemplate: activeSettings.smsReminderTemplate || 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.',
+          smsProvider: activeSettings.smsProvider,
+          smsApiKey: activeSettings.smsApiKey,
+          smsSenderId: activeSettings.smsSenderId,
+          autoSmsOnRegister: activeSettings.autoSmsOnRegister,
+          autoSmsOnPayment: activeSettings.autoSmsOnPayment,
+          autoSmsOnDisburse: activeSettings.autoSmsOnDisburse,
+          momoProvider: activeSettings.momoProvider,
+          momoPaystackSecretKey: activeSettings.momoPaystackSecretKey,
+          momoEnvironment: activeSettings.momoEnvironment,
+          momoDefaultNetwork: activeSettings.momoDefaultNetwork,
+          updatedAt: activeSettings.updatedAt || new Date().toISOString()
+        } : undefined
       };
 
       const pushRes = await fetch(endpoint, {
