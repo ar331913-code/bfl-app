@@ -59,9 +59,13 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   // Search filter for customer selection (name, phone, Ghana Card)
   const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
 
+  const validCustomers = useMemo(() => {
+    return (customers || []).filter((c): c is Customer => Boolean(c && c.customerId));
+  }, [customers]);
+
   // Form State - String based to allow clean entry with zero starting issues
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
-    preselectedCustomerId || (customers.length > 0 ? customers[0].customerId : '')
+    preselectedCustomerId || (validCustomers.length > 0 ? validCustomers[0].customerId : '')
   );
   const [principalInput, setPrincipalInput] = useState<string>('');
   const [interestRateInput, setInterestRateInput] = useState<string>('10');
@@ -101,14 +105,14 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [ownerApprovalOverride, setOwnerApprovalOverride] = useState<boolean>(false);
 
   // Selected customer object
-  const selectedCustomer = customers.find(c => c.customerId === selectedCustomerId);
+  const selectedCustomer = validCustomers.find(c => c && c.customerId === selectedCustomerId);
 
   // Auto-fill MoMo details when customer changes
   useEffect(() => {
     if (selectedCustomer) {
-      const phone = selectedCustomer.momoNumber || selectedCustomer.primaryPhone;
+      const phone = selectedCustomer.momoNumber || selectedCustomer.primaryPhone || '';
       setMomoRecipientPhone(phone);
-      setMomoRecipientName(selectedCustomer.momoName || selectedCustomer.fullName);
+      setMomoRecipientName(selectedCustomer.momoName || selectedCustomer.fullName || '');
       setMomoNetwork(selectedCustomer.momoNetwork || MOMOService.detectNetwork(phone));
     }
   }, [selectedCustomerId, selectedCustomer]);
@@ -117,7 +121,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   useEffect(() => {
     async function loadLoans() {
       const allLoans = await db.loans.toArray();
-      setExistingLoans(allLoans);
+      setExistingLoans(allLoans || []);
     }
     if (isOpen) {
       loadLoans();
@@ -127,41 +131,42 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
       setCustomerSearchQuery('');
       if (preselectedCustomerId) {
         setSelectedCustomerId(preselectedCustomerId);
-      } else if (!selectedCustomerId || !customers.some(c => c.customerId === selectedCustomerId)) {
-        if (customers.length > 0) {
-          setSelectedCustomerId(customers[0].customerId);
+      } else if (!selectedCustomerId || !validCustomers.some(c => c && c.customerId === selectedCustomerId)) {
+        if (validCustomers.length > 0) {
+          setSelectedCustomerId(validCustomers[0].customerId);
         }
       }
     }
-  }, [isOpen, preselectedCustomerId, customers]);
+  }, [isOpen, preselectedCustomerId, validCustomers]);
 
   // Check if selected customer has an existing active or overdue loan
   const customerActiveLoan = useMemo(() => {
     if (!selectedCustomerId) return null;
     return existingLoans.find(
-      l => l.customerId === selectedCustomerId && isLoanOwing(l)
+      l => l && l.customerId === selectedCustomerId && isLoanOwing(l)
     );
   }, [selectedCustomerId, existingLoans]);
 
   // Filtered customer list for search (searches by Name, Phone, Ghana Card, ID)
   const filteredCustomers = useMemo(() => {
     const q = customerSearchQuery.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!q) return customers;
-    return customers.filter(c => {
-      const nameMatch = c.fullName.toLowerCase().includes(customerSearchQuery.toLowerCase());
-      const idMatch = c.customerId.toLowerCase().includes(customerSearchQuery.toLowerCase());
-      const cleanPhone = c.primaryPhone.replace(/\D/g, '');
+    if (!q) return validCustomers;
+    return validCustomers.filter(c => {
+      if (!c || !c.customerId) return false;
+      const nameMatch = (c.fullName || '').toLowerCase().includes(customerSearchQuery.toLowerCase());
+      const idMatch = (c.customerId || '').toLowerCase().includes(customerSearchQuery.toLowerCase());
+      const cleanPhone = (c.primaryPhone || '').replace(/\D/g, '');
       const phoneMatch = cleanPhone.includes(q);
-      const cleanCard = c.ghanaCardNumber.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const cleanCard = (c.ghanaCardNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       const cardMatch = cleanCard.includes(q.toUpperCase());
       return nameMatch || idMatch || phoneMatch || cardMatch;
     });
-  }, [customers, customerSearchQuery]);
+  }, [validCustomers, customerSearchQuery]);
 
   // If user searched and current selection is not in filtered list, auto-select first match
   useEffect(() => {
     if (customerSearchQuery.trim() && filteredCustomers.length > 0) {
-      if (!filteredCustomers.some(c => c.customerId === selectedCustomerId)) {
+      if (!filteredCustomers.some(c => c && c.customerId === selectedCustomerId)) {
         setSelectedCustomerId(filteredCustomers[0].customerId);
       }
     }
@@ -206,17 +211,17 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     
     // Resolve effective customer ID even if state had a race condition
     let effectiveCustomerId = selectedCustomerId;
-    if (!effectiveCustomerId || !customers.some(c => c.customerId === effectiveCustomerId)) {
+    if (!effectiveCustomerId || !validCustomers.some(c => c && c.customerId === effectiveCustomerId)) {
       if (filteredCustomers.length > 0) {
         effectiveCustomerId = filteredCustomers[0].customerId;
         setSelectedCustomerId(effectiveCustomerId);
-      } else if (customers.length > 0) {
-        effectiveCustomerId = customers[0].customerId;
+      } else if (validCustomers.length > 0) {
+        effectiveCustomerId = validCustomers[0].customerId;
         setSelectedCustomerId(effectiveCustomerId);
       }
     }
 
-    const currentCustomer = customers.find(c => c.customerId === effectiveCustomerId);
+    const currentCustomer = validCustomers.find(c => c && c.customerId === effectiveCustomerId);
 
     if (!effectiveCustomerId || !currentCustomer) {
       setError('Please select a customer.');
@@ -533,8 +538,9 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                   className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white text-navy-950"
                 >
                   {filteredCustomers.map(c => {
+                    if (!c || !c.customerId) return null;
                     const hasActive = existingLoans.some(
-                      l => l.customerId === c.customerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
+                      l => l && l.customerId === c.customerId && (l.outstandingBalance || 0) > 0.01 && l.status !== 'completed' && l.status !== 'defaulted'
                     );
                     return (
                       <option key={c.customerId} value={c.customerId}>

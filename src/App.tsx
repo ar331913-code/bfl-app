@@ -436,7 +436,7 @@ const MainApp: React.FC = () => {
       {/* Loan Details & Statement Modal */}
       <LoanDetailModal
         loan={selectedDetailLoan}
-        customer={customers.find(c => c.customerId === selectedDetailLoan?.customerId)}
+        customer={(customers || []).find(c => c && c.customerId === selectedDetailLoan?.customerId)}
         schedules={schedules}
         payments={payments}
         isOpen={isLoanDetailOpen}

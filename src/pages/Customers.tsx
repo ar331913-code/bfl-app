@@ -50,7 +50,7 @@ export const Customers: React.FC<CustomersProps> = ({
   // Map outstanding debt per customer with safeguards
   const owingCustomerMap = new Map<string, { totalOwing: number; activeLoanId: string; isOverdue: boolean }>();
   for (const loan of (loans || [])) {
-    if (loan && isLoanOwing(loan)) {
+    if (loan && loan.customerId && isLoanOwing(loan)) {
       const balance = getTrueOutstanding(loan);
       const prev = owingCustomerMap.get(loan.customerId);
       const isOverdue = loan.status === 'overdue' || (prev?.isOverdue ?? false);
@@ -62,8 +62,9 @@ export const Customers: React.FC<CustomersProps> = ({
     }
   }
 
-  const owingCustomers = (customers || []).filter(c => c && owingCustomerMap.has(c.customerId));
-  const debtFreeCustomers = (customers || []).filter(c => c && !owingCustomerMap.has(c.customerId));
+  const safeCustomers = (customers || []).filter((c): c is Customer => Boolean(c && c.customerId));
+  const owingCustomers = safeCustomers.filter(c => owingCustomerMap.has(c.customerId));
+  const debtFreeCustomers = safeCustomers.filter(c => !owingCustomerMap.has(c.customerId));
 
   const totalMoneyOwing = Array.from(owingCustomerMap.values()).reduce((sum, item) => sum + item.totalOwing, 0);
   const overdueCount = Array.from(owingCustomerMap.values()).filter(item => item.isOverdue).length;
@@ -74,21 +75,22 @@ export const Customers: React.FC<CustomersProps> = ({
   let sourceList: Customer[] = [];
   if (primaryTab === 'owing') sourceList = owingCustomers;
   else if (primaryTab === 'debt_free') sourceList = debtFreeCustomers;
-  else sourceList = customers;
+  else sourceList = safeCustomers;
 
   // Apply search & profession filters
   const filteredCustomers = sourceList.filter(c => {
+    if (!c || !c.customerId) return false;
     const matchesSearch = 
-      c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.customerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.primaryPhone.includes(searchTerm) ||
-      c.primaryPhone.replace(/\D/g, '').includes(cleanQuery) ||
-      c.ghanaCardNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.ghanaCardNumber.replace(/[^A-Za-z0-9]/g, '').toLowerCase().includes(cleanQuery) ||
-      c.driverDetails?.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.driverDetails?.stationLocation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.traderDetails?.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.traderDetails?.marketLocation.toLowerCase().includes(searchTerm.toLowerCase());
+      (c.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.customerId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.primaryPhone || '').includes(searchTerm) ||
+      (c.primaryPhone || '').replace(/\D/g, '').includes(cleanQuery) ||
+      (c.ghanaCardNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.ghanaCardNumber || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase().includes(cleanQuery) ||
+      (c.driverDetails?.registrationNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.driverDetails?.stationLocation || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.traderDetails?.businessName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.traderDetails?.marketLocation || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     if (!matchesSearch) return false;
 
@@ -106,7 +108,7 @@ export const Customers: React.FC<CustomersProps> = ({
         <div className="min-w-0">
           <h1 className="text-base sm:text-xl font-black text-slate-950 truncate">Clients & Borrowers Directory</h1>
           <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-            {customers.length} total borrowers • {owingCustomers.length} currently owing • {debtFreeCustomers.length} debt-free
+            {safeCustomers.length} total borrowers • {owingCustomers.length} currently owing • {debtFreeCustomers.length} debt-free
           </p>
         </div>
 
@@ -152,7 +154,7 @@ export const Customers: React.FC<CustomersProps> = ({
               Total Clients
             </div>
             <div className="text-xl sm:text-2xl font-black mt-0.5">
-              {customers.length}
+              {safeCustomers.length}
             </div>
           </div>
           <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${

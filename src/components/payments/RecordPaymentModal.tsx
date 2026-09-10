@@ -115,8 +115,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
     }
   }, [isOpen, preselectedLoanId, loans]);
 
-  const currentLoan = loans.find(l => l.loanId === selectedLoanId);
-  const currentCustomer = customers.find(c => c.customerId === currentLoan?.customerId);
+  const currentLoan = (loans || []).find(l => l && l.loanId === selectedLoanId);
+  const currentCustomer = (customers || []).find(c => c && c.customerId === currentLoan?.customerId);
   const currentOwing = currentLoan ? getTrueOutstanding(currentLoan) : 0;
   const halfAmount = currentLoan ? Math.round((currentOwing / 2) * 100) / 100 : 0;
 

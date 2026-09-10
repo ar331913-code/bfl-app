@@ -38,23 +38,25 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   // Search Customers
   const filteredCustomers = rawQuery
-    ? customers.filter(c => {
-        const nameMatch = c.fullName.toLowerCase().includes(rawQuery);
-        const idMatch = c.customerId.toLowerCase().includes(rawQuery);
-        const phoneMatch = c.primaryPhone.includes(rawQuery) || c.primaryPhone.replace(/\D/g, '').includes(cleanDigits);
-        const cardMatch = c.ghanaCardNumber.toLowerCase().includes(rawQuery) || c.ghanaCardNumber.replace(/[^A-Za-z0-9]/g, '').toLowerCase().includes(cleanDigits);
-        const driverMatch = c.driverDetails?.registrationNumber.toLowerCase().includes(rawQuery) || c.driverDetails?.stationLocation.toLowerCase().includes(rawQuery);
-        const traderMatch = c.traderDetails?.businessName.toLowerCase().includes(rawQuery) || c.traderDetails?.marketLocation.toLowerCase().includes(rawQuery);
+    ? (customers || []).filter(c => {
+        if (!c || !c.customerId) return false;
+        const nameMatch = (c.fullName || '').toLowerCase().includes(rawQuery);
+        const idMatch = (c.customerId || '').toLowerCase().includes(rawQuery);
+        const phoneMatch = (c.primaryPhone || '').includes(rawQuery) || (c.primaryPhone || '').replace(/\D/g, '').includes(cleanDigits);
+        const cardMatch = (c.ghanaCardNumber || '').toLowerCase().includes(rawQuery) || (c.ghanaCardNumber || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase().includes(cleanDigits);
+        const driverMatch = (c.driverDetails?.registrationNumber || '').toLowerCase().includes(rawQuery) || (c.driverDetails?.stationLocation || '').toLowerCase().includes(rawQuery);
+        const traderMatch = (c.traderDetails?.businessName || '').toLowerCase().includes(rawQuery) || (c.traderDetails?.marketLocation || '').toLowerCase().includes(rawQuery);
         return nameMatch || idMatch || phoneMatch || cardMatch || driverMatch || traderMatch;
       }).slice(0, 6)
     : [];
 
   // Search Loans
   const filteredLoans = rawQuery
-    ? loans.filter(l => {
-        const idMatch = l.loanId.toLowerCase().includes(rawQuery);
-        const custIdMatch = l.customerId.toLowerCase().includes(rawQuery);
-        const custNameMatch = l.customerName && l.customerName.toLowerCase().includes(rawQuery);
+    ? (loans || []).filter(l => {
+        if (!l || !l.loanId) return false;
+        const idMatch = (l.loanId || '').toLowerCase().includes(rawQuery);
+        const custIdMatch = (l.customerId || '').toLowerCase().includes(rawQuery);
+        const custNameMatch = Boolean(l.customerName && l.customerName.toLowerCase().includes(rawQuery));
         return idMatch || custIdMatch || custNameMatch;
       }).slice(0, 6)
     : [];

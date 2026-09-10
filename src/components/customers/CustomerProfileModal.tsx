@@ -69,10 +69,10 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   if (!isOpen || !customer) return null;
 
   // Filter records for this customer
-  const customerLoans = loans.filter(l => l.customerId === customer.customerId);
+  const customerLoans = (loans || []).filter(l => l && l.customerId === customer.customerId);
   const activeLoans = customerLoans.filter(l => isLoanOwing(l));
   const overdueLoans = customerLoans.filter(l => isLoanOwing(l) && l.status === 'overdue');
-  const customerPayments = payments.filter(p => p.customerId === customer.customerId);
+  const customerPayments = (payments || []).filter(p => p && p.customerId === customer.customerId);
 
   const totalBorrowed = customerLoans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
   const totalRepaid = customerLoans.reduce((sum, l) => sum + (l.totalPaid || 0), 0);

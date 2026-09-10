@@ -39,7 +39,8 @@ export const Reports: React.FC<ReportsProps> = ({
   const today = new Date();
 
   // Period filtering
-  const filteredLoans = loans.filter(l => {
+  const filteredLoans = (loans || []).filter(l => {
+    if (!l) return false;
     if (reportPeriod === 'all') return true;
     const loanDate = new Date(l.startDate);
     if (reportPeriod === 'today') {
@@ -54,7 +55,8 @@ export const Reports: React.FC<ReportsProps> = ({
     return true;
   });
 
-  const filteredPayments = payments.filter(p => {
+  const filteredPayments = (payments || []).filter(p => {
+    if (!p) return false;
     if (reportPeriod === 'all') return true;
     const payDate = new Date(p.paymentDate);
     if (reportPeriod === 'today') {
@@ -75,20 +77,20 @@ export const Reports: React.FC<ReportsProps> = ({
   const totalFeesExpected = filteredLoans.reduce((sum, l) => sum + (l.processingFee || 0), 0);
   const totalCollectedInPeriod = filteredPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
 
-  const activeLoans = loans.filter(l => l.status !== 'completed' && l.status !== 'defaulted');
-  const overdueLoansAllTime = loans.filter(l => l.status === 'overdue');
+  const activeLoans = (loans || []).filter(l => l && l.status !== 'completed' && l.status !== 'defaulted');
+  const overdueLoansAllTime = (loans || []).filter(l => l && l.status === 'overdue');
   const overdueAmountAllTime = overdueLoansAllTime.reduce((sum, l) => sum + (l.outstandingBalance || 0), 0);
 
   // Recovery Rate
-  const totalAllTimeLent = loans.reduce((sum, l) => sum + (l.principalAmount || 0), 0);
-  const totalAllTimeRepayments = payments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
+  const totalAllTimeLent = (loans || []).reduce((sum, l) => sum + (l.principalAmount || 0), 0);
+  const totalAllTimeRepayments = (payments || []).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
   const recoveryRate = totalAllTimeLent > 0 
-    ? Math.min(100, Math.round((totalAllTimeRepayments / loans.reduce((sum, l) => sum + (l.totalRepayment || 0), 0)) * 100))
+    ? Math.min(100, Math.round((totalAllTimeRepayments / (loans || []).reduce((sum, l) => sum + (l.totalRepayment || 0), 0)) * 100))
     : 100;
 
   // Driver vs Trader Ratio
-  const driversCount = customers.filter(c => c.customerType === 'driver').length;
-  const tradersCount = customers.filter(c => c.customerType === 'trader').length;
+  const driversCount = (customers || []).filter(c => c && c.customerType === 'driver').length;
+  const tradersCount = (customers || []).filter(c => c && c.customerType === 'trader').length;
 
   // Export Loan Portfolio CSV
   const handleExportLoansCSV = () => {
