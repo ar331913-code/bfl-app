@@ -129,6 +129,20 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
     setCustomSMSText('');
   };
 
+  const handleSendPaymentReceiptSMS = (payment: Payment) => {
+    const loan = customerLoans.find(l => l.loanId === payment.loanId);
+    const text = loan
+      ? SMSService.generatePaymentReceiptSMS({
+          customer,
+          loan,
+          payment,
+          businessName: settings?.businessName,
+          businessPhone: settings?.businessPhone
+        })
+      : `B-F-L RECEIPT: Dear ${customer.fullName}, payment of GH₵${payment.amountPaid.toFixed(2)} received on ${formatDate(payment.paymentDate)} (Receipt: ${payment.paymentId}). Thank you, ${settings?.businessName || 'B-F-L'}.`;
+    SMSService.dispatchSMS(customer.primaryPhone, text, settings);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-fade-in text-slate-800">
       <div className="w-full max-w-xl md:max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[94vh] border border-slate-200/80">
@@ -611,18 +625,30 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                 {customerPayments.slice(0, 5).map(p => (
                   <div 
                     key={p.paymentId}
-                    className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center"
+                    className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center gap-2"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <span className="font-black text-blue-700">+{formatCurrency(p.amountPaid)}</span>
                       <span className="text-[10px] text-slate-500 uppercase ml-1.5">({p.paymentMethod})</span>
                       <div className="text-[10px] text-slate-400">{formatDate(p.paymentDate)} • Loan {p.loanId}</div>
                     </div>
-                    {p.referenceNumber && (
-                      <div className="text-[10px] font-mono text-slate-500">
-                        Ref: {p.referenceNumber}
-                      </div>
-                    )}
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {p.referenceNumber && (
+                        <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">
+                          Ref: {p.referenceNumber}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSendPaymentReceiptSMS(p)}
+                        className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-blue-700 border border-sky-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="Send SMS Receipt"
+                      >
+                        <MessageSquare className="w-3 h-3 text-blue-600" />
+                        <span>SMS Receipt</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -78,6 +78,9 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   // Successful receipt state
   const [completedPayment, setCompletedPayment] = useState<Payment | null>(null);
   const [updatedLoanState, setUpdatedLoanState] = useState<Loan | null>(null);
+  const [customSMSText, setCustomSMSText] = useState<string>('');
+  const [smsSuccessMsg, setSmsSuccessMsg] = useState<string>('');
+  const [showSMSEditor, setShowSMSEditor] = useState<boolean>(false);
 
   // Active Loans Only
   const activeLoans = loans.filter(l => isLoanOwing(l));
@@ -247,17 +250,23 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           setCompletedPayment(lastPayment);
           onPaymentSuccess(lastPayment);
 
-          // Auto-dispatch SMS receipt with updated loan state
           const loanForSms = result.updatedLoan || currentLoan;
-          if ((settings?.autoSmsOnPayment ?? true) && currentCustomer?.primaryPhone && loanForSms) {
-            const receiptText = SMSService.generatePaymentReceiptSMS({
+          let receiptText = '';
+          if (currentCustomer && loanForSms) {
+            receiptText = SMSService.generatePaymentReceiptSMS({
               customer: currentCustomer,
               loan: loanForSms,
               payment: lastPayment,
               businessName: settings?.businessName,
               businessPhone: settings?.businessPhone
             });
+            setCustomSMSText(receiptText);
+          }
+
+          // Auto-dispatch SMS receipt with updated loan state
+          if ((settings?.autoSmsOnPayment ?? true) && currentCustomer?.primaryPhone && receiptText) {
             SMSService.dispatchSMS(currentCustomer.primaryPhone, receiptText, settings);
+            setSmsSuccessMsg(`SMS Receipt automatically sent to ${formatGhanaPhone(currentCustomer.primaryPhone)}`);
           }
 
           CloudSyncService.triggerBackgroundSync();
@@ -282,14 +291,15 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
   const handleSendSMSReceipt = () => {
     if (!currentCustomer || !activeLoanObj || !completedPayment) return;
-    const text = SMSService.generatePaymentReceiptSMS({
+    const textToSend = customSMSText.trim() || SMSService.generatePaymentReceiptSMS({
       customer: currentCustomer,
       loan: activeLoanObj,
       payment: completedPayment,
       businessName: settings?.businessName,
       businessPhone: settings?.businessPhone
     });
-    SMSService.dispatchSMS(currentCustomer.primaryPhone, text, settings);
+    SMSService.dispatchSMS(currentCustomer.primaryPhone, textToSend, settings);
+    setSmsSuccessMsg(`SMS Receipt dispatched to ${formatGhanaPhone(currentCustomer.primaryPhone)}`);
   };
 
   const handleShareWhatsApp = () => {
@@ -407,32 +417,80 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
             </div>
 
+            {/* SMS Receipt Message Preview & Customization Box */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-200 text-left space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black text-blue-950">
+                  <MessageSquare className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>SMS Receipt Message</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
+                    To: {formatGhanaPhone(currentCustomer.primaryPhone)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSMSEditor(!showSMSEditor)}
+                    className="text-[10px] font-bold text-blue-700 hover:text-blue-900 underline cursor-pointer"
+                  >
+                    {showSMSEditor ? 'Hide Text' : 'Edit Text'}
+                  </button>
+                </div>
+              </div>
+
+              {showSMSEditor ? (
+                <textarea
+                  value={customSMSText}
+                  onChange={(e) => setCustomSMSText(e.target.value)}
+                  className="w-full text-xs font-medium p-2.5 bg-white rounded-xl border border-sky-300 focus:outline-none focus:border-blue-500 text-slate-800 resize-none h-20 shadow-inner"
+                  placeholder="Custom SMS receipt message..."
+                />
+              ) : (
+                <div className="text-[11px] text-slate-700 bg-white/70 p-2.5 rounded-xl border border-sky-100 font-medium leading-relaxed">
+                  {customSMSText || SMSService.generatePaymentReceiptSMS({
+                    customer: currentCustomer,
+                    loan: activeLoanObj,
+                    payment: completedPayment,
+                    businessName: settings?.businessName,
+                    businessPhone: settings?.businessPhone
+                  })}
+                </div>
+              )}
+
+              {smsSuccessMsg && (
+                <div className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5 animate-fade-in">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>{smsSuccessMsg}</span>
+                </div>
+              )}
+            </div>
+
             {/* Receipt Sharing Suite */}
             <div className="space-y-2 pt-1">
               <button
                 type="button"
                 onClick={handleSendSMSReceipt}
-                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 text-sky-200" />
-                Send Instant SMS Receipt
+                <span>Send SMS Receipt</span>
               </button>
 
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={handleShareWhatsApp}
-                  className="py-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xs transition flex items-center justify-center gap-1.5"
+                  className="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <MessageCircle className="w-4 h-4" /> WhatsApp
+                  <MessageCircle className="w-4 h-4" /> <span>WhatsApp</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleDownloadPDF}
-                  className="py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xs transition flex items-center justify-center gap-1.5"
+                  className="py-3 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-black rounded-2xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Download className="w-4 h-4" /> PDF Receipt
+                  <Download className="w-4 h-4" /> <span>PDF Receipt</span>
                 </button>
               </div>
 

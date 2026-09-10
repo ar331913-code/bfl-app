@@ -85,6 +85,18 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
     SMSService.dispatchSMS(customer.primaryPhone, text, settings);
   };
 
+  const handleSendPaymentReceiptSMS = (payment: Payment) => {
+    if (!customer) return;
+    const text = SMSService.generatePaymentReceiptSMS({
+      customer,
+      loan,
+      payment,
+      businessName: settings?.businessName,
+      businessPhone: settings?.businessPhone
+    });
+    SMSService.dispatchSMS(customer.primaryPhone, text, settings);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-3.5 overflow-y-auto">
       <div className="w-full max-w-xl md:max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] border border-slate-200">
@@ -235,18 +247,32 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                 {loanPayments.map(p => (
                   <div 
                     key={p.paymentId}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center"
+                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-center gap-2"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <span className="font-black text-slate-900">+{formatCurrency(p.amountPaid)}</span>
                       <span className="text-[10px] text-slate-500 uppercase ml-1.5">({p.paymentMethod})</span>
                       <div className="text-[10px] text-slate-400">{formatDate(p.paymentDate)}</div>
                     </div>
-                    {p.referenceNumber && (
-                      <div className="text-[10px] font-mono text-slate-500">
-                        Ref: {p.referenceNumber}
-                      </div>
-                    )}
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {p.referenceNumber && (
+                        <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">
+                          Ref: {p.referenceNumber}
+                        </span>
+                      )}
+                      {customer && (
+                        <button
+                          type="button"
+                          onClick={() => handleSendPaymentReceiptSMS(p)}
+                          className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-blue-700 border border-sky-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                          title="Send SMS Receipt"
+                        >
+                          <MessageSquare className="w-3 h-3 text-blue-600" />
+                          <span>SMS Receipt</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
