@@ -26,25 +26,43 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     console.error("B-F-L Error Caught:", error, errorInfo);
   }
 
+  handleResetSession = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn('Failed to clear storage:', e);
+    }
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 rounded-3xl bg-sky-500/20 text-sky-400 flex items-center justify-center mb-4 text-2xl font-black">
+        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-3xl bg-sky-500/20 text-sky-400 flex items-center justify-center mb-4 text-2xl font-black border border-sky-500/30 shadow-lg">
             BFL
           </div>
-          <h1 className="text-xl font-bold mb-2">B-F-L Mobile Loan Manager</h1>
-          <p className="text-xs text-slate-400 mb-6 max-w-xs">
-            The application encountered a reloadable state.
+          <h1 className="text-xl font-bold mb-1">B-F-L Mobile Loan Manager</h1>
+          <p className="text-xs text-slate-400 mb-4 max-w-sm">
+            {this.state.error?.message || 'A temporary display issue occurred. Tap below to continue.'}
           </p>
-          <button
-            onClick={() => {
-              window.location.reload();
-            }}
-            className="px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl text-xs font-bold text-white shadow-lg active:scale-95 transition"
-          >
-            Reload Application
-          </button>
+          
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full max-w-xs">
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="flex-1 px-5 py-3 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 rounded-2xl text-xs font-black text-white shadow-lg active:scale-95 transition cursor-pointer"
+            >
+              Continue / Open App
+            </button>
+            <button
+              onClick={this.handleResetSession}
+              className="px-4 py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl text-xs font-bold text-slate-300 active:scale-95 transition cursor-pointer"
+            >
+              Reset Session
+            </button>
+          </div>
         </div>
       );
     }
