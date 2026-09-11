@@ -1,4 +1,3 @@
-import { addDays, addWeeks, addMonths, format, parseISO } from 'date-fns';
 import { InterestType, RepaymentFrequency, RepaymentSchedule } from '../types';
 
 export interface LoanCalculationParams {
@@ -9,7 +8,7 @@ export interface LoanCalculationParams {
   durationUnit: 'days' | 'weeks' | 'months';
   repaymentFrequency: RepaymentFrequency;
   startDate: string; // YYYY-MM-DD
-  firstRepaymentDate?: string; // Optional custom start
+  firstRepaymentDate?: string; // Optional custom start YYYY-MM-DD
   processingFee?: number;
 }
 
@@ -37,6 +36,70 @@ export interface LoanCalculationResult {
   }>;
 }
 
+/**
+ * Parses YYYY-MM-DD string into year, month (1-12), and day (1-31)
+ * Immune to any timezone offset or DST shifts.
+ */
+export function parseDateComponents(dateStr: string): { year: number; month: number; day: number } {
+  if (!dateStr) {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+  }
+  const clean = dateStr.split('T')[0].trim();
+  const parts = clean.split('-').map(p => parseInt(p, 10));
+  if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return { year: parts[0], month: parts[1], day: parts[2] };
+  }
+  const d = new Date(dateStr);
+  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+}
+
+/**
+ * Formats year, month (1-12), and day (1-31) to YYYY-MM-DD string
+ */
+export function formatDateToISO(year: number, month: number, day: number): string {
+  const y = String(year).padStart(4, '0');
+  const m = String(month).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Safely adds days to a YYYY-MM-DD string using UTC calendar arithmetic.
+ * Ensures exact day/weekday increments without timezone or DST drift.
+ */
+export function addDaysToDateStr(dateStr: string, daysToAdd: number): string {
+  const { year, month, day } = parseDateComponents(dateStr);
+  const utcDate = new Date(Date.UTC(year, month - 1, day + daysToAdd, 12, 0, 0));
+  return formatDateToISO(utcDate.getUTCFullYear(), utcDate.getUTCMonth() + 1, utcDate.getUTCDate());
+}
+
+/**
+ * Returns number of days in a given year and month (1-12)
+ */
+export function getDaysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * Safely adds months to a YYYY-MM-DD string.
+ * Uses baseDayOfMonth to handle shorter months correctly (e.g. Jan 31 -> Feb 28 -> Mar 31 -> Apr 30 -> May 31).
+ */
+export function addMonthsToDateStr(dateStr: string, monthsToAdd: number, baseDayOfMonth?: number): string {
+  const { year, month, day } = parseDateComponents(dateStr);
+  const targetDay = baseDayOfMonth !== undefined ? baseDayOfMonth : day;
+
+  const totalMonths = (month - 1) + monthsToAdd;
+  const targetYear = year + Math.floor(totalMonths / 12);
+  const targetMonthIndex = ((totalMonths % 12) + 12) % 12; // 0 to 11
+  const targetMonth = targetMonthIndex + 1; // 1 to 12
+
+  const maxDaysInTarget = getDaysInMonth(targetYear, targetMonth);
+  const clampedDay = Math.min(targetDay, maxDaysInTarget);
+
+  return formatDateToISO(targetYear, targetMonth, clampedDay);
+}
+
 export function calculateLoan(params: LoanCalculationParams): LoanCalculationResult {
   const {
     principalAmount,
@@ -56,29 +119,47 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
   if (interestRate < 0) {
     throw new Error('Interest rate cannot be negative');
   }
-  if (durationValue <= 0) {
+  if (durationValue <= 0 && repaymentFrequency !== 'custom_date') {
     throw new Error('Duration must be greater than 0');
   }
 
-  // 1. Calculate Total Installments based on Duration and Frequency
-  let totalInstallments = 0;
-
-  // Convert duration to total days approx
-  let totalDays = 0;
-  if (durationUnit === 'days') totalDays = durationValue;
-  else if (durationUnit === 'weeks') totalDays = durationValue * 7;
-  else if (durationUnit === 'months') totalDays = durationValue * 30;
+  // 1. Calculate Total Installments based on Duration and Repayment Frequency
+  let totalInstallments = 1;
 
   if (repaymentFrequency === 'custom_date') {
     totalInstallments = 1;
   } else if (repaymentFrequency === 'daily') {
-    totalInstallments = durationUnit === 'days' ? durationValue : (durationUnit === 'weeks' ? durationValue * 6 : durationValue * 26);
+    if (durationUnit === 'days') {
+      totalInstallments = durationValue;
+    } else if (durationUnit === 'weeks') {
+      totalInstallments = durationValue * 7;
+    } else if (durationUnit === 'months') {
+      totalInstallments = durationValue * 30;
+    }
   } else if (repaymentFrequency === 'weekly') {
-    totalInstallments = durationUnit === 'weeks' ? durationValue : Math.max(1, Math.round(totalDays / 7));
+    if (durationUnit === 'weeks') {
+      totalInstallments = durationValue;
+    } else if (durationUnit === 'months') {
+      totalInstallments = durationValue * 4;
+    } else if (durationUnit === 'days') {
+      totalInstallments = Math.max(1, Math.round(durationValue / 7));
+    }
   } else if (repaymentFrequency === 'biweekly') {
-    totalInstallments = Math.max(1, Math.round(totalDays / 14));
+    if (durationUnit === 'weeks') {
+      totalInstallments = Math.max(1, Math.round(durationValue / 2));
+    } else if (durationUnit === 'months') {
+      totalInstallments = durationValue * 2;
+    } else if (durationUnit === 'days') {
+      totalInstallments = Math.max(1, Math.round(durationValue / 14));
+    }
   } else if (repaymentFrequency === 'monthly') {
-    totalInstallments = durationUnit === 'months' ? durationValue : Math.max(1, Math.round(totalDays / 30));
+    if (durationUnit === 'months') {
+      totalInstallments = durationValue;
+    } else if (durationUnit === 'weeks') {
+      totalInstallments = Math.max(1, Math.round(durationValue / 4));
+    } else if (durationUnit === 'days') {
+      totalInstallments = Math.max(1, Math.round(durationValue / 30));
+    }
   }
 
   if (totalInstallments < 1) totalInstallments = 1;
@@ -92,28 +173,25 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
 
   if (interestType === 'flat') {
     // Flat Rate = Principal * (Rate / 100)
-    // Note: For microloans, interest rate is usually the flat total rate or flat monthly rate
     totalInterest = Math.round(principalAmount * (interestRate / 100) * 100) / 100;
-    const totalRepay = principalAmount + totalInterest + processingFee;
+    const totalRepay = Math.round((principalAmount + totalInterest + processingFee) * 100) / 100;
     installmentAmount = Math.round((totalRepay / totalInstallments) * 100) / 100;
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
 
-    formulaExplanation = `Flat Interest: GH₵${principalAmount.toLocaleString()} × ${interestRate}% = GH₵${totalInterest.toLocaleString()} interest. Total: GH₵${totalRepay.toLocaleString()} spread across ${totalInstallments} installments at GH₵${installmentAmount.toLocaleString()} per ${repaymentFrequency.replace('ly', '')}.`;
+    formulaExplanation = `Flat Interest: GH₵${principalAmount.toLocaleString()} × ${interestRate}% = GH₵${totalInterest.toLocaleString()} interest. Total: GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installments of GH₵${installmentAmount.toLocaleString()} (${repaymentFrequency}).`;
   } else if (interestType === 'fixed_sum') {
-    // Fixed lump sum fee as interest
-    totalInterest = interestRate;
-    const totalRepay = principalAmount + totalInterest + processingFee;
+    totalInterest = Math.round(interestRate * 100) / 100;
+    const totalRepay = Math.round((principalAmount + totalInterest + processingFee) * 100) / 100;
     installmentAmount = Math.round((totalRepay / totalInstallments) * 100) / 100;
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
 
     formulaExplanation = `Fixed Fee: Principal GH₵${principalAmount.toLocaleString()} + Fixed Markup GH₵${totalInterest.toLocaleString()} = GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installments.`;
   } else if (interestType === 'reducing_balance') {
-    // Standard Amortization formula E = P * r * (1+r)^n / ((1+r)^n - 1)
     const periodicRate = (interestRate / 100) / totalInstallments;
     if (periodicRate === 0) {
-      installmentAmount = (principalAmount + processingFee) / totalInstallments;
+      installmentAmount = Math.round(((principalAmount + processingFee) / totalInstallments) * 100) / 100;
       totalInterest = 0;
     } else {
       const emi = (principalAmount * periodicRate * Math.pow(1 + periodicRate, totalInstallments)) /
@@ -123,46 +201,52 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     }
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
-    const totalRepay = principalAmount + totalInterest + processingFee;
 
     formulaExplanation = `Reducing Balance: Principal GH₵${principalAmount.toLocaleString()} amortized at ${interestRate}% p.a. over ${totalInstallments} installments. Total interest = GH₵${totalInterest.toLocaleString()}.`;
   }
 
-  const totalRepayment = principalAmount + totalInterest + processingFee;
+  const totalRepayment = Math.round((principalAmount + totalInterest + processingFee) * 100) / 100;
 
-  // 3. Compute Schedule Dates
-  const baseStart = parseISO(startDate);
-  let firstDate = customFirstDate ? parseISO(customFirstDate) : baseStart;
-
-  // If first repayment date not specified, calculate based on frequency
-  if (!customFirstDate) {
-    if (repaymentFrequency === 'daily') firstDate = addDays(baseStart, 1);
-    else if (repaymentFrequency === 'weekly') firstDate = addWeeks(baseStart, 1);
-    else if (repaymentFrequency === 'biweekly') firstDate = addWeeks(baseStart, 2);
-    else if (repaymentFrequency === 'monthly') firstDate = addMonths(baseStart, 1);
-    else if (repaymentFrequency === 'custom_date') firstDate = addWeeks(baseStart, 1);
-  }
-
+  // 3. Compute Schedule Dates using accurate calendar arithmetic
   const schedulePreview: LoanCalculationResult['schedulePreview'] = [];
-  let currentDate = firstDate;
-  let maturityDate = format(firstDate, 'yyyy-MM-dd');
+  const startComponents = parseDateComponents(startDate);
+  const baseDayOfMonth = customFirstDate ? parseDateComponents(customFirstDate).day : startComponents.day;
 
   for (let i = 1; i <= totalInstallments; i++) {
-    if (i > 1) {
+    let dueDateStr = '';
+
+    if (repaymentFrequency === 'custom_date') {
+      dueDateStr = customFirstDate || startDate;
+    } else if (customFirstDate) {
+      // If a custom starting repayment date was supplied
+      if (i === 1) {
+        dueDateStr = customFirstDate;
+      } else {
+        const offset = i - 1;
+        if (repaymentFrequency === 'daily') {
+          dueDateStr = addDaysToDateStr(customFirstDate, offset);
+        } else if (repaymentFrequency === 'weekly') {
+          dueDateStr = addDaysToDateStr(customFirstDate, 7 * offset);
+        } else if (repaymentFrequency === 'biweekly') {
+          dueDateStr = addDaysToDateStr(customFirstDate, 14 * offset);
+        } else if (repaymentFrequency === 'monthly') {
+          dueDateStr = addMonthsToDateStr(customFirstDate, offset, baseDayOfMonth);
+        }
+      }
+    } else {
+      // Default: starting date is disbursement date (startDate)
       if (repaymentFrequency === 'daily') {
-        currentDate = addDays(currentDate, 1);
-        // Optional: skip Sunday if preferred, but standard daily is continuous
+        dueDateStr = addDaysToDateStr(startDate, i);
       } else if (repaymentFrequency === 'weekly') {
-        currentDate = addWeeks(currentDate, 1);
+        // Keeps exact same weekday as disbursement date with exact 7-day increments
+        dueDateStr = addDaysToDateStr(startDate, 7 * i);
       } else if (repaymentFrequency === 'biweekly') {
-        currentDate = addWeeks(currentDate, 2);
+        dueDateStr = addDaysToDateStr(startDate, 14 * i);
       } else if (repaymentFrequency === 'monthly') {
-        currentDate = addMonths(currentDate, 1);
+        // Uses the same day number in next month, handling shorter months correctly
+        dueDateStr = addMonthsToDateStr(startDate, i, baseDayOfMonth);
       }
     }
-
-    const dueDateStr = format(currentDate, 'yyyy-MM-dd');
-    maturityDate = dueDateStr;
 
     schedulePreview.push({
       installmentNumber: i,
@@ -173,6 +257,9 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     });
   }
 
+  const firstRepaymentDate = schedulePreview.length > 0 ? schedulePreview[0].dueDate : startDate;
+  const maturityDate = schedulePreview.length > 0 ? schedulePreview[schedulePreview.length - 1].dueDate : startDate;
+
   return {
     principalAmount,
     interestRate,
@@ -182,7 +269,7 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     installmentAmount,
     totalInstallments,
     maturityDate,
-    firstRepaymentDate: format(firstDate, 'yyyy-MM-dd'),
+    firstRepaymentDate,
     formulaExplanation,
     breakdownSummary: {
       interestPerInstallment,

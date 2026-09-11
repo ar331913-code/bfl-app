@@ -107,7 +107,10 @@ export async function checkAndUpdateLoanStatusesAndAlerts(): Promise<{
       continue;
     }
 
-    const dueDate = startOfDay(parseISO(sched.dueDate));
+    const match = sched.dueDate ? sched.dueDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})/) : null;
+    const dueDate = match
+      ? startOfDay(new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 12, 0, 0))
+      : startOfDay(parseISO(sched.dueDate));
     let newStatus = sched.status;
 
     if (isToday(dueDate)) {

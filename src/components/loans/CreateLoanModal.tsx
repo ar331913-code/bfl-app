@@ -186,7 +186,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         durationUnit: repaymentFrequency === 'custom_date' ? 'days' : durationUnit,
         repaymentFrequency,
         startDate,
-        firstRepaymentDate: repaymentFrequency === 'custom_date' ? customRepaymentDate : firstRepaymentDate,
+        firstRepaymentDate: repaymentFrequency === 'custom_date' ? customRepaymentDate : undefined,
         processingFee: 0
       });
     } catch (err: any) {
@@ -200,7 +200,6 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     durationUnit,
     repaymentFrequency,
     startDate,
-    firstRepaymentDate,
     customRepaymentDate
   ]);
 

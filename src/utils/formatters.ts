@@ -80,15 +80,27 @@ export function maskGhanaCard(cardNo: string, showFull = false): string {
   return cardNo.slice(0, 4) + '••••••••' + cardNo.slice(-3);
 }
 
-// Format Dates nicely
+// Format Dates nicely (Timezone-proof for YYYY-MM-DD)
 export function formatDate(dateStr: string | undefined | null, formatPattern = 'dd MMM yyyy'): string {
   if (!dateStr) return '—';
   try {
-    const parsed = typeof dateStr === 'string' && (dateStr.includes('T') || dateStr.includes('-'))
-      ? parseISO(dateStr) 
-      : new Date(dateStr);
+    let parsed: Date;
+    if (typeof dateStr === 'string') {
+      const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        const year = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1;
+        const day = parseInt(match[3], 10);
+        // Using local noon (12:00:00) avoids any DST or midnight offset issues
+        parsed = new Date(year, month, day, 12, 0, 0);
+      } else {
+        parsed = new Date(dateStr);
+      }
+    } else {
+      parsed = new Date(dateStr);
+    }
       
-    if (!isValid(parsed)) return dateStr;
+    if (!isValid(parsed)) return String(dateStr);
     return format(parsed, formatPattern);
   } catch {
     return dateStr || '—';
@@ -97,7 +109,14 @@ export function formatDate(dateStr: string | undefined | null, formatPattern = '
 
 // Format Date and Time
 export function formatDateTime(dateStr: string | undefined | null): string {
-  return formatDate(dateStr, 'dd MMM yyyy, hh:mm a');
+  if (!dateStr) return '—';
+  try {
+    const parsed = new Date(dateStr);
+    if (!isValid(parsed)) return dateStr;
+    return format(parsed, 'dd MMM yyyy, hh:mm a');
+  } catch {
+    return dateStr || '—';
+  }
 }
 
 // Robust Helper to determine if a loan is actively owing
