@@ -18,12 +18,14 @@ import {
   PlusCircle,
   TrendingDown,
   Sparkles,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 import { SMSService } from '../services/smsService';
 import { useAuth } from '../context/AuthContext';
+import { DeleteCustomerConfirmModal } from '../components/customers/DeleteCustomerConfirmModal';
 
 interface CustomersProps {
   customers: Customer[];
@@ -46,6 +48,7 @@ export const Customers: React.FC<CustomersProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [primaryTab, setPrimaryTab] = useState<'all' | 'owing' | 'debt_free'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'driver' | 'trader'>('all');
+  const [customerPendingDelete, setCustomerPendingDelete] = useState<Customer | null>(null);
 
   // Map outstanding debt per customer with safeguards
   const owingCustomerMap = new Map<string, { totalOwing: number; activeLoanId: string; isOverdue: boolean }>();
@@ -448,6 +451,16 @@ export const Customers: React.FC<CustomersProps> = ({
                       <MessageSquare className="w-3.5 h-3.5" />
                     </button>
 
+                    {/* Delete Customer Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCustomerPendingDelete(customer)}
+                      className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition shadow-xs"
+                      title="Delete Client Record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
                     {/* Action Button: Record Payment or Issue Loan */}
                     {isOwing && debtInfo?.activeLoanId && onOpenRecordPayment ? (
                       <button
@@ -475,6 +488,17 @@ export const Customers: React.FC<CustomersProps> = ({
             );
           })}
         </div>
+      )}
+
+      {/* Delete Customer Confirmation Modal */}
+      {customerPendingDelete && (
+        <DeleteCustomerConfirmModal
+          isOpen={Boolean(customerPendingDelete)}
+          customer={customerPendingDelete}
+          totalOwing={owingCustomerMap.get(customerPendingDelete.customerId)?.totalOwing || 0}
+          onClose={() => setCustomerPendingDelete(null)}
+          onCustomerDeleted={() => setCustomerPendingDelete(null)}
+        />
       )}
 
     </div>

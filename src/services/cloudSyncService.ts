@@ -242,9 +242,18 @@ export class CloudSyncService {
           // SAME GENERATION - 2-WAY BIDIRECTIONAL DIFFERENTIAL MERGE
           // -------------------------------------------------------------
 
-          // A. Merge Customers with automatic duplicate purging
+          // A. Merge Customers with automatic duplicate purging & deletion tombstone check
+          const localDeletedCustIds: string[] = (() => {
+            try {
+              const raw = localStorage.getItem('bfl_deleted_customer_ids');
+              return raw ? JSON.parse(raw) : [];
+            } catch {
+              return [];
+            }
+          })();
+
           for (const c of cloudCustomers) {
-            if (!c || !c.customerId) continue;
+            if (!c || !c.customerId || localDeletedCustIds.includes(c.customerId)) continue;
             const existingMatches = await db.customers.where('customerId').equals(c.customerId).toArray();
             if (existingMatches.length === 0) {
               const { id, ...rest } = c;

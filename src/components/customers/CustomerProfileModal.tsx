@@ -28,11 +28,13 @@ import {
   Building2,
   Receipt,
   Eye,
-  DollarSign
+  DollarSign,
+  Trash2
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { SMSService } from '../../services/smsService';
 import { useAuth } from '../../context/AuthContext';
+import { DeleteCustomerConfirmModal } from './DeleteCustomerConfirmModal';
 
 interface CustomerProfileModalProps {
   isOpen: boolean;
@@ -65,6 +67,7 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
   const [showSMSModal, setShowSMSModal] = useState(false);
   const [customSMSText, setCustomSMSText] = useState('');
   const [selectedImagePreview, setSelectedImagePreview] = useState<{ title: string; url: string } | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   if (!isOpen || !customer) return null;
 
@@ -170,6 +173,14 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
                   <Edit className="w-4 h-4" />
                 </button>
               )}
+
+              <button
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 hover:text-white transition active:scale-95 border border-rose-400/30"
+                title="Delete Client Record"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
 
               <button 
                 onClick={onClose}
@@ -742,6 +753,20 @@ export const CustomerProfileModal: React.FC<CustomerProfileModalProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {isDeleteModalOpen && customer && (
+          <DeleteCustomerConfirmModal
+            isOpen={isDeleteModalOpen}
+            customer={customer}
+            totalOwing={totalOutstanding}
+            onClose={() => setIsDeleteModalOpen(false)}
+            onCustomerDeleted={() => {
+              setIsDeleteModalOpen(false);
+              onClose();
+            }}
+          />
         )}
 
       </div>

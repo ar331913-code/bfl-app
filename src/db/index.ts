@@ -231,6 +231,63 @@ export class BFLDatabase extends Dexie {
     return { customersRemoved, loansRemoved, schedulesRemoved, paymentsRemoved };
   }
 
+  // Delete customer and associated records
+  async deleteCustomer(customerId: string): Promise<boolean> {
+    try {
+      await this.transaction('rw', [
+        this.customers,
+        this.loans,
+        this.repaymentSchedules,
+        this.payments,
+        this.notifications,
+        this.auditLogs
+      ], async () => {
+        // 1. Delete customer
+        await this.customers.where('customerId').equals(customerId).delete();
+
+        // 2. Find and delete loans, schedules, payments, notifications for this customer
+        const customerLoans = await this.loans.where('customerId').equals(customerId).toArray();
+        for (const l of customerLoans) {
+          if (l.loanId) {
+            await this.repaymentSchedules.where('loanId').equals(l.loanId).delete();
+            await this.payments.where('loanId').equals(l.loanId).delete();
+          }
+        }
+
+        await this.loans.where('customerId').equals(customerId).delete();
+        await this.repaymentSchedules.where('customerId').equals(customerId).delete();
+        await this.payments.where('customerId').equals(customerId).delete();
+        await this.notifications.where('customerId').equals(customerId).delete();
+
+        // 3. Add audit log
+        await this.auditLogs.add({
+          action: 'CUSTOMER_DELETED',
+          entityType: 'customer',
+          entityId: customerId,
+          details: `Deleted client ${customerId} and associated loan/payment records`,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      // Track tombstone in localStorage
+      try {
+        const stored = localStorage.getItem('bfl_deleted_customer_ids');
+        const list: string[] = stored ? JSON.parse(stored) : [];
+        if (!list.includes(customerId)) {
+          list.push(customerId);
+          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(list));
+        }
+      } catch (e) {
+        console.warn('Failed to update deleted customer tombstone:', e);
+      }
+
+      return true;
+    } catch (err) {
+      console.error(`Failed to delete customer ${customerId}:`, err);
+      return false;
+    }
+  }
+
   // Clear all transactional data for fresh start
   async resetAllData(): Promise<void> {
     await this.transaction('rw', [
