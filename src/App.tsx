@@ -65,7 +65,7 @@ const MainApp: React.FC = () => {
   const notifications = useLiveQuery(() => db.notifications.toArray(), []) ?? [];
   const auditLogs = useLiveQuery(() => db.auditLogs.orderBy('id').reverse().toArray(), []) ?? [];
 
-  // Strictly deduplicated reactive collections
+  // Strictly deduplicated and referentially integrity-checked reactive collections
   const customers = useMemo(() => {
     const map = new Map<string, Customer>();
     for (const c of rawCustomers) {
@@ -74,27 +74,40 @@ const MainApp: React.FC = () => {
     return Array.from(map.values());
   }, [rawCustomers]);
 
+  const validCustomerIds = useMemo(() => {
+    return new Set(customers.map(c => c.customerId));
+  }, [customers]);
+
   const loans = useMemo(() => {
     const map = new Map<string, Loan>();
     for (const l of rawLoans) {
-      if (l && l.loanId) map.set(l.loanId, l);
+      if (l && l.loanId && l.customerId && (customers.length === 0 || validCustomerIds.has(l.customerId))) {
+        map.set(l.loanId, l);
+      }
     }
     return Array.from(map.values());
-  }, [rawLoans]);
+  }, [rawLoans, customers.length, validCustomerIds]);
+
+  const validLoanIds = useMemo(() => {
+    return new Set(loans.map(l => l.loanId));
+  }, [loans]);
 
   const payments = useMemo(() => {
     const map = new Map<string, Payment>();
     for (const p of rawPayments) {
-      if (p && p.paymentId) map.set(p.paymentId, p);
+      if (p && p.paymentId && (!p.loanId || loans.length === 0 || validLoanIds.has(p.loanId))) {
+        map.set(p.paymentId, p);
+      }
     }
     return Array.from(map.values());
-  }, [rawPayments]);
+  }, [rawPayments, loans.length, validLoanIds]);
 
   // Fast startup: render immediately from local storage, sync with cloud in background
   useEffect(() => {
     async function init() {
       try {
         await db.deduplicateDatabaseTables();
+        await db.enforceReferentialIntegrity();
         const hasExistingSettings = (await db.settings.count()) > 0;
         await initDefaultSettings();
 

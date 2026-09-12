@@ -228,7 +228,114 @@ export class BFLDatabase extends Dexie {
       console.warn('Error during database deduplication:', e);
     }
 
+    await this.enforceReferentialIntegrity();
+
     return { customersRemoved, loansRemoved, schedulesRemoved, paymentsRemoved };
+  }
+
+  // Enforce referential integrity: remove orphaned loans, schedules, and payments for non-existent/deleted customers
+  async enforceReferentialIntegrity(): Promise<{
+    orphanedLoansRemoved: number;
+    orphanedSchedulesRemoved: number;
+    orphanedPaymentsRemoved: number;
+  }> {
+    let orphanedLoansRemoved = 0;
+    let orphanedSchedulesRemoved = 0;
+    let orphanedPaymentsRemoved = 0;
+
+    try {
+      const localDeletedCustIds: string[] = (() => {
+        try {
+          const raw = localStorage.getItem('bfl_deleted_customer_ids');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
+
+      // 1. Purge any customers in tombstone list that might have re-appeared
+      if (localDeletedCustIds.length > 0) {
+        for (const deletedId of localDeletedCustIds) {
+          await this.customers.where('customerId').equals(deletedId).delete();
+        }
+      }
+
+      // 2. Fetch all valid customers
+      const allCustomers = await this.customers.toArray();
+      const validCustIdSet = new Set<string>();
+      for (const c of allCustomers) {
+        if (c.customerId && !localDeletedCustIds.includes(c.customerId)) {
+          validCustIdSet.add(c.customerId);
+        }
+      }
+
+      // 3. Find and purge orphaned loans
+      const allLoans = await this.loans.toArray();
+      const orphanedLoanIds: number[] = [];
+      const orphanedLoanCodeSet = new Set<string>();
+      const validLoanCodeSet = new Set<string>();
+
+      for (const l of allLoans) {
+        if (!l.id) continue;
+        if (!l.customerId || !validCustIdSet.has(l.customerId) || localDeletedCustIds.includes(l.customerId)) {
+          orphanedLoanIds.push(l.id);
+          if (l.loanId) orphanedLoanCodeSet.add(l.loanId);
+        } else {
+          if (l.loanId) validLoanCodeSet.add(l.loanId);
+        }
+      }
+
+      if (orphanedLoanIds.length > 0) {
+        await this.loans.bulkDelete(orphanedLoanIds);
+        orphanedLoansRemoved = orphanedLoanIds.length;
+      }
+
+      // 4. Find and purge orphaned schedules
+      const allSchedules = await this.repaymentSchedules.toArray();
+      const orphanedScheduleIds: number[] = [];
+      for (const s of allSchedules) {
+        if (!s.id) continue;
+        const isOrphan = 
+          !s.loanId || 
+          orphanedLoanCodeSet.has(s.loanId) || 
+          !validLoanCodeSet.has(s.loanId) ||
+          (s.customerId && (!validCustIdSet.has(s.customerId) || localDeletedCustIds.includes(s.customerId)));
+
+        if (isOrphan) {
+          orphanedScheduleIds.push(s.id);
+        }
+      }
+
+      if (orphanedScheduleIds.length > 0) {
+        await this.repaymentSchedules.bulkDelete(orphanedScheduleIds);
+        orphanedSchedulesRemoved = orphanedScheduleIds.length;
+      }
+
+      // 5. Find and purge orphaned payments
+      const allPayments = await this.payments.toArray();
+      const orphanedPaymentIds: number[] = [];
+      for (const p of allPayments) {
+        if (!p.id) continue;
+        const isOrphan = 
+          !p.loanId || 
+          orphanedLoanCodeSet.has(p.loanId) || 
+          !validLoanCodeSet.has(p.loanId) ||
+          (p.customerId && (!validCustIdSet.has(p.customerId) || localDeletedCustIds.includes(p.customerId)));
+
+        if (isOrphan) {
+          orphanedPaymentIds.push(p.id);
+        }
+      }
+
+      if (orphanedPaymentIds.length > 0) {
+        await this.payments.bulkDelete(orphanedPaymentIds);
+        orphanedPaymentsRemoved = orphanedPaymentIds.length;
+      }
+    } catch (err) {
+      console.warn('Error enforcing referential integrity:', err);
+    }
+
+    return { orphanedLoansRemoved, orphanedSchedulesRemoved, orphanedPaymentsRemoved };
   }
 
   // Delete customer and associated records

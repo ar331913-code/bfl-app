@@ -130,6 +130,15 @@ export class CloudSyncService {
       const cloudResetTime = new Date(cloudResetAt).getTime();
       const localResetTime = new Date(localResetAt).getTime();
 
+      const localDeletedCustIds: string[] = (() => {
+        try {
+          const raw = localStorage.getItem('bfl_deleted_customer_ids');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
+
       // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {
         const rawCloudCustomers: Customer[] = cloudData.customers 
@@ -243,15 +252,6 @@ export class CloudSyncService {
           // -------------------------------------------------------------
 
           // A. Merge Customers with automatic duplicate purging & deletion tombstone check
-          const localDeletedCustIds: string[] = (() => {
-            try {
-              const raw = localStorage.getItem('bfl_deleted_customer_ids');
-              return raw ? JSON.parse(raw) : [];
-            } catch {
-              return [];
-            }
-          })();
-
           for (const c of cloudCustomers) {
             if (!c || !c.customerId || localDeletedCustIds.includes(c.customerId)) continue;
             const existingMatches = await db.customers.where('customerId').equals(c.customerId).toArray();
@@ -279,9 +279,16 @@ export class CloudSyncService {
             }
           }
 
-          // B. Merge Loans with automatic duplicate purging
+          // B. Merge Loans with automatic duplicate purging & orphan protection
           for (const l of cloudLoans) {
-            if (!l || !l.loanId) continue;
+            if (!l || !l.loanId || !l.customerId || localDeletedCustIds.includes(l.customerId)) continue;
+            
+            // Do not pull loans if the customer is not in the cloud customer set and does not exist locally
+            const customerExistsLocally = (await db.customers.where('customerId').equals(l.customerId).count()) > 0;
+            if (!cloudCustMap.has(l.customerId) && !customerExistsLocally) {
+              continue;
+            }
+
             const existingMatches = await db.loans.where('loanId').equals(l.loanId).toArray();
             if (existingMatches.length === 0) {
               const { id, ...rest } = l;
@@ -309,7 +316,7 @@ export class CloudSyncService {
 
           // C. Merge Schedules with automatic duplicate purging
           for (const s of cloudSchedules) {
-            if (!s || !s.loanId) continue;
+            if (!s || !s.loanId || (s.customerId && localDeletedCustIds.includes(s.customerId))) continue;
             const existingMatches = await db.repaymentSchedules
               .where('loanId')
               .equals(s.loanId)
@@ -336,7 +343,7 @@ export class CloudSyncService {
 
           // D. Merge Payments with automatic duplicate purging
           for (const p of cloudPayments) {
-            if (!p || !p.paymentId) continue;
+            if (!p || !p.paymentId || (p.customerId && localDeletedCustIds.includes(p.customerId))) continue;
             const existingMatches = await db.payments.where('paymentId').equals(p.paymentId).toArray();
             if (existingMatches.length === 0) {
               const { id, ...rest } = p;
@@ -362,10 +369,11 @@ export class CloudSyncService {
       // Reconcile loan balances against all payments after pull
       await reconcileAllLoanBalances();
 
-      // Permanent local table deduplication pass
+      // Permanent local table deduplication & referential integrity pass
       await db.deduplicateDatabaseTables();
+      await db.enforceReferentialIntegrity();
 
-      // 3. Push Local Unified Dataset to Cloud (Guaranteed Unique)
+      // 3. Push Local Unified Dataset to Cloud (Guaranteed Unique & Orphan-Free)
       const rawUnifiedCustomers = await db.customers.toArray();
       const rawUnifiedLoans = await db.loans.toArray();
       const rawUnifiedSchedules = await db.repaymentSchedules.toArray();
@@ -373,25 +381,33 @@ export class CloudSyncService {
 
       const uCustMap = new Map<string, Customer>();
       for (const c of rawUnifiedCustomers) {
-        if (c && c.customerId) uCustMap.set(c.customerId, c);
+        if (c && c.customerId && !localDeletedCustIds.includes(c.customerId)) {
+          uCustMap.set(c.customerId, c);
+        }
       }
       const unifiedCustomers = Array.from(uCustMap.values());
 
       const uLoanMap = new Map<string, Loan>();
       for (const l of rawUnifiedLoans) {
-        if (l && l.loanId) uLoanMap.set(l.loanId, l);
+        if (l && l.loanId && l.customerId && uCustMap.has(l.customerId) && !localDeletedCustIds.includes(l.customerId)) {
+          uLoanMap.set(l.loanId, l);
+        }
       }
       const unifiedLoans = Array.from(uLoanMap.values());
 
       const uSchedMap = new Map<string, RepaymentSchedule>();
       for (const s of rawUnifiedSchedules) {
-        if (s && s.loanId) uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+        if (s && s.loanId && uLoanMap.has(s.loanId)) {
+          uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+        }
       }
       const unifiedSchedules = Array.from(uSchedMap.values());
 
       const uPayMap = new Map<string, Payment>();
       for (const p of rawUnifiedPayments) {
-        if (p && p.paymentId) uPayMap.set(p.paymentId, p);
+        if (p && p.paymentId && p.loanId && uLoanMap.has(p.loanId)) {
+          uPayMap.set(p.paymentId, p);
+        }
       }
       const unifiedPayments = Array.from(uPayMap.values());
 

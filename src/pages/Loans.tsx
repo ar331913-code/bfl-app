@@ -45,15 +45,26 @@ export const Loans: React.FC<LoansProps> = ({
     setStatusFilter(initialFilter);
   }, [initialFilter]);
 
+  const validCustMap = React.useMemo(() => {
+    const map = new Map<string, Customer>();
+    for (const c of (customers || [])) {
+      if (c && c.customerId) map.set(c.customerId, c);
+    }
+    return map;
+  }, [customers]);
+
   const safeLoans = React.useMemo(() => {
     const map = new Map<string, Loan>();
     for (const l of (loans || [])) {
-      if (l && l.loanId) map.set(l.loanId, l);
+      if (l && l.loanId && (!customers.length || validCustMap.has(l.customerId))) {
+        map.set(l.loanId, l);
+      }
     }
     return Array.from(map.values());
-  }, [loans]);
+  }, [loans, customers.length, validCustMap]);
 
   const activeLoans = safeLoans.filter(l => isLoanOwing(l));
+  const uniqueActiveBorrowers = new Set(activeLoans.map(l => l.customerId)).size;
   const dueTodayLoans = safeLoans.filter(l => isLoanOwing(l) && l.status === 'due_today');
   const overdueLoans = safeLoans.filter(l => isLoanOwing(l) && l.status === 'overdue');
   const completedLoans = safeLoans.filter(l => !isLoanOwing(l));
@@ -86,7 +97,7 @@ export const Loans: React.FC<LoansProps> = ({
         <div className="min-w-0">
           <h1 className="text-base sm:text-xl font-black text-slate-950 truncate">Loan Portfolio Management</h1>
           <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
-            {activeLoans.length} active borrower{activeLoans.length === 1 ? '' : 's'} owing • {formatCurrency(totalOutstanding)} total active balance
+            {activeLoans.length} active loan{activeLoans.length === 1 ? '' : 's'} ({uniqueActiveBorrowers} client{uniqueActiveBorrowers === 1 ? '' : 's'}) • {formatCurrency(totalOutstanding)} total active balance
           </p>
         </div>
 
@@ -120,7 +131,7 @@ export const Loans: React.FC<LoansProps> = ({
               {activeLoans.length} Loans
             </div>
             <div className={`text-[10px] font-bold truncate ${statusFilter === 'active' ? 'text-blue-200' : 'text-blue-700'}`}>
-              {formatCurrency(totalOutstanding)}
+              {uniqueActiveBorrowers} client{uniqueActiveBorrowers === 1 ? '' : 's'} • {formatCurrency(totalOutstanding)}
             </div>
           </div>
           <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center font-bold ${
