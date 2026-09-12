@@ -11,15 +11,18 @@ import {
   DollarSign, 
   ChevronRight, 
   Wallet, 
-  Calendar,
-  TrendingUp,
-  ShieldCheck,
-  RefreshCw,
-  MessageCircle,
-  Phone,
-  Send,
-  Sparkles,
-  Smartphone
+  Calendar, 
+  TrendingUp, 
+  ShieldCheck, 
+  RefreshCw, 
+  MessageCircle, 
+  Phone, 
+  Send, 
+  Sparkles, 
+  Smartphone,
+  Check,
+  Receipt,
+  FileText
 } from 'lucide-react';
 import { formatCurrency, formatDate, isLoanOwing, getTrueOutstanding, formatGhanaPhone } from '../utils/formatters';
 import { CloudSyncService } from '../services/cloudSyncService';
@@ -73,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setIsSyncing(false);
   };
 
-  // Aggregate Metrics with robust safeguards
+  // Safe calculated aggregates
   const totalCustomers = (customers || []).length;
   const activeLoans = (loans || []).filter(l => isLoanOwing(l));
   const overdueLoans = (loans || []).filter(l => isLoanOwing(l) && l.status === 'overdue');
@@ -83,15 +86,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalCollected = (payments || []).reduce((sum, p) => sum + (p.amountPaid || 0), 0);
   const totalOutstanding = activeLoans.reduce((sum, l) => sum + getTrueOutstanding(l), 0);
   const totalDisbursed = (loans || []).reduce((sum, l) => sum + (l.principalAmount || 0), 0);
-  const totalInterestExpected = (loans || []).reduce((sum, l) => sum + (l.totalInterest || 0), 0);
 
   // Schedules due today
   const activeLoanIds = new Set(activeLoans.map(l => l.loanId));
-  const dueTodaySchedules = (schedules || []).filter(s => s && activeLoanIds.has(s.loanId) && s.status === 'due_today' && (s.remainingBalance || 0) > 0.01);
+  const dueTodaySchedules = (schedules || []).filter(
+    s => s && activeLoanIds.has(s.loanId) && s.status === 'due_today' && (s.remainingBalance || 0) > 0.01
+  );
   const dueTodayAmount = dueTodaySchedules.reduce((sum, s) => sum + (s.remainingBalance || 0), 0);
 
   // Overdue schedules
-  const overdueSchedules = (schedules || []).filter(s => s && activeLoanIds.has(s.loanId) && s.status === 'overdue' && (s.remainingBalance || 0) > 0.01);
+  const overdueSchedules = (schedules || []).filter(
+    s => s && activeLoanIds.has(s.loanId) && s.status === 'overdue' && (s.remainingBalance || 0) > 0.01
+  );
   const overdueAmount = overdueSchedules.reduce((sum, s) => sum + (s.remainingBalance || 0), 0);
 
   // Upcoming in next 7 days
@@ -102,7 +108,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (!s || !activeLoanIds.has(s.loanId) || s.status === 'paid' || (s.remainingBalance || 0) <= 0.01) return false;
     if (!s.dueDate) return false;
     try {
-      const due = new Date(s.dueDate);
+      const match = s.dueDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+      const due = match ? new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 12, 0, 0) : new Date(s.dueDate);
       return due > now && due <= nextWeek;
     } catch {
       return false;
@@ -110,7 +117,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
 
   // Recent payments stream
-  const recentPayments = [...(payments || [])].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 7);
+  const recentPayments = [...(payments || [])]
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, 8);
+
+  const getCustomerName = (customerId: string) => {
+    const c = (customers || []).find(x => x.customerId === customerId);
+    return c ? c.fullName : customerId;
+  };
 
   // Send 1-Click WhatsApp reminder
   const sendWhatsAppReminder = (customer: Customer, loan: Loan, schedule?: RepaymentSchedule) => {
@@ -121,7 +135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const biz = settings?.businessName || 'B-F-L';
     const bizPhone = settings?.businessPhone || '';
 
-    const text = `Hello ${customer.fullName},\n\nThis is a friendly reminder from *${biz}* regarding your Loan *${loan.loanId}*.\n\n• Outstanding Installment: *${amount}*\n• Due Date: *${dueDate}*\n\nPlease make your repayment via MTN Mobile Money or cash.\n${bizPhone ? `Contact: ${bizPhone}\n` : ''}Thank you!`;
+    const text = `Hello ${customer.fullName},\n\nThis is a friendly reminder from *${biz}* regarding your Loan *${loan.loanId}*.\n\n• Amount Due: *${amount}*\n• Due Date: *${dueDate}*\n\nPlease make your payment via MTN Mobile Money or cash.\n${bizPhone ? `Contact: ${bizPhone}\n` : ''}Thank you!`;
 
     const url = `https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
@@ -141,215 +155,214 @@ export const Dashboard: React.FC<DashboardProps> = ({
       : SMSService.generateOverdueSMS(data);
 
     await SMSService.dispatchSMS(customer.primaryPhone, message, settings);
-    setSmsFeedback({ id: loan.loanId, msg: 'SMS sent / opened' });
+    setSmsFeedback({ id: loan.loanId, msg: `Reminder sent to ${customer.fullName}!` });
     setTimeout(() => setSmsFeedback(null), 3000);
   };
 
   return (
     <div className="space-y-6 pb-24 lg:pb-8 animate-fade-in text-slate-800">
       
-      {/* 1. Executive Hero Card + Top KPI Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* 1. Header Banner with Clear Welcome & Live Cloud Sync */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border-2 border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-lg sm:text-2xl font-black text-slate-950 tracking-tight">
+            Welcome to {settings?.businessName || 'B-F-L'} Dashboard
+          </h1>
+          <p className="text-xs text-slate-500 font-semibold mt-0.5">
+            Overview of loan disbursements, collections, and daily borrower repayments
+          </p>
+        </div>
+
+        {/* Live Multi-Device Cloud Sync Status Pill */}
+        <button
+          onClick={handleManualSync}
+          type="button"
+          disabled={isSyncing}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition active:scale-95 text-slate-700 text-xs font-bold shadow-xs shrink-0 self-start sm:self-auto"
+          title="Click to sync across laptop & phone"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isSyncing ? 'animate-spin' : ''}`} />
+          <span>
+            {isSyncing ? 'Syncing...' : syncStatus === 'offline' ? 'Offline Mode' : 'Cloud Synchronized'}
+          </span>
+          {lastSyncTime && <span className="text-[10px] text-slate-400 font-normal">({lastSyncTime})</span>}
+        </button>
+      </div>
+
+      {/* 2. Top 4 Clear, Large, High-Contrast KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
-        {/* Main Outstanding Money Card (Spans 2 columns on desktop) */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 rounded-3xl p-5 sm:p-6 text-white shadow-2xl border border-sky-500/30 relative overflow-hidden flex flex-col justify-between">
-          {/* Subtle Ambient Glows */}
-          <div className="absolute top-0 right-0 -mr-10 -mt-10 w-64 h-64 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/3 -mb-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div>
-            <div className="flex items-center justify-between text-sky-300 text-xs font-bold uppercase tracking-wider mb-2 gap-2">
-              <span className="flex items-center gap-1.5 truncate">
-                <Wallet className="w-4 h-4 text-sky-400 shrink-0" />
-                <span>Active Loan Portfolio (Principal at Risk)</span>
-              </span>
-              
-              {/* Multi-Device Cloud Sync Live Pill */}
-              <button
-                onClick={handleManualSync}
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-white/10 hover:bg-white/20 border border-white/20 transition active:scale-95 text-sky-200 shrink-0"
-                title="Cross-Device Cloud Sync Status"
-              >
-                {syncStatus === 'syncing' ? (
-                  <>
-                    <RefreshCw className="w-3 h-3 animate-spin text-sky-300" />
-                    <span>Syncing...</span>
-                  </>
-                ) : syncStatus === 'offline' ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    <span>Offline</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Cloud Live {lastSyncTime ? `• ${lastSyncTime}` : ''}</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-baseline gap-3 my-2">
-              <span className="text-3xl sm:text-5xl font-black tracking-tight text-white drop-shadow-sm font-mono">
-                {formatCurrency(totalOutstanding)}
-              </span>
-              <span className="text-xs sm:text-sm font-bold text-sky-300/80 bg-sky-400/15 px-2.5 py-0.5 rounded-lg border border-sky-400/30">
-                {activeLoans.length} Active {activeLoans.length === 1 ? 'Loan' : 'Loans'}
-              </span>
+        {/* Card 1: Total Money Lent */}
+        <div 
+          onClick={() => onNavigate('loans', { filter: 'all' })}
+          className="bg-gradient-to-br from-blue-900 to-indigo-950 rounded-3xl p-5 text-white shadow-md border border-blue-800/40 cursor-pointer hover:shadow-lg transition flex flex-col justify-between group"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-200">Total Money Lent</span>
+            <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-blue-200 group-hover:scale-110 transition">
+              <Banknote className="w-5 h-5" />
             </div>
           </div>
-
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3.5 mt-3 border-t border-white/15 text-xs">
-            <div className="bg-white/5 p-2.5 sm:p-3 rounded-2xl border border-white/10 min-w-0">
-              <div className="text-slate-400 text-[10px] sm:text-[11px] font-bold uppercase truncate">Total Collected</div>
-              <div className="font-black text-emerald-300 text-xs sm:text-base mt-0.5 font-mono truncate">{formatCurrency(totalCollected)}</div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+              {formatCurrency(totalDisbursed)}
             </div>
-            <div className="bg-white/5 p-2.5 sm:p-3 rounded-2xl border border-white/10 min-w-0">
-              <div className="text-slate-400 text-[10px] sm:text-[11px] font-bold uppercase truncate">Total Lent</div>
-              <div className="font-black text-sky-300 text-xs sm:text-base mt-0.5 font-mono truncate">{formatCurrency(totalDisbursed)}</div>
-            </div>
-            <div className="bg-white/5 p-2.5 sm:p-3 rounded-2xl border border-white/10 min-w-0">
-              <div className="text-slate-400 text-[10px] sm:text-[11px] font-bold uppercase truncate">Borrowers Base</div>
-              <div className="font-black text-white text-xs sm:text-base mt-0.5 truncate">{totalCustomers} Clients</div>
+            <div className="text-[11px] text-blue-200 font-semibold mt-1 flex items-center justify-between">
+              <span>{loans.length} Total Loans Given</span>
+              <ChevronRight className="w-3.5 h-3.5 opacity-70" />
             </div>
           </div>
         </div>
 
-        {/* Right Side Urgent Status Cards (Stacked on desktop) */}
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-          
-          {/* Due Today Card */}
-          <div 
-            onClick={() => onNavigate('loans', { filter: 'due_today' })}
-            className="bg-sky-50/90 border-2 border-sky-200 hover:border-sky-400 rounded-3xl p-4 cursor-pointer hover:shadow-md transition active:scale-98 min-w-0 flex flex-col justify-between"
-          >
-            <div className="flex items-center justify-between mb-1 gap-1">
-              <span className="text-xs font-black uppercase text-sky-900 flex items-center gap-1.5 truncate">
-                <Clock className="w-4 h-4 text-sky-700 shrink-0" />
-                <span className="truncate">Due Today</span>
-              </span>
-              <span className="text-xs font-bold bg-sky-200 text-sky-900 px-2 py-0.5 rounded-full shrink-0">
-                {dueTodayLoans.length}
-              </span>
+        {/* Card 2: Total Money Collected */}
+        <div 
+          onClick={() => onNavigate('payments')}
+          className="bg-gradient-to-br from-emerald-800 to-teal-950 rounded-3xl p-5 text-white shadow-md border border-emerald-700/40 cursor-pointer hover:shadow-lg transition flex flex-col justify-between group"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">Total Money Collected</span>
+            <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-emerald-200 group-hover:scale-110 transition">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-            <div className="text-xl sm:text-2xl font-black text-sky-950 font-mono truncate my-1">
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+              {formatCurrency(totalCollected)}
+            </div>
+            <div className="text-[11px] text-emerald-200 font-semibold mt-1 flex items-center justify-between">
+              <span>{payments.length} Payments Received</span>
+              <ChevronRight className="w-3.5 h-3.5 opacity-70" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Money Remaining to Collect */}
+        <div 
+          onClick={() => onNavigate('loans', { filter: 'active' })}
+          className="bg-gradient-to-br from-amber-800 to-orange-950 rounded-3xl p-5 text-white shadow-md border border-amber-700/40 cursor-pointer hover:shadow-lg transition flex flex-col justify-between group"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-200">Remaining to Collect</span>
+            <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-amber-200 group-hover:scale-110 transition">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
+              {formatCurrency(totalOutstanding)}
+            </div>
+            <div className="text-[11px] text-amber-200 font-semibold mt-1 flex items-center justify-between">
+              <span>{activeLoans.length} Active Borrowers</span>
+              <ChevronRight className="w-3.5 h-3.5 opacity-70" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Payments Due Today */}
+        <div 
+          onClick={() => onNavigate('loans', { filter: 'due_today' })}
+          className="bg-gradient-to-br from-sky-800 to-blue-950 rounded-3xl p-5 text-white shadow-md border border-sky-700/40 cursor-pointer hover:shadow-lg transition flex flex-col justify-between group"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-200">Due Today</span>
+            <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-sky-200 group-hover:scale-110 transition">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-white">
               {formatCurrency(dueTodayAmount)}
             </div>
-            <p className="text-[11px] text-sky-800 font-semibold truncate flex items-center gap-1">
-              <span>View due list</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </p>
-          </div>
-
-          {/* Overdue Card */}
-          <div 
-            onClick={() => onNavigate('loans', { filter: 'overdue' })}
-            className="bg-rose-50 border-2 border-rose-200 hover:border-rose-400 rounded-3xl p-4 cursor-pointer hover:shadow-md transition active:scale-98 min-w-0 flex flex-col justify-between"
-          >
-            <div className="flex items-center justify-between mb-1 gap-1">
-              <span className="text-xs font-black uppercase text-rose-900 flex items-center gap-1.5 truncate">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span className="truncate">Overdue Debt</span>
-              </span>
-              <span className="text-xs font-bold bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full shrink-0">
-                {overdueLoans.length}
-              </span>
+            <div className="text-[11px] text-sky-200 font-semibold mt-1 flex items-center justify-between">
+              <span>{dueTodayLoans.length} Borrowers Due Today</span>
+              <ChevronRight className="w-3.5 h-3.5 opacity-70" />
             </div>
-            <div className="text-xl sm:text-2xl font-black text-rose-950 font-mono truncate my-1">
-              {formatCurrency(overdueAmount)}
-            </div>
-            <p className="text-[11px] text-rose-800 font-semibold truncate flex items-center gap-1">
-              <span>Follow up defaulters</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </p>
           </div>
-
         </div>
 
       </div>
 
-      {/* 2. Four Big Quick Action Buttons Grid */}
+      {/* 3. Fast Quick Action Buttons */}
       <div>
-        <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 px-1">
-          Quick Actions & Operations
+        <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2.5 px-1">
+          Quick Actions
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           
-          {/* Button 1: Register Client */}
-          <button
-            onClick={onOpenNewCustomer}
-            type="button"
-            className="p-4 rounded-3xl bg-white border-2 border-sky-100 hover:border-sky-400 hover:bg-sky-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group overflow-hidden"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md group-hover:scale-110 transition">
-              <UserPlus className="w-5 h-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">Add Client</div>
-              <div className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">New borrower</div>
-            </div>
-          </button>
-
-          {/* Button 2: Give Loan */}
+          {/* Button 1: Disburse Loan */}
           <button
             onClick={() => onOpenNewLoan()}
             type="button"
-            className="p-4 rounded-3xl bg-white border-2 border-emerald-100 hover:border-emerald-400 hover:bg-emerald-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group overflow-hidden"
+            className="p-4 rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-md active:scale-95 transition flex items-center gap-3 text-left group"
           >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md group-hover:scale-110 transition">
-              <Banknote className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold shrink-0">
+              <Banknote className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">Issue Loan</div>
-              <div className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Cash & MTN MoMo</div>
+              <div className="text-xs sm:text-sm font-black text-white leading-tight truncate">+ Issue Loan</div>
+              <div className="text-[10px] sm:text-xs text-emerald-100 font-semibold truncate">Disburse Cash/MoMo</div>
             </div>
           </button>
 
-          {/* Button 3: Collect Money */}
+          {/* Button 2: Record Payment */}
           <button
             onClick={() => onOpenRecordPayment()}
             type="button"
-            className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg active:scale-95 transition flex items-center gap-3 text-left group overflow-hidden"
+            className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-md active:scale-95 transition flex items-center gap-3 text-left group"
           >
-            <div className="w-11 h-11 rounded-2xl bg-white/20 text-white flex items-center justify-center font-bold shrink-0 shadow-sm group-hover:scale-110 transition">
-              <DollarSign className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold shrink-0">
+              <DollarSign className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs sm:text-sm font-black text-white leading-tight truncate">Record Payment</div>
-              <div className="text-[10px] sm:text-xs text-sky-100 font-semibold truncate">Record receipt</div>
+              <div className="text-[10px] sm:text-xs text-blue-100 font-semibold truncate">Accept Repayment</div>
             </div>
           </button>
 
-          {/* Button 4: Sync Devices Now */}
+          {/* Button 3: Add Client */}
           <button
-            onClick={handleManualSync}
+            onClick={onOpenNewCustomer}
             type="button"
-            className="p-4 rounded-3xl bg-white border-2 border-indigo-100 hover:border-indigo-400 hover:bg-indigo-50/50 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group overflow-hidden"
+            className="p-4 rounded-3xl bg-white border-2 border-slate-200 hover:border-slate-400 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
           >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold shrink-0 shadow-md group-hover:scale-110 transition">
-              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center font-bold text-slate-700 shrink-0">
+              <UserPlus className="w-5 h-5 text-slate-700" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">Sync Devices</div>
-              <div className="text-[10px] sm:text-xs text-indigo-600 font-bold truncate">Laptop & Phone</div>
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">+ Add Client</div>
+              <div className="text-[10px] sm:text-xs text-slate-500 font-semibold truncate">New Driver / Trader</div>
+            </div>
+          </button>
+
+          {/* Button 4: View Loans Portfolio */}
+          <button
+            onClick={() => onNavigate('loans')}
+            type="button"
+            className="p-4 rounded-3xl bg-white border-2 border-slate-200 hover:border-slate-400 shadow-sm active:scale-95 transition flex items-center gap-3 text-left group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center font-bold text-slate-700 shrink-0">
+              <Wallet className="w-5 h-5 text-slate-700" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs sm:text-sm font-black text-slate-900 leading-tight truncate">Loan Portfolio</div>
+              <div className="text-[10px] sm:text-xs text-slate-500 font-semibold truncate">View all {loans.length} loans</div>
             </div>
           </button>
 
         </div>
       </div>
 
-      {/* 3. 2-Column Section: Collections & Reminders + Recent Repayments Stream */}
+      {/* 4. Two Clean Lower Panels: Today's Collections & Recent Payments */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left Column: Collections & 1-Click Reminders */}
+        {/* Left Column: Who Needs to Pay Today / Overdue */}
         <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                <Clock className="w-4 h-4 text-blue-600 shrink-0" />
                 <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900">
-                  Repayments & Reminders
+                  Collections & Reminders
                 </h3>
               </div>
 
@@ -357,38 +370,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-[11px] font-bold">
                 <button
                   onClick={() => setActiveCollectionTab('due_today')}
-                  className={`px-2.5 py-1 rounded-lg transition ${activeCollectionTab === 'due_today' ? 'bg-white text-blue-900 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    activeCollectionTab === 'due_today' 
+                      ? 'bg-blue-600 text-white shadow-xs font-black' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
                   Due Today ({dueTodayLoans.length})
                 </button>
                 <button
                   onClick={() => setActiveCollectionTab('overdue')}
-                  className={`px-2.5 py-1 rounded-lg transition ${activeCollectionTab === 'overdue' ? 'bg-rose-600 text-white shadow-xs font-black' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    activeCollectionTab === 'overdue' 
+                      ? 'bg-rose-600 text-white shadow-xs font-black' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
                   Overdue ({overdueLoans.length})
                 </button>
                 <button
                   onClick={() => setActiveCollectionTab('upcoming')}
-                  className={`px-2.5 py-1 rounded-lg transition ${activeCollectionTab === 'upcoming' ? 'bg-white text-blue-900 shadow-xs font-black' : 'text-slate-500 hover:text-slate-800'}`}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    activeCollectionTab === 'upcoming' 
+                      ? 'bg-blue-600 text-white shadow-xs font-black' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  Upcoming ({upcomingSchedules.length})
+                  Next 7 Days ({upcomingSchedules.length})
                 </button>
               </div>
             </div>
 
             {smsFeedback && (
-              <div className="p-2.5 mt-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold animate-fade-in flex items-center gap-1.5">
+              <div className="p-2.5 mt-2 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-800 text-xs font-bold animate-fade-in flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span>{smsFeedback.msg}</span>
               </div>
             )}
 
-            {/* Sub-tab Lists */}
-            <div className="space-y-3 pt-3">
+            {/* List for Selected Tab */}
+            <div className="space-y-2.5 pt-3">
               {activeCollectionTab === 'due_today' && (
                 dueTodayLoans.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                    No active loan installments due today.
+                  <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1.5 opacity-80" />
+                    No customer installments due for payment today.
                   </div>
                 ) : (
                   dueTodayLoans.map(loan => {
@@ -396,21 +422,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     return (
                       <div 
                         key={loan.loanId}
-                        className="p-3.5 rounded-2xl bg-sky-50/60 border border-sky-200 flex items-center justify-between gap-3 overflow-hidden"
+                        className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
+                          <div className="text-xs sm:text-sm font-black text-slate-950 truncate flex items-center gap-1.5">
                             <span>{loan.customerName}</span>
                             <span className="text-[10px] font-bold text-sky-800 bg-sky-200 px-1.5 py-0.2 rounded font-mono">
                               {loan.loanId}
                             </span>
                           </div>
-                          <div className="text-xs text-sky-900 font-bold truncate mt-0.5">
-                            Installment Due: <strong className="font-mono text-slate-950 font-black">{formatCurrency(loan.installmentAmount)}</strong>
+                          <div className="text-xs text-sky-950 font-bold mt-0.5">
+                            Amount Due: <strong className="font-mono text-slate-950 font-black">{formatCurrency(loan.installmentAmount)}</strong>
                           </div>
                           {cust?.primaryPhone && (
-                            <div className="text-[11px] text-slate-500 truncate font-mono">
-                              {cust.primaryPhone} {cust.momoNumber ? `• MoMo: ${cust.momoNumber}` : ''}
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              {formatGhanaPhone(cust.primaryPhone)}
                             </div>
                           )}
                         </div>
@@ -422,7 +448,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 type="button"
                                 onClick={() => sendWhatsAppReminder(cust, loan)}
                                 className="p-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition active:scale-95"
-                                title="1-Click WhatsApp Reminder"
+                                title="WhatsApp Reminder"
                               >
                                 <MessageCircle className="w-4 h-4" />
                               </button>
@@ -430,7 +456,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 type="button"
                                 onClick={() => sendSMSReminder(cust, loan)}
                                 className="p-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-800 transition active:scale-95"
-                                title="1-Click SMS Reminder"
+                                title="SMS Reminder"
                               >
                                 <Send className="w-4 h-4" />
                               </button>
@@ -439,10 +465,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenRecordPayment(loan.loanId)}
-                            className="px-3 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1"
+                            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1"
                           >
                             <DollarSign className="w-3.5 h-3.5" />
-                            <span>Record Payment</span>
+                            <span>Pay</span>
                           </button>
                         </div>
                       </div>
@@ -453,8 +479,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {activeCollectionTab === 'overdue' && (
                 overdueLoans.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                    ✨ Great news! No overdue loans right now.
+                  <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1.5 opacity-80" />
+                    No overdue loans. All borrowers are up to date! 🎉
                   </div>
                 ) : (
                   overdueLoans.map(loan => {
@@ -462,21 +489,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     return (
                       <div 
                         key={loan.loanId}
-                        className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 flex items-center justify-between gap-3 overflow-hidden"
+                        className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
+                          <div className="text-xs sm:text-sm font-black text-rose-950 truncate flex items-center gap-1.5">
                             <span>{loan.customerName}</span>
                             <span className="text-[10px] font-bold text-rose-800 bg-rose-200 px-1.5 py-0.2 rounded font-mono">
                               {loan.loanId}
                             </span>
                           </div>
-                          <div className="text-xs text-rose-700 font-bold truncate mt-0.5">
-                            Overdue Balance: <strong className="font-mono text-rose-950 font-black">{formatCurrency(loan.outstandingBalance)}</strong>
+                          <div className="text-xs text-rose-900 font-bold mt-0.5">
+                            Unpaid Balance: <strong className="font-mono text-rose-950 font-black">{formatCurrency(loan.outstandingBalance)}</strong>
                           </div>
                           {cust?.primaryPhone && (
-                            <div className="text-[11px] text-slate-500 truncate font-mono">
-                              {cust.primaryPhone} {cust.momoNumber ? `• MoMo: ${cust.momoNumber}` : ''}
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              {formatGhanaPhone(cust.primaryPhone)}
                             </div>
                           )}
                         </div>
@@ -488,7 +515,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 type="button"
                                 onClick={() => sendWhatsAppReminder(cust, loan)}
                                 className="p-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition active:scale-95"
-                                title="1-Click WhatsApp Overdue Demand Notice"
+                                title="WhatsApp Reminder"
                               >
                                 <MessageCircle className="w-4 h-4" />
                               </button>
@@ -496,7 +523,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 type="button"
                                 onClick={() => sendSMSReminder(cust, loan)}
                                 className="p-2 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 transition active:scale-95"
-                                title="1-Click SMS Overdue Notice"
+                                title="SMS Reminder"
                               >
                                 <Send className="w-4 h-4" />
                               </button>
@@ -508,7 +535,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             className="px-3 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1"
                           >
                             <DollarSign className="w-3.5 h-3.5" />
-                            <span>Record Payment</span>
+                            <span>Pay</span>
                           </button>
                         </div>
                       </div>
@@ -519,45 +546,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {activeCollectionTab === 'upcoming' && (
                 upcomingSchedules.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                    No upcoming repayments in the next 7 days.
+                  <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                    No upcoming repayments due in the next 7 days.
                   </div>
                 ) : (
-                  upcomingSchedules.slice(0, 6).map(sched => {
-                    const loan = loans.find(l => l.loanId === sched.loanId);
-                    const cust = customers.find(c => c.customerId === sched.customerId);
+                  upcomingSchedules.slice(0, 5).map(sched => {
+                    const l = loans.find(item => item.loanId === sched.loanId);
                     return (
                       <div 
                         key={`${sched.loanId}-${sched.installmentNumber}`}
-                        className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 overflow-hidden"
+                        className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
                       >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                            {loan?.customerName || sched.customerId}
-                          </div>
-                          <div className="text-xs text-slate-500 truncate">
-                            Due {formatDate(sched.dueDate)}: <strong className="font-mono text-slate-900 font-bold">{formatCurrency(sched.remainingBalance)}</strong>
+                        <div>
+                          <div className="font-bold text-slate-900">{l?.customerName || sched.customerId}</div>
+                          <div className="text-[11px] text-slate-500">
+                            Installment #{sched.installmentNumber} • Due <strong className="text-slate-800">{formatDate(sched.dueDate)}</strong>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {cust && loan && (
-                            <button
-                              type="button"
-                              onClick={() => sendWhatsAppReminder(cust, loan, sched)}
-                              className="p-1.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition"
-                              title="1-Click WhatsApp Reminder"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onOpenRecordPayment(sched.loanId)}
-                            className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition"
-                          >
-                            Record Payment
-                          </button>
+                        <div className="text-right">
+                          <div className="font-black text-slate-900 font-mono">{formatCurrency(sched.expectedAmount)}</div>
+                          <span className="text-[10px] text-blue-700 font-bold uppercase">{l?.repaymentFrequency}</span>
                         </div>
                       </div>
                     );
@@ -566,86 +574,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
           </div>
-
-          <button
-            onClick={() => onNavigate('loans', { filter: 'active' })}
-            className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition text-center"
-          >
-            View Complete Loan Portfolio →
-          </button>
         </div>
 
-        {/* Right Column: Recent Repayments Stream */}
+        {/* Right Column: Recent Payments Received Stream */}
         <div className="bg-white border-2 border-slate-200 rounded-3xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Recent Repayments Received</span>
-              </h3>
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900">
+                  Recent Repayments Received
+                </h3>
+              </div>
               <button
                 onClick={() => onNavigate('payments')}
-                className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 shrink-0"
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
               >
-                <span>All Payments</span>
+                <span>All Receipts</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {recentPayments.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400 font-medium">
-                No payments recorded yet.
-              </div>
-            ) : (
-              <div className="space-y-2.5 pt-3">
-                {recentPayments.map(p => (
-                  <div 
-                    key={p.paymentId}
-                    className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-sky-50/50 transition gap-3 overflow-hidden"
+            <div className="space-y-2.5 pt-3">
+              {recentPayments.length === 0 ? (
+                <div className="text-center py-10 text-xs text-slate-400 font-medium">
+                  No payments recorded yet. Tap "Record Payment" to accept repayments.
+                </div>
+              ) : (
+                recentPayments.map(payment => (
+                  <div
+                    key={payment.paymentId}
+                    className="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200 flex items-center justify-between gap-3 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
-                        <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-xs font-black text-slate-950 truncate">{getCustomerName(payment.customerId)}</span>
+                        <span className="text-[10px] font-mono text-slate-400">({payment.loanId})</span>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 truncate flex items-center gap-1.5">
-                          <span>Loan {p.loanId}</span>
-                          <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md uppercase ${
-                            p.paymentMethod === 'momo' 
-                              ? 'bg-amber-100 text-amber-900 border border-amber-300' 
-                              : p.paymentMethod === 'bank'
-                              ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                              : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                          }`}>
-                            {p.paymentMethod === 'momo' ? 'MTN MoMo' : p.paymentMethod}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          {formatDate(p.paymentDate)}
-                        </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {formatDate(payment.paymentDate)} • <span className="uppercase font-bold text-slate-700">{payment.paymentMethod}</span>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-xs sm:text-sm font-black text-emerald-700 font-mono truncate">
-                        +{formatCurrency(p.amountPaid)}
+                      <div className="text-sm font-black text-emerald-700 font-mono">
+                        +{formatCurrency(payment.amountPaid)}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono truncate">
-                        {p.paymentId}
+                      <div className="text-[10px] font-mono font-bold text-slate-400">
+                        {payment.paymentId}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
-
-          <button
-            onClick={() => onNavigate('payments')}
-            className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition text-center"
-          >
-            View All Payment Records →
-          </button>
         </div>
 
       </div>
@@ -653,4 +636,3 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
-
