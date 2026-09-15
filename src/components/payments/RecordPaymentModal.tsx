@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Loan, Customer, PaymentMethod, Payment, RepaymentSchedule } from '../../types';
 import { 
   X, 
@@ -20,8 +20,7 @@ import {
   Building2,
   Check,
   TrendingUp,
-  Clock,
-  Zap
+  Clock
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatGhanaPhone, isLoanOwing, getTrueOutstanding } from '../../utils/formatters';
 import { recordPayment } from '../../services/paymentService';
@@ -85,9 +84,11 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   // Active Loans Only
   const activeLoans = loans.filter(l => isLoanOwing(l));
 
-  // Reset when opened
+  // Track previous open state to only initialize when modal transitions to open
+  const prevIsOpenRef = useRef<boolean>(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setCompletedPayment(null);
       setUpdatedLoanState(null);
       setIsConfirming(false);
@@ -97,6 +98,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       setReferenceNumber('');
       setPaymentDate(todayStr);
       setPaymentTime(format(new Date(), 'HH:mm'));
+      setAmountInput(''); // Clean empty input so user enters their intended amount
 
       let targetLoanId = '';
       if (preselectedLoanId && loans.some(l => l.loanId === preselectedLoanId)) {
@@ -108,89 +110,17 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       }
 
       setSelectedLoanId(targetLoanId);
-
-      const targetLoan = loans.find(l => l.loanId === targetLoanId);
-      if (targetLoan) {
-        setAmountInput(String(getTrueOutstanding(targetLoan)));
-      } else {
-        setAmountInput('');
-      }
     }
-  }, [isOpen, preselectedLoanId, loans]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, preselectedLoanId]);
 
   const currentLoan = (loans || []).find(l => l && l.loanId === selectedLoanId);
   const currentCustomer = (customers || []).find(c => c && c.customerId === currentLoan?.customerId);
   const currentOwing = currentLoan ? getTrueOutstanding(currentLoan) : 0;
-  const halfAmount = currentLoan ? Math.round((currentOwing / 2) * 100) / 100 : 0;
-
-  // Calculate Daily, Weekly, and Monthly Preset Installment Amounts
-  const dailyAmount = useMemo(() => {
-    if (!currentLoan || currentOwing <= 0) return 0;
-    if (currentLoan.repaymentFrequency === 'daily' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, currentLoan.installmentAmount);
-    }
-    if (currentLoan.repaymentFrequency === 'weekly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount / 6) * 100) / 100));
-    }
-    if (currentLoan.repaymentFrequency === 'monthly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount / 26) * 100) / 100));
-    }
-    const days = currentLoan.durationUnit === 'days' 
-      ? currentLoan.durationValue 
-      : currentLoan.durationUnit === 'weeks' 
-      ? currentLoan.durationValue * 6 
-      : currentLoan.durationValue * 26;
-    return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.totalRepayment / (days || 1)) * 100) / 100));
-  }, [currentLoan, currentOwing]);
-
-  const weeklyAmount = useMemo(() => {
-    if (!currentLoan || currentOwing <= 0) return 0;
-    if (currentLoan.repaymentFrequency === 'weekly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, currentLoan.installmentAmount);
-    }
-    if (currentLoan.repaymentFrequency === 'daily' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount * 6) * 100) / 100));
-    }
-    if (currentLoan.repaymentFrequency === 'monthly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount / 4) * 100) / 100));
-    }
-    const weeks = currentLoan.durationUnit === 'weeks' 
-      ? currentLoan.durationValue 
-      : currentLoan.durationUnit === 'months' 
-      ? currentLoan.durationValue * 4 
-      : Math.max(1, currentLoan.durationValue / 6);
-    return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.totalRepayment / (weeks || 1)) * 100) / 100));
-  }, [currentLoan, currentOwing]);
-
-  const monthlyAmount = useMemo(() => {
-    if (!currentLoan || currentOwing <= 0) return 0;
-    if (currentLoan.repaymentFrequency === 'monthly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, currentLoan.installmentAmount);
-    }
-    if (currentLoan.repaymentFrequency === 'weekly' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount * 4) * 100) / 100));
-    }
-    if (currentLoan.repaymentFrequency === 'daily' && currentLoan.installmentAmount > 0) {
-      return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.installmentAmount * 26) * 100) / 100));
-    }
-    const months = currentLoan.durationUnit === 'months' 
-      ? currentLoan.durationValue 
-      : currentLoan.durationUnit === 'weeks' 
-      ? Math.max(1, currentLoan.durationValue / 4) 
-      : Math.max(1, currentLoan.durationValue / 26);
-    return Math.min(currentOwing, Math.max(1, Math.round((currentLoan.totalRepayment / (months || 1)) * 100) / 100));
-  }, [currentLoan, currentOwing]);
 
   const handleLoanChange = (newLoanId: string) => {
     setSelectedLoanId(newLoanId);
     setError('');
-
-    const targetLoan = loans.find(l => l.loanId === newLoanId);
-    if (targetLoan) {
-      setAmountInput(String(getTrueOutstanding(targetLoan)));
-    } else {
-      setAmountInput('');
-    }
   };
 
   if (!isOpen) return null;
@@ -586,7 +516,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
               </div>
             )}
 
-            {/* 3. Easy Amount Selection (Full Payoff, Half, or Custom) */}
+            {/* 3. Repayment Amount Input */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
@@ -607,108 +537,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   required
                   value={amountInput}
                   onChange={(e) => setAmountInput(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="Enter amount..."
                   className="w-full text-2xl font-black pl-14 pr-4 py-3.5 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs placeholder:text-slate-300 font-outfit"
                 />
               </div>
-
-              {/* Quick Preset Repayment Buttons: Full, Half, Daily, Weekly, Monthly */}
-              {currentLoan && currentOwing > 0 && (
-                <div className="space-y-2 mt-2.5">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
-                    <span className="uppercase font-black text-slate-600 tracking-wider">Quick Select Amount:</span>
-                    <span className="text-[10px] text-blue-600 font-medium">Tap to populate</span>
-                  </div>
-
-                  {/* Row 1: Full & Half */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Full Payment Button */}
-                    <button
-                      type="button"
-                      onClick={() => setAmountInput(String(currentOwing))}
-                      className={`py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border-2 ${
-                        Math.abs(amountPaid - currentOwing) < 0.01
-                          ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300'
-                          : 'bg-sky-50 hover:bg-sky-100 text-blue-900 border-sky-200'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="truncate">Full Payoff ({formatCurrency(currentOwing)})</span>
-                    </button>
-
-                    {/* Half Payment Button */}
-                    <button
-                      type="button"
-                      onClick={() => setAmountInput(String(halfAmount))}
-                      className={`py-2.5 px-3 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer border-2 ${
-                        Math.abs(amountPaid - halfAmount) < 0.01
-                          ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
-                      }`}
-                    >
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="truncate">Half (50%) ({formatCurrency(halfAmount)})</span>
-                    </button>
-                  </div>
-
-                  {/* Row 2: Daily, Weekly, Monthly Installment Options */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {/* Daily Button */}
-                    {dailyAmount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setAmountInput(String(dailyAmount))}
-                        className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center transition active:scale-95 cursor-pointer border-2 ${
-                          Math.abs(amountPaid - dailyAmount) < 0.01
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        <span className={`text-[9px] uppercase tracking-wider font-bold ${Math.abs(amountPaid - dailyAmount) < 0.01 ? 'text-sky-200' : 'text-slate-400'}`}>
-                          Daily
-                        </span>
-                        <span className="truncate font-mono font-black text-[11px]">{formatCurrency(dailyAmount)}</span>
-                      </button>
-                    )}
-
-                    {/* Weekly Button */}
-                    {weeklyAmount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setAmountInput(String(weeklyAmount))}
-                        className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center transition active:scale-95 cursor-pointer border-2 ${
-                          Math.abs(amountPaid - weeklyAmount) < 0.01
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        <span className={`text-[9px] uppercase tracking-wider font-bold ${Math.abs(amountPaid - weeklyAmount) < 0.01 ? 'text-sky-200' : 'text-slate-400'}`}>
-                          Weekly
-                        </span>
-                        <span className="truncate font-mono font-black text-[11px]">{formatCurrency(weeklyAmount)}</span>
-                      </button>
-                    )}
-
-                    {/* Monthly Button */}
-                    {monthlyAmount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setAmountInput(String(monthlyAmount))}
-                        className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center transition active:scale-95 cursor-pointer border-2 ${
-                          Math.abs(amountPaid - monthlyAmount) < 0.01
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        <span className={`text-[9px] uppercase tracking-wider font-bold ${Math.abs(amountPaid - monthlyAmount) < 0.01 ? 'text-sky-200' : 'text-slate-400'}`}>
-                          Monthly
-                        </span>
-                        <span className="truncate font-mono font-black text-[11px]">{formatCurrency(monthlyAmount)}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                Enter the exact repayment amount collected from the borrower.
+              </p>
             </div>
 
             {/* 4. Live Clear Balance Calculation Result */}
