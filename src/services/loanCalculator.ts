@@ -7,7 +7,8 @@ export interface LoanCalculationParams {
   durationValue: number;
   durationUnit: 'days' | 'weeks' | 'months';
   repaymentFrequency: RepaymentFrequency;
-  startDate: string; // YYYY-MM-DD
+  startDate: string; // YYYY-MM-DD (Disbursement Date)
+  dueDate?: string; // YYYY-MM-DD (Due Date / Maturity Date)
   firstRepaymentDate?: string; // Optional custom start YYYY-MM-DD
   processingFee?: number;
 }
@@ -119,14 +120,14 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
   if (interestRate < 0) {
     throw new Error('Interest rate cannot be negative');
   }
-  if (durationValue <= 0 && repaymentFrequency !== 'custom_date') {
+  if (durationValue <= 0 && repaymentFrequency !== 'custom_date' && repaymentFrequency !== 'lump_sum') {
     throw new Error('Duration must be greater than 0');
   }
 
   // 1. Calculate Total Installments based on Duration and Repayment Frequency
   let totalInstallments = 1;
 
-  if (repaymentFrequency === 'custom_date') {
+  if (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') {
     totalInstallments = 1;
   } else if (repaymentFrequency === 'daily') {
     if (durationUnit === 'days') {
@@ -179,7 +180,12 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
 
-    formulaExplanation = `Flat Interest: GH₵${principalAmount.toLocaleString()} × ${interestRate}% = GH₵${totalInterest.toLocaleString()} interest. Total: GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installments of GH₵${installmentAmount.toLocaleString()} (${repaymentFrequency}).`;
+    if (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') {
+      const dueLabel = params.dueDate || customFirstDate || startDate;
+      formulaExplanation = `Flat Interest: GH₵${principalAmount.toLocaleString()} × ${interestRate}% = GH₵${totalInterest.toLocaleString()} interest. Total: GH₵${totalRepay.toLocaleString()} due in full on ${dueLabel}.`;
+    } else {
+      formulaExplanation = `Flat Interest: GH₵${principalAmount.toLocaleString()} × ${interestRate}% = GH₵${totalInterest.toLocaleString()} interest. Total: GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installments of GH₵${installmentAmount.toLocaleString()} (${repaymentFrequency}).`;
+    }
   } else if (interestType === 'fixed_sum') {
     totalInterest = Math.round(interestRate * 100) / 100;
     const totalRepay = Math.round((principalAmount + totalInterest + processingFee) * 100) / 100;
@@ -187,7 +193,7 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
 
-    formulaExplanation = `Fixed Fee: Principal GH₵${principalAmount.toLocaleString()} + Fixed Markup GH₵${totalInterest.toLocaleString()} = GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installments.`;
+    formulaExplanation = `Fixed Fee: Principal GH₵${principalAmount.toLocaleString()} + Fixed Markup GH₵${totalInterest.toLocaleString()} = GH₵${totalRepay.toLocaleString()} across ${totalInstallments} installment${totalInstallments === 1 ? '' : 's'}.`;
   } else if (interestType === 'reducing_balance') {
     const periodicRate = (interestRate / 100) / totalInstallments;
     if (periodicRate === 0) {
@@ -202,7 +208,7 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
     principalPerInstallment = Math.round((principalAmount / totalInstallments) * 100) / 100;
     interestPerInstallment = Math.round((totalInterest / totalInstallments) * 100) / 100;
 
-    formulaExplanation = `Reducing Balance: Principal GH₵${principalAmount.toLocaleString()} amortized at ${interestRate}% p.a. over ${totalInstallments} installments. Total interest = GH₵${totalInterest.toLocaleString()}.`;
+    formulaExplanation = `Reducing Balance: Principal GH₵${principalAmount.toLocaleString()} amortized at ${interestRate}% p.a. over ${totalInstallments} installment${totalInstallments === 1 ? '' : 's'}. Total interest = GH₵${totalInterest.toLocaleString()}.`;
   }
 
   const totalRepayment = Math.round((principalAmount + totalInterest + processingFee) * 100) / 100;
@@ -215,8 +221,8 @@ export function calculateLoan(params: LoanCalculationParams): LoanCalculationRes
   for (let i = 1; i <= totalInstallments; i++) {
     let dueDateStr = '';
 
-    if (repaymentFrequency === 'custom_date') {
-      dueDateStr = customFirstDate || startDate;
+    if (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') {
+      dueDateStr = params.dueDate || customFirstDate || startDate;
     } else if (customFirstDate) {
       // If a custom starting repayment date was supplied
       if (i === 1) {

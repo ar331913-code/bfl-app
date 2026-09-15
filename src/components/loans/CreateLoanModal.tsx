@@ -72,8 +72,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   const [interestType, setInterestType] = useState<InterestType>('flat');
   const [durationValueInput, setDurationValueInput] = useState<string>('6');
   const [durationUnit, setDurationUnit] = useState<'days' | 'weeks' | 'months'>('weeks');
-  const [repaymentFrequency, setRepaymentFrequency] = useState<RepaymentFrequency>('weekly');
+  const [repaymentFrequency, setRepaymentFrequency] = useState<RepaymentFrequency>('lump_sum');
   const [startDate, setStartDate] = useState<string>(todayStr);
+  const [dueDateInput, setDueDateInput] = useState<string>(
+    format(addWeeks(new Date(), 2), 'yyyy-MM-dd')
+  );
   const [firstRepaymentDate, setFirstRepaymentDate] = useState<string>(
     format(addWeeks(new Date(), 1), 'yyyy-MM-dd')
   );
@@ -81,14 +84,14 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     format(addWeeks(new Date(), 2), 'yyyy-MM-dd')
   );
   const [customRepaymentTime, setCustomRepaymentTime] = useState<string>('17:00');
-  const [penaltyRateInput, setPenaltyRateInput] = useState<string>('2.5');
+  const [penaltyRateInput, setPenaltyRateInput] = useState<string>('0');
   const [notes, setNotes] = useState<string>('');
 
   // Parsed numerical values
   const principalAmount = parseFloat(principalInput) || 0;
   const interestRate = parseFloat(interestRateInput) || 0;
   const durationValue = parseInt(durationValueInput, 10) || 0;
-  const penaltyRate = parseFloat(penaltyRateInput) || 0;
+  const penaltyRate = 0; // No automatic late penalties added to loan balance
   const processingFee = 0; // Processing fee removed from system as requested
 
   // Disbursement State
@@ -175,17 +178,25 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
   // Calculate Loan in Real-Time
   const calculation = useMemo(() => {
     try {
-      if (principalAmount <= 0 || (repaymentFrequency !== 'custom_date' && durationValue <= 0) || interestRate < 0) {
+      if (principalAmount <= 0 || interestRate < 0) {
         return null;
       }
+      if (repaymentFrequency !== 'lump_sum' && repaymentFrequency !== 'custom_date' && durationValue <= 0) {
+        return null;
+      }
+      const effectiveDueDate = repaymentFrequency === 'lump_sum' 
+        ? dueDateInput 
+        : (repaymentFrequency === 'custom_date' ? customRepaymentDate : undefined);
+
       return calculateLoan({
         principalAmount,
         interestRate,
         interestType,
-        durationValue: repaymentFrequency === 'custom_date' ? 1 : durationValue,
-        durationUnit: repaymentFrequency === 'custom_date' ? 'days' : durationUnit,
+        durationValue: (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') ? 1 : durationValue,
+        durationUnit: (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') ? 'days' : durationUnit,
         repaymentFrequency,
         startDate,
+        dueDate: effectiveDueDate,
         firstRepaymentDate: repaymentFrequency === 'custom_date' ? customRepaymentDate : undefined,
         processingFee: 0
       });
@@ -200,6 +211,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     durationUnit,
     repaymentFrequency,
     startDate,
+    dueDateInput,
     customRepaymentDate
   ]);
 
@@ -225,6 +237,27 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     if (!effectiveCustomerId || !currentCustomer) {
       setError('Please select a customer.');
       return;
+    }
+
+    // Due Date Validations
+    if (repaymentFrequency === 'lump_sum') {
+      if (!dueDateInput) {
+        setError('Please select a repayment due date.');
+        return;
+      }
+      if (dueDateInput < startDate) {
+        setError('Repayment due date cannot be earlier than the disbursement date.');
+        return;
+      }
+    } else if (repaymentFrequency === 'custom_date') {
+      if (!customRepaymentDate) {
+        setError('Please select an exact repayment date.');
+        return;
+      }
+      if (customRepaymentDate < startDate) {
+        setError('Repayment due date cannot be earlier than the disbursement date.');
+        return;
+      }
     }
 
     const activeLoan = existingLoans.find(
@@ -274,6 +307,9 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         momoStatus = momoRes.transferStatus;
       }
 
+      const effectiveDurationVal = (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') ? 1 : durationValue;
+      const effectiveDurationUnit = (repaymentFrequency === 'lump_sum' || repaymentFrequency === 'custom_date') ? 'days' : durationUnit;
+
       const newLoan: Loan = {
         loanId,
         customerId: selectedCustomer.customerId,
@@ -282,10 +318,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         principalAmount: calculation.principalAmount,
         interestRate: calculation.interestRate,
         interestType,
-        durationValue,
-        durationUnit,
+        durationValue: effectiveDurationVal,
+        durationUnit: effectiveDurationUnit,
         repaymentFrequency,
         startDate,
+        dueDate: repaymentFrequency === 'lump_sum' ? dueDateInput : calculation.maturityDate,
         firstRepaymentDate: calculation.firstRepaymentDate,
         maturityDate: calculation.maturityDate,
         totalInterest: calculation.totalInterest,
@@ -295,7 +332,7 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
         totalInstallments: calculation.totalInstallments,
         totalPaid: 0,
         outstandingBalance: calculation.totalRepayment,
-        penaltyRate,
+        penaltyRate: 0, // No automatic late penalties added to loan balance
         totalPenalties: 0,
         status: 'active',
         notes: notes.trim() || undefined,
@@ -726,16 +763,23 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
 
             {/* 3. Repayment Frequency & Schedule Type */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border-2 border-slate-200 space-y-3">
-              <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
-                Repayment Schedule & Frequency *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                  Repayment Schedule & Frequency *
+                </label>
+                <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+                  Calendar Date Selectors
+                </span>
+              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  { id: 'daily', label: 'Daily', desc: 'Daily installment', icon: Clock },
-                  { id: 'weekly', label: 'Weekly', desc: 'Weekly payments', icon: Calendar },
-                  { id: 'monthly', label: 'Monthly', desc: 'Monthly payments', icon: Layers },
-                  { id: 'custom_date', label: 'Exact Date', desc: 'Exact date & time', icon: Clock }
+                  { id: 'lump_sum', label: 'Single Repayment', desc: 'Full on Due Date (Calendar)', icon: Calendar },
+                  { id: 'weekly', label: 'Weekly', desc: 'Weekly installments', icon: Calendar },
+                  { id: 'daily', label: 'Daily', desc: 'Daily installments', icon: Clock },
+                  { id: 'monthly', label: 'Monthly', desc: 'Monthly installments', icon: Layers },
+                  { id: 'biweekly', label: 'Bi-Weekly', desc: 'Every 2 weeks', icon: Calendar },
+                  { id: 'custom_date', label: 'Exact Date/Time', desc: 'Specific Date & Hour', icon: Clock }
                 ].map(freq => {
                   const Icon = freq.icon;
                   const isSelected = repaymentFrequency === freq.id;
@@ -748,10 +792,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                         if (freq.id === 'daily') setDurationUnit('days');
                         else if (freq.id === 'weekly') setDurationUnit('weeks');
                         else if (freq.id === 'monthly') setDurationUnit('months');
+                        else if (freq.id === 'biweekly') setDurationUnit('weeks');
                       }}
                       className={`p-2.5 rounded-xl border-2 transition active:scale-95 flex flex-col items-center justify-center text-center gap-1 ${
                         isSelected
-                          ? 'border-blue-600 bg-sky-50 text-blue-950 font-black shadow-xs'
+                          ? 'border-blue-600 bg-sky-50 text-blue-950 font-black shadow-xs ring-1 ring-blue-500'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 font-semibold'
                       }`}
                     >
@@ -764,7 +809,68 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
               </div>
 
               {/* Conditional duration / exact date inputs */}
-              {repaymentFrequency !== 'custom_date' ? (
+              {repaymentFrequency === 'lump_sum' ? (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Date *</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-black text-blue-900 block mb-1">Repayment Due Date (Calendar) *</label>
+                      <input
+                        type="date"
+                        min={startDate}
+                        value={dueDateInput}
+                        onChange={(e) => setDueDateInput(e.target.value)}
+                        className="w-full text-xs font-black px-3 py-2 rounded-xl border-2 border-blue-500 focus:border-blue-600 focus:outline-none bg-white text-slate-950 shadow-xs"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic">
+                    💡 Single full repayment due on {formatDate(dueDateInput || startDate)}. No intermediate weekly installments required.
+                  </p>
+                </div>
+              ) : repaymentFrequency === 'custom_date' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-black text-blue-900 block mb-1">Exact Due Date *</label>
+                    <input
+                      type="date"
+                      min={startDate}
+                      value={customRepaymentDate}
+                      onChange={(e) => setCustomRepaymentDate(e.target.value)}
+                      className="w-full text-xs font-black px-3 py-2 rounded-xl border-2 border-blue-500 focus:border-blue-600 focus:outline-none bg-white text-slate-950 shadow-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Due Time (Optional)</label>
+                    <input
+                      type="time"
+                      value={customRepaymentTime}
+                      onChange={(e) => setCustomRepaymentTime(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">Duration *</label>
@@ -797,39 +903,6 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Disbursement Date</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-black text-blue-900 block mb-1">Exact Due Date *</label>
-                    <input
-                      type="date"
-                      min={startDate}
-                      value={customRepaymentDate}
-                      onChange={(e) => setCustomRepaymentDate(e.target.value)}
-                      className="w-full text-xs font-black px-3 py-2 rounded-xl border-2 border-blue-500 focus:border-blue-600 focus:outline-none bg-white text-slate-950 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Due Time (Optional)</label>
-                    <input
-                      type="time"
-                      value={customRepaymentTime}
-                      onChange={(e) => setCustomRepaymentTime(e.target.value)}
                       className="w-full text-xs font-semibold px-3 py-2 rounded-xl border-2 border-slate-200 focus:border-sky-500 focus:outline-none bg-white"
                     />
                   </div>

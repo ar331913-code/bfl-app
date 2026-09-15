@@ -37,12 +37,14 @@ import {
   EyeOff,
   ShieldAlert,
   ArrowRight,
-  Delete
+  Delete,
+  RotateCcw
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 import { CloudSyncService, CloudSnapshot } from '../services/cloudSyncService';
 import { MOMOService } from '../services/momoService';
+import { CustomerRecoveryModal } from '../components/customers/CustomerRecoveryModal';
 
 interface SettingsProps {
   auditLogs: AuditLog[];
@@ -171,6 +173,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [restoreConfirmInput, setRestoreConfirmInput] = useState('');
   const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
   const [deletingSnapshotId, setDeletingSnapshotId] = useState<string | null>(null);
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1311,6 +1314,16 @@ export const Settings: React.FC<SettingsProps> = ({
         />
 
         <div className="pt-2 border-t border-slate-100 space-y-2">
+          {/* Missing Client Recovery Tool Button */}
+          <button
+            type="button"
+            onClick={() => setIsRecoveryModalOpen(true)}
+            className="w-full py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Recover Missing / Deleted Clients</span>
+          </button>
+
           {/* Button 1: Clear All Data (0 Records / Fresh Slate) */}
           <button
             type="button"
@@ -1535,6 +1548,15 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL 3: ADMINISTRATIVE CUSTOMER RECOVERY */}
+      <CustomerRecoveryModal
+        isOpen={isRecoveryModalOpen}
+        onClose={() => setIsRecoveryModalOpen(false)}
+        onCustomerRestored={() => {
+          onDataReset();
+        }}
+      />
 
     </div>
   );

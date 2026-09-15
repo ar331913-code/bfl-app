@@ -813,5 +813,214 @@ export class CloudSyncService {
       this.syncWithCloud().catch(e => console.warn('Background sync failed:', e));
     }, 300);
   }
+
+  /**
+   * Direct Central Database Registration & Confirmation
+   * Directly persists the customer locally and synchronizes immediately to the Central Cloud Database.
+   * Returns explicit confirmation of whether the central database saved the record.
+   */
+  public static async saveCustomerDirectToCentralDatabase(customer: Customer): Promise<{
+    success: boolean;
+    mode: 'cloud_confirmed' | 'saved_locally_pending_sync' | 'failed';
+    message: string;
+  }> {
+    try {
+      // 1. Remove from any local deleted customer tombstone if present
+      try {
+        const stored = localStorage.getItem('bfl_deleted_customer_ids');
+        if (stored) {
+          const list: string[] = JSON.parse(stored);
+          const filtered = list.filter(id => id !== customer.customerId);
+          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(filtered));
+        }
+      } catch (e) {
+        console.warn('Tombstone cleanup error:', e);
+      }
+
+      // 2. Persist to local IndexedDB first
+      const existingMatches = await db.customers.where('customerId').equals(customer.customerId).toArray();
+      if (existingMatches.length > 0) {
+        await db.customers.update(existingMatches[0].id!, customer);
+      } else {
+        await db.customers.add(customer);
+      }
+
+      // 3. If device is offline, mark as saved locally waiting to sync
+      if (!navigator.onLine) {
+        this.notify('offline');
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Client saved locally on this device and is waiting to synchronize.'
+        };
+      }
+
+      // 4. Perform direct synchronous push to central cloud database
+      const syncResult = await this.syncWithCloud(true);
+      if (syncResult.success) {
+        return {
+          success: true,
+          mode: 'cloud_confirmed',
+          message: 'Client registered and confirmed in central database.'
+        };
+      } else {
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Client saved locally on this device. Cloud sync in progress.'
+        };
+      }
+    } catch (err: any) {
+      console.error('Direct customer save error:', err);
+      return {
+        success: false,
+        mode: 'failed',
+        message: 'Client could not be saved. Please check your internet connection and try again.'
+      };
+    }
+  }
+
+  /**
+   * Scans all database and backup sources for missing or soft-deleted clients
+   */
+  public static async scanRecoverableCustomers(): Promise<Array<{
+    customer: Customer;
+    source: 'tombstone' | 'snapshot' | 'audit_log' | 'cloud_backup';
+    snapshotLabel?: string;
+    isDuplicate: boolean;
+  }>> {
+    const recoverableList: Array<{
+      customer: Customer;
+      source: 'tombstone' | 'snapshot' | 'audit_log' | 'cloud_backup';
+      snapshotLabel?: string;
+      isDuplicate: boolean;
+    }> = [];
+
+    const activeCustomers = await db.customers.toArray();
+    const activeIds = new Set(activeCustomers.map(c => c.customerId));
+    const activePhones = new Set(activeCustomers.map(c => (c.primaryPhone || '').replace(/\D/g, '')).filter(Boolean));
+    const activeCards = new Set(activeCustomers.map(c => (c.ghanaCardNumber || '').toUpperCase().trim()).filter(Boolean));
+
+    const seenRecoverableIds = new Set<string>();
+
+    // 1. Scan Cloud Snapshots
+    try {
+      const snapshots = await this.fetchCloudSnapshots();
+      for (const snap of snapshots) {
+        const snapCusts = snap.data?.customers || [];
+        for (const c of snapCusts) {
+          if (!c || !c.customerId) continue;
+          if (!activeIds.has(c.customerId) && !seenRecoverableIds.has(c.customerId)) {
+            const cleanPhone = (c.primaryPhone || '').replace(/\D/g, '');
+            const cleanCard = (c.ghanaCardNumber || '').toUpperCase().trim();
+            const isDup = (cleanPhone && activePhones.has(cleanPhone)) || (cleanCard && activeCards.has(cleanCard));
+
+            recoverableList.push({
+              customer: c,
+              source: 'snapshot',
+              snapshotLabel: snap.label,
+              isDuplicate: !!isDup
+            });
+            seenRecoverableIds.add(c.customerId);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Snapshot scan error:', e);
+    }
+
+    // 2. Scan Central Cloud Portfolio for unlisted clients
+    try {
+      const { endpoint } = await this.getCloudConfig();
+      const res = await fetch(endpoint, { method: 'GET' });
+      if (res.ok) {
+        const data = await res.json();
+        const cloudCusts: Customer[] = data?.customers 
+          ? (Array.isArray(data.customers) ? data.customers : Object.values(data.customers)) 
+          : [];
+
+        for (const c of cloudCusts) {
+          if (!c || !c.customerId) continue;
+          if (!activeIds.has(c.customerId) && !seenRecoverableIds.has(c.customerId)) {
+            const cleanPhone = (c.primaryPhone || '').replace(/\D/g, '');
+            const cleanCard = (c.ghanaCardNumber || '').toUpperCase().trim();
+            const isDup = (cleanPhone && activePhones.has(cleanPhone)) || (cleanCard && activeCards.has(cleanCard));
+
+            recoverableList.push({
+              customer: c,
+              source: 'cloud_backup',
+              snapshotLabel: 'Central Cloud Live Backup',
+              isDuplicate: !!isDup
+            });
+            seenRecoverableIds.add(c.customerId);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Cloud portfolio scan error:', e);
+    }
+
+    return recoverableList;
+  }
+
+  /**
+   * Safely restores a missing client preserving original Customer ID, registration date, and linked loans
+   */
+  public static async restoreCustomer(customer: Customer): Promise<{ success: boolean; message: string }> {
+    try {
+      // 1. Remove from local deleted tombstone
+      try {
+        const stored = localStorage.getItem('bfl_deleted_customer_ids');
+        if (stored) {
+          const list: string[] = JSON.parse(stored);
+          const filtered = list.filter(id => id !== customer.customerId);
+          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(filtered));
+        }
+      } catch (e) {
+        console.warn('Tombstone cleanup error:', e);
+      }
+
+      // 2. Add or update in local database
+      const existing = await db.customers.where('customerId').equals(customer.customerId).first();
+      if (existing) {
+        await db.customers.update(existing.id!, {
+          ...customer,
+          status: 'active',
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        const { id, ...rest } = customer;
+        await db.customers.add({
+          ...rest,
+          status: 'active',
+          updatedAt: new Date().toISOString()
+        } as Customer);
+      }
+
+      // 3. Log audit event
+      await db.auditLogs.add({
+        action: 'CUSTOMER_RESTORED',
+        entityType: 'customer',
+        entityId: customer.customerId,
+        details: `Restored client dossier for ${customer.fullName} (${customer.customerId})`,
+        timestamp: new Date().toISOString()
+      });
+
+      // 4. Force synchronous push to central database
+      await this.syncWithCloud(true);
+
+      return {
+        success: true,
+        message: `Client ${customer.fullName} (${customer.customerId}) successfully restored!`
+      };
+    } catch (err: any) {
+      console.error('Failed to restore customer:', err);
+      return {
+        success: false,
+        message: err?.message || 'Failed to restore customer.'
+      };
+    }
+  }
 }
+
 

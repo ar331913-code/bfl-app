@@ -62,7 +62,7 @@ export interface Customer {
 }
 
 export type InterestType = 'flat' | 'reducing_balance' | 'fixed_sum';
-export type RepaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom_date';
+export type RepaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom_date' | 'lump_sum';
 export type LoanStatus = 
   | 'active' 
   | 'due_today' 
@@ -88,7 +88,8 @@ export interface Loan {
   repaymentFrequency: RepaymentFrequency;
   
   // Dates
-  startDate: string; // YYYY-MM-DD
+  startDate: string; // YYYY-MM-DD (Disbursement Date)
+  dueDate?: string; // YYYY-MM-DD (Due Date)
   firstRepaymentDate: string; // YYYY-MM-DD
   maturityDate: string; // YYYY-MM-DD
   

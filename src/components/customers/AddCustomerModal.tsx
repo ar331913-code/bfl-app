@@ -18,7 +18,8 @@ import {
   FileText,
   Upload,
   Sparkles,
-  Smartphone
+  Smartphone,
+  AlertTriangle
 } from 'lucide-react';
 import { isValidGhanaCard, formatGhanaCardInput } from '../../utils/formatters';
 import { CameraModal } from '../common/CameraModal';
@@ -81,6 +82,9 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   // Validation and Submission State
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<{ customer: Customer; reason: string } | null>(null);
+  const [isDuplicateOverridden, setIsDuplicateOverridden] = useState<boolean>(false);
+  const [syncConfirmationStatus, setSyncConfirmationStatus] = useState<'cloud_confirmed' | 'saved_locally_pending_sync' | null>(null);
 
   // Live Camera Viewfinder State
   const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
@@ -99,6 +103,9 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       setSavedCustomer(null);
       setStep(1);
       setErrors({});
+      setDuplicateWarning(null);
+      setIsDuplicateOverridden(false);
+      setSyncConfirmationStatus(null);
       setCustomerType(existingCustomer?.customerType || 'driver');
       setFullName(existingCustomer?.fullName || '');
       setPrimaryPhone(existingCustomer?.primaryPhone || '');
@@ -212,8 +219,35 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
     }
 
     setIsSubmitting(true);
+    setErrors({});
 
     try {
+      // 1. Duplicate Detection against local & cloud records
+      const cleanPhone = primaryPhone.trim().replace(/\D/g, '');
+      const cleanCard = ghanaCardNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      if (!isDuplicateOverridden && !existingCustomer) {
+        const allExisting = await db.customers.toArray();
+        const duplicate = allExisting.find(c => {
+          const cPhone = (c.primaryPhone || '').replace(/\D/g, '');
+          const cCard = (c.ghanaCardNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (cleanPhone && (cPhone === cleanPhone || (cleanPhone.length >= 9 && cPhone.endsWith(cleanPhone.slice(-9))))) return true;
+          if (cleanCard && cleanCard !== 'GHA' && cleanCard.length > 6 && cCard === cleanCard) return true;
+          return false;
+        });
+
+        if (duplicate) {
+          setDuplicateWarning({
+            customer: duplicate,
+            reason: duplicate.primaryPhone.replace(/\D/g, '') === cleanPhone
+              ? `Matching telephone number (${duplicate.primaryPhone})`
+              : `Matching Ghana Card PIN (${duplicate.ghanaCardNumber})`
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const customerId = existingCustomer?.customerId || await db.getNextCustomerId();
       const now = new Date().toISOString();
 
@@ -266,7 +300,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       };
 
       if (existingCustomer && existingCustomer.id) {
-        await db.customers.update(existingCustomer.id, newCustomer);
         newCustomer.id = existingCustomer.id;
         await db.auditLogs.add({
           action: 'CUSTOMER_UPDATED',
@@ -276,8 +309,6 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           timestamp: now
         });
       } else {
-        const newId = await db.customers.add(newCustomer);
-        newCustomer.id = newId;
         await db.auditLogs.add({
           action: 'CUSTOMER_REGISTERED',
           entityType: 'customer',
@@ -297,17 +328,25 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
         }
       }
 
+      // Direct save and confirmation with central database
+      const saveResult = await CloudSyncService.saveCustomerDirectToCentralDatabase(newCustomer);
+      if (saveResult.mode === 'failed') {
+        setErrors({ form: saveResult.message });
+        setIsSubmitting(false);
+        return;
+      }
+
+      setSyncConfirmationStatus(saveResult.mode);
       onCustomerCreated(newCustomer);
-      CloudSyncService.triggerBackgroundSync();
       setSavedCustomer(newCustomer);
       confetti({
         particleCount: 70,
         spread: 60,
         origin: { y: 0.6 }
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save customer', err);
-      setErrors({ form: 'Failed to save customer. Please try again.' });
+      setErrors({ form: err?.message || 'Failed to save customer. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -344,7 +383,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               </h2>
               <p className="text-[10px] text-sky-100 font-semibold">
                 {savedCustomer
-                  ? 'Client record activated & synced to cloud'
+                  ? (syncConfirmationStatus === 'cloud_confirmed' ? '✓ Central Database Confirmed' : '⏳ Saved Locally (Sync Pending)')
                   : `Level ${step} of 2 • ${step === 1 ? 'Personal & Contact Info' : 'Ghana Card & Photos'}`}
               </p>
             </div>
@@ -376,6 +415,19 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 Client ID: #{savedCustomer.customerId}
               </div>
             </div>
+
+            {/* Central Database Sync Confirmation Badge */}
+            {syncConfirmationStatus === 'cloud_confirmed' ? (
+              <div className="p-2.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-bold flex items-center justify-center gap-2">
+                <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>Confirmed in Central Database (Available on all devices)</span>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Saved locally on this device • Waiting to synchronize</span>
+              </div>
+            )}
 
             {/* Client Summary Dossier Box */}
             <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 text-left text-xs space-y-2.5 text-slate-800">
@@ -494,6 +546,46 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           }}
           className="p-5 overflow-y-auto space-y-4 flex-1"
         >
+          {/* Form Error Banner */}
+          {errors.form && (
+            <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-950 text-xs flex items-center gap-2 animate-fade-in shadow-xs">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="font-bold">{errors.form}</span>
+            </div>
+          )}
+
+          {/* Duplicate Client Warning Banner */}
+          {duplicateWarning && (
+            <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-950 text-xs space-y-2 animate-fade-in shadow-xs">
+              <div className="flex items-center gap-1.5 font-black text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Possible Duplicate Client Found</span>
+              </div>
+              <p className="text-[11px] text-amber-900 leading-snug">
+                A client named <strong>{duplicateWarning.customer.fullName}</strong> (ID: <strong>{duplicateWarning.customer.customerId}</strong>) already exists in the system with <strong>{duplicateWarning.reason}</strong>.
+              </p>
+              <div className="flex gap-2 pt-1 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateWarning(null)}
+                  className="flex-1 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold rounded-xl text-xs transition"
+                >
+                  Edit / Fix Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDuplicateOverridden(true);
+                    setDuplicateWarning(null);
+                    handleSubmit();
+                  }}
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl text-xs transition"
+                >
+                  Register Anyway
+                </button>
+              </div>
+            </div>
+          )}
           
           {/* STEP 1: CONTACT INFO */}
           {step === 1 && (

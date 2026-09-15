@@ -19,13 +19,15 @@ import {
   TrendingDown,
   Sparkles,
   Check,
-  Trash2
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 import { formatCurrency, formatGhanaPhone, maskGhanaCard, isLoanOwing, getTrueOutstanding } from '../utils/formatters';
 import { GoogleDriveBackupService } from '../services/googleDriveService';
 import { SMSService } from '../services/smsService';
 import { useAuth } from '../context/AuthContext';
 import { DeleteCustomerConfirmModal } from '../components/customers/DeleteCustomerConfirmModal';
+import { CustomerRecoveryModal } from '../components/customers/CustomerRecoveryModal';
 
 interface CustomersProps {
   customers: Customer[];
@@ -49,6 +51,7 @@ export const Customers: React.FC<CustomersProps> = ({
   const [primaryTab, setPrimaryTab] = useState<'all' | 'owing' | 'debt_free'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'driver' | 'trader'>('all');
   const [customerPendingDelete, setCustomerPendingDelete] = useState<Customer | null>(null);
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState<boolean>(false);
 
   // Map outstanding debt per customer with safeguards
   const owingCustomerMap = new Map<string, { totalOwing: number; activeLoanId: string; isOverdue: boolean }>();
@@ -122,6 +125,16 @@ export const Customers: React.FC<CustomersProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setIsRecoveryModalOpen(true)}
+            type="button"
+            className="px-3 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border-2 border-sky-200 active:scale-95 text-xs font-black rounded-2xl shadow-xs flex items-center gap-1.5 transition"
+            title="Scan backups and restore missing clients"
+          >
+            <RotateCcw className="w-4 h-4 text-sky-700" />
+            <span className="hidden sm:inline">Recover Clients</span>
+          </button>
+
           <button
             onClick={async () => {
               const res = await GoogleDriveBackupService.exportToGoogleDrive();
@@ -500,6 +513,12 @@ export const Customers: React.FC<CustomersProps> = ({
           onCustomerDeleted={() => setCustomerPendingDelete(null)}
         />
       )}
+
+      {/* Recover Missing Clients Modal */}
+      <CustomerRecoveryModal
+        isOpen={isRecoveryModalOpen}
+        onClose={() => setIsRecoveryModalOpen(false)}
+      />
 
     </div>
   );
