@@ -108,16 +108,23 @@ const MainApp: React.FC = () => {
       try {
         await db.deduplicateDatabaseTables();
         await db.enforceReferentialIntegrity();
+
+        // 1. First check if cloud database has portfolio data to bootstrap this device
+        const bootstrapped = await CloudSyncService.bootstrapFromCloudIfAvailable();
+
         const hasExistingSettings = (await db.settings.count()) > 0;
         await initDefaultSettings();
 
-        // Only seed demo data on the absolute first launch of a completely fresh install
-        if (!hasExistingSettings) {
+        // 2. Only seed demo data if cloud bootstrap was empty AND local store is empty
+        if (!bootstrapped && !hasExistingSettings) {
           const custCount = await db.customers.count();
           if (custCount === 0) {
             await seedInitialData(false);
           }
         }
+
+        // Connect real-time Server-Sent Events stream from Firebase for instant sync across devices
+        CloudSyncService.connectRealtimeStream();
 
         // Render UI instantly without waiting on network!
         setIsInitializing(false);
@@ -165,6 +172,7 @@ const MainApp: React.FC = () => {
 
     return () => {
       clearInterval(syncInterval);
+      CloudSyncService.disconnectRealtimeStream();
       window.removeEventListener('online', handleOnlineOrFocus);
       window.removeEventListener('focus', handleOnlineOrFocus);
       window.removeEventListener('keydown', handleKeyDown);

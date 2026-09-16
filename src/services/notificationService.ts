@@ -49,12 +49,32 @@ export async function reconcileAllLoanBalances(): Promise<void> {
           }
         }
       } else {
-        const hasOverdue = loanSchedules.some(s => s.status === 'overdue' && s.remainingBalance > 0.01);
-        const hasDueToday = loanSchedules.some(s => s.status === 'due_today' && s.remainingBalance > 0.01);
-        const newStatus = hasOverdue ? 'overdue' : (hasDueToday ? 'due_today' : 'active');
+        const today = startOfDay(new Date());
+        let effectiveStatus: 'active' | 'due_today' | 'overdue' = 'active';
+
+        // Evaluate status strictly against the current saved due date / maturity date
+        const effectiveDueDateStr = loan.dueDate || loan.maturityDate;
+        if (effectiveDueDateStr) {
+          const match = effectiveDueDateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+          const loanDueDate = match
+            ? startOfDay(new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 12, 0, 0))
+            : startOfDay(parseISO(effectiveDueDateStr));
+
+          if (isBefore(loanDueDate, today)) {
+            effectiveStatus = 'overdue';
+          } else if (isToday(loanDueDate)) {
+            effectiveStatus = 'due_today';
+          } else {
+            effectiveStatus = 'active';
+          }
+        } else {
+          const hasOverdue = loanSchedules.some(s => s.status === 'overdue' && s.remainingBalance > 0.01);
+          const hasDueToday = loanSchedules.some(s => s.status === 'due_today' && s.remainingBalance > 0.01);
+          effectiveStatus = hasOverdue ? 'overdue' : (hasDueToday ? 'due_today' : 'active');
+        }
 
         await db.loans.update(loan.id!, {
-          status: newStatus,
+          status: effectiveStatus,
           outstandingBalance: actualOutstanding,
           totalPaid: actualPaid,
           totalPenalties: 0

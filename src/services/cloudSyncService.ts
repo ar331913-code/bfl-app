@@ -37,6 +37,7 @@ export class CloudSyncService {
   private static syncStatus: 'idle' | 'syncing' | 'synced' | 'error' | 'offline' = 'idle';
 
   private static syncDebounceTimer: any = null;
+  private static eventSource: EventSource | null = null;
 
   public static subscribe(callback: (status: 'idle' | 'syncing' | 'synced' | 'error' | 'offline', lastSync?: string) => void) {
     this.listeners.push(callback);
@@ -50,6 +51,47 @@ export class CloudSyncService {
     this.syncStatus = status;
     if (lastSync) this.lastSyncTimestamp = lastSync;
     this.listeners.forEach(cb => cb(status, this.lastSyncTimestamp || undefined));
+  }
+
+  /**
+   * Connects Real-Time Server-Sent Events (SSE) stream from Firebase Realtime Database.
+   * Instant cross-device updates between iPhone, laptop, and tablets (<500ms).
+   */
+  public static connectRealtimeStream() {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch {}
+      this.eventSource = null;
+    }
+
+    this.getCloudConfig().then(({ endpoint }) => {
+      try {
+        const es = new EventSource(endpoint);
+        es.addEventListener('put', (e) => {
+          if (e.data && e.data !== 'null') {
+            CloudSyncService.triggerBackgroundSync();
+          }
+        });
+        es.addEventListener('patch', (e) => {
+          if (e.data && e.data !== 'null') {
+            CloudSyncService.triggerBackgroundSync();
+          }
+        });
+        es.onerror = () => {
+          // Automatic browser reconnection in progress
+        };
+        this.eventSource = es;
+      } catch (err) {
+        console.warn('Realtime SSE streaming failed, using heartbeat polling:', err);
+      }
+    }).catch(err => console.warn('Could not get cloud config for stream:', err));
+  }
+
+  public static disconnectRealtimeStream() {
+    if (this.eventSource) {
+      try { this.eventSource.close(); } catch {}
+      this.eventSource = null;
+    }
   }
 
   /**
@@ -71,6 +113,85 @@ export class CloudSyncService {
       return { orgId: cleanOrgId, endpoint };
     } catch {
       return { orgId: this.defaultOrgId, endpoint: `${this.defaultCloudBaseUrl}/portfolios/${this.defaultOrgId}.json` };
+    }
+  }
+
+  /**
+   * Cloud-first initial bootstrapper:
+   * When opening the app on a fresh device (e.g. iPhone or new laptop),
+   * fetches live portfolio from Firebase RTDB before any local demo data is seeded.
+   */
+  public static async bootstrapFromCloudIfAvailable(): Promise<boolean> {
+    try {
+      if (!navigator.onLine) return false;
+      const { endpoint } = await this.getCloudConfig();
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) return false;
+      const cloudData = await res.json();
+      if (!cloudData || typeof cloudData !== 'object') return false;
+
+      const rawCusts: Customer[] = cloudData.customers 
+        ? (Array.isArray(cloudData.customers) ? cloudData.customers : Object.values(cloudData.customers)) 
+        : [];
+      
+      if (rawCusts.length === 0) return false;
+
+      const rawLoans: Loan[] = cloudData.loans 
+        ? (Array.isArray(cloudData.loans) ? cloudData.loans : Object.values(cloudData.loans)) 
+        : [];
+      const rawSchedules: RepaymentSchedule[] = cloudData.repaymentSchedules 
+        ? (Array.isArray(cloudData.repaymentSchedules) ? cloudData.repaymentSchedules : Object.values(cloudData.repaymentSchedules)) 
+        : [];
+      const rawPayments: Payment[] = cloudData.payments 
+        ? (Array.isArray(cloudData.payments) ? cloudData.payments : Object.values(cloudData.payments)) 
+        : [];
+
+      // Save centralized tombstones
+      if (Array.isArray(cloudData.deletedCustomerIds)) {
+        localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(cloudData.deletedCustomerIds));
+      }
+      if (cloudData.dataResetAt) {
+        localStorage.setItem('bfl_data_reset_at', cloudData.dataResetAt);
+      }
+
+      // Populate local Dexie directly from authoritative cloud data
+      await db.transaction('rw', [
+        db.customers,
+        db.loans,
+        db.repaymentSchedules,
+        db.payments,
+        db.settings
+      ], async () => {
+        await db.customers.clear();
+        await db.loans.clear();
+        await db.repaymentSchedules.clear();
+        await db.payments.clear();
+
+        if (rawCusts.length) await db.customers.bulkAdd(rawCusts);
+        if (rawLoans.length) await db.loans.bulkAdd(rawLoans);
+        if (rawSchedules.length) await db.repaymentSchedules.bulkAdd(rawSchedules);
+        if (rawPayments.length) await db.payments.bulkAdd(rawPayments);
+
+        if (cloudData.settings && typeof cloudData.settings === 'object') {
+          await db.settings.clear();
+          await db.settings.add({
+            ...cloudData.settings,
+            id: 1
+          });
+        }
+      });
+
+      await reconcileAllLoanBalances();
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.lastSyncTimestamp = now;
+      this.notify('synced', now);
+      return true;
+    } catch (err) {
+      console.warn('Bootstrap from cloud failed, will fall back to local store:', err);
+      return false;
     }
   }
 
@@ -138,6 +259,15 @@ export class CloudSyncService {
           return [];
         }
       })();
+
+      const cloudDeletedCustIds: string[] = Array.isArray(cloudData?.deletedCustomerIds)
+        ? cloudData.deletedCustomerIds
+        : [];
+      
+      const combinedDeletedCustIds = Array.from(new Set([...localDeletedCustIds, ...cloudDeletedCustIds]));
+      try {
+        localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(combinedDeletedCustIds));
+      } catch {}
 
       // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {
@@ -419,6 +549,7 @@ export class CloudSyncService {
       const cloudPayload = {
         orgId,
         dataResetAt: effectiveResetAt,
+        deletedCustomerIds: combinedDeletedCustIds,
         lastSyncedAt: new Date().toISOString(),
         customers: unifiedCustomers,
         loans: unifiedLoans,
@@ -515,6 +646,15 @@ export class CloudSyncService {
       const { orgId, endpoint } = await this.getCloudConfig();
       await db.deduplicateDatabaseTables();
 
+      const localDeletedCustIds: string[] = (() => {
+        try {
+          const raw = localStorage.getItem('bfl_deleted_customer_ids');
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      })();
+
       const rawUnifiedCustomers = await db.customers.toArray();
       const rawUnifiedLoans = await db.loans.toArray();
       const rawUnifiedSchedules = await db.repaymentSchedules.toArray();
@@ -522,25 +662,33 @@ export class CloudSyncService {
 
       const uCustMap = new Map<string, Customer>();
       for (const c of rawUnifiedCustomers) {
-        if (c && c.customerId) uCustMap.set(c.customerId, c);
+        if (c && c.customerId && !localDeletedCustIds.includes(c.customerId)) {
+          uCustMap.set(c.customerId, c);
+        }
       }
       const unifiedCustomers = Array.from(uCustMap.values());
 
       const uLoanMap = new Map<string, Loan>();
       for (const l of rawUnifiedLoans) {
-        if (l && l.loanId) uLoanMap.set(l.loanId, l);
+        if (l && l.loanId && l.customerId && uCustMap.has(l.customerId) && !localDeletedCustIds.includes(l.customerId)) {
+          uLoanMap.set(l.loanId, l);
+        }
       }
       const unifiedLoans = Array.from(uLoanMap.values());
 
       const uSchedMap = new Map<string, RepaymentSchedule>();
       for (const s of rawUnifiedSchedules) {
-        if (s && s.loanId) uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+        if (s && s.loanId && uLoanMap.has(s.loanId)) {
+          uSchedMap.set(`${s.loanId}-${s.installmentNumber}`, s);
+        }
       }
       const unifiedSchedules = Array.from(uSchedMap.values());
 
       const uPayMap = new Map<string, Payment>();
       for (const p of rawUnifiedPayments) {
-        if (p && p.paymentId) uPayMap.set(p.paymentId, p);
+        if (p && p.paymentId && p.loanId && uLoanMap.has(p.loanId)) {
+          uPayMap.set(p.paymentId, p);
+        }
       }
       const unifiedPayments = Array.from(uPayMap.values());
 
@@ -552,6 +700,7 @@ export class CloudSyncService {
       const cloudPayload = {
         orgId,
         dataResetAt: resetAt,
+        deletedCustomerIds: localDeletedCustIds,
         lastSyncedAt: new Date().toISOString(),
         customers: unifiedCustomers,
         loans: unifiedLoans,
@@ -1018,6 +1167,184 @@ export class CloudSyncService {
       return {
         success: false,
         message: err?.message || 'Failed to restore customer.'
+      };
+    }
+  }
+
+  /**
+   * Direct Loan Registration & Cloud Confirmation
+   */
+  public static async saveLoanDirectToCentralDatabase(loan: Loan, schedules: RepaymentSchedule[]): Promise<{
+    success: boolean;
+    mode: 'cloud_confirmed' | 'saved_locally_pending_sync' | 'failed';
+    message: string;
+  }> {
+    try {
+      // 1. Persist loan and schedules to Dexie
+      const existing = await db.loans.where('loanId').equals(loan.loanId).first();
+      if (existing) {
+        await db.loans.update(existing.id!, loan);
+      } else {
+        await db.loans.add(loan);
+      }
+
+      for (const s of schedules) {
+        const schedMatches = await db.repaymentSchedules
+          .where('loanId')
+          .equals(s.loanId)
+          .filter(item => item.installmentNumber === s.installmentNumber)
+          .toArray();
+        if (schedMatches.length > 0) {
+          await db.repaymentSchedules.update(schedMatches[0].id!, s);
+        } else {
+          await db.repaymentSchedules.add(s);
+        }
+      }
+
+      if (!navigator.onLine) {
+        this.notify('offline');
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Loan saved locally on this device and is waiting to synchronize.'
+        };
+      }
+
+      const syncResult = await this.syncWithCloud(true);
+      if (syncResult.success) {
+        return {
+          success: true,
+          mode: 'cloud_confirmed',
+          message: 'Loan registered and confirmed in central database.'
+        };
+      } else {
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Loan saved locally on this device. Cloud sync in progress.'
+        };
+      }
+    } catch (err: any) {
+      console.error('Direct loan save error:', err);
+      return {
+        success: false,
+        mode: 'failed',
+        message: 'Loan could not be saved. Please check connection.'
+      };
+    }
+  }
+
+  /**
+   * Direct Loan Update & Cloud Confirmation (e.g. Edited Principal Amount or Due Date)
+   */
+  public static async updateLoanDirectToCentralDatabase(loan: Loan, schedules?: RepaymentSchedule[]): Promise<{
+    success: boolean;
+    mode: 'cloud_confirmed' | 'saved_locally_pending_sync' | 'failed';
+    message: string;
+  }> {
+    try {
+      const existing = await db.loans.where('loanId').equals(loan.loanId).first();
+      if (existing) {
+        await db.loans.update(existing.id!, {
+          ...loan,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        await db.loans.add(loan);
+      }
+
+      if (schedules && schedules.length > 0) {
+        for (const s of schedules) {
+          const schedMatches = await db.repaymentSchedules
+            .where('loanId')
+            .equals(s.loanId)
+            .filter(item => item.installmentNumber === s.installmentNumber)
+            .toArray();
+          if (schedMatches.length > 0) {
+            await db.repaymentSchedules.update(schedMatches[0].id!, s);
+          } else {
+            await db.repaymentSchedules.add(s);
+          }
+        }
+      }
+
+      await reconcileAllLoanBalances();
+
+      if (!navigator.onLine) {
+        this.notify('offline');
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Loan changes saved locally on this device and waiting to synchronize.'
+        };
+      }
+
+      const syncResult = await this.syncWithCloud(true);
+      return {
+        success: true,
+        mode: syncResult.success ? 'cloud_confirmed' : 'saved_locally_pending_sync',
+        message: syncResult.success 
+          ? 'Loan changes confirmed in central database.' 
+          : 'Loan changes saved locally on this device.'
+      };
+    } catch (err: any) {
+      console.error('Direct loan update error:', err);
+      return {
+        success: false,
+        mode: 'failed',
+        message: 'Could not update loan in central database.'
+      };
+    }
+  }
+
+  /**
+   * Direct Payment Recording & Cloud Confirmation
+   */
+  public static async savePaymentDirectToCentralDatabase(payment: Payment, updatedLoan?: Loan): Promise<{
+    success: boolean;
+    mode: 'cloud_confirmed' | 'saved_locally_pending_sync' | 'failed';
+    message: string;
+  }> {
+    try {
+      const existing = await db.payments.where('paymentId').equals(payment.paymentId).first();
+      if (existing) {
+        await db.payments.update(existing.id!, payment);
+      } else {
+        await db.payments.add(payment);
+      }
+
+      if (updatedLoan) {
+        const existingLoan = await db.loans.where('loanId').equals(updatedLoan.loanId).first();
+        if (existingLoan) {
+          await db.loans.update(existingLoan.id!, updatedLoan);
+        }
+      }
+
+      await reconcileAllLoanBalances();
+
+      if (!navigator.onLine) {
+        this.notify('offline');
+        return {
+          success: true,
+          mode: 'saved_locally_pending_sync',
+          message: 'Payment saved locally on this device and waiting to synchronize.'
+        };
+      }
+
+      const syncResult = await this.syncWithCloud(true);
+      return {
+        success: true,
+        mode: syncResult.success ? 'cloud_confirmed' : 'saved_locally_pending_sync',
+        message: syncResult.success 
+          ? 'Payment recorded and confirmed in central database.' 
+          : 'Payment saved locally on this device.'
+      };
+    } catch (err: any) {
+      console.error('Direct payment save error:', err);
+      return {
+        success: false,
+        mode: 'failed',
+        message: 'Payment could not be confirmed in central database.'
       };
     }
   }
