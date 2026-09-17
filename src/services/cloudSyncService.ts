@@ -257,9 +257,6 @@ export class CloudSyncService {
       const cloudResetTime = new Date(cloudResetAt).getTime();
       const localResetTime = new Date(localResetAt).getTime();
 
-      const localExistingCustomers = await db.customers.toArray();
-      const activeLocalCustIdSet = new Set(localExistingCustomers.map(c => c.customerId));
-
       const localDeletedCustIds: string[] = (() => {
         try {
           const raw = localStorage.getItem('bfl_deleted_customer_ids');
@@ -273,15 +270,27 @@ export class CloudSyncService {
         ? cloudData.deletedCustomerIds
         : [];
       
-      // Active local customers are protected and stripped from tombstones
+      // Full union of local and cloud tombstones
       const combinedDeletedCustIds = Array.from(
-        new Set([...localDeletedCustIds, ...cloudDeletedCustIds])
-      ).filter(id => !activeLocalCustIdSet.has(id));
+        new Set([...localDeletedCustIds, ...cloudDeletedCustIds].map(id => (id || '').trim()))
+      ).filter(Boolean);
 
       try {
         localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(combinedDeletedCustIds));
         localStorage.setItem('bfl_data_reset_at', cloudResetAt);
       } catch {}
+
+      // If any local customer exists in Dexie that matches a deletion tombstone, purge it immediately!
+      if (combinedDeletedCustIds.length > 0) {
+        const deletedSet = new Set(combinedDeletedCustIds.map(id => id.toLowerCase()));
+        const allLocal = await db.customers.toArray();
+        const staleLocal = allLocal.filter(c => c.customerId && deletedSet.has(c.customerId.trim().toLowerCase()));
+        if (staleLocal.length > 0) {
+          for (const c of staleLocal) {
+            await db.deleteCustomer(c.customerId);
+          }
+        }
+      }
 
       // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {

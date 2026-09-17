@@ -340,20 +340,20 @@ export class BFLDatabase extends Dexie {
           return [];
         }
       })();
+      const deletedCustIdSet = new Set(localDeletedCustIds.map(id => (id || '').trim().toLowerCase()));
 
-      // 1. Fetch all valid customers currently in the database
+      // 1. Fetch all customers currently in the database
       const allCustomers = await this.customers.toArray();
-      const activeCustIdSet = new Set(allCustomers.map(c => c.customerId));
-
-      // 2. Clean up tombstone list: if an ID is actively in the customer table, protect it and remove from tombstones
-      const cleanedDeletedCustIds = localDeletedCustIds.filter(id => !activeCustIdSet.has(id));
-      if (cleanedDeletedCustIds.length !== localDeletedCustIds.length) {
-        try {
-          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(cleanedDeletedCustIds));
-        } catch {}
+      
+      // If any customer in Dexie is in the deleted tombstones, purge them from Dexie immediately!
+      const customersToPurge = allCustomers.filter(c => c.customerId && deletedCustIdSet.has(c.customerId.trim().toLowerCase()));
+      if (customersToPurge.length > 0) {
+        const idsToPurge = customersToPurge.map(c => c.id!).filter(Boolean);
+        await this.customers.bulkDelete(idsToPurge);
       }
 
-      const validCustIdSet = activeCustIdSet;
+      const activeCustomers = allCustomers.filter(c => !c.customerId || !deletedCustIdSet.has(c.customerId.trim().toLowerCase()));
+      const validCustIdSet = new Set(activeCustomers.map(c => c.customerId));
 
       // 3. Find and purge orphaned loans
       const allLoans = await this.loans.toArray();
@@ -363,7 +363,8 @@ export class BFLDatabase extends Dexie {
 
       for (const l of allLoans) {
         if (!l.id) continue;
-        if (!l.customerId || !validCustIdSet.has(l.customerId) || cleanedDeletedCustIds.includes(l.customerId)) {
+        const isDeletedCust = l.customerId && deletedCustIdSet.has(l.customerId.trim().toLowerCase());
+        if (!l.customerId || !validCustIdSet.has(l.customerId) || isDeletedCust) {
           orphanedLoanIds.push(l.id);
           if (l.loanId) orphanedLoanCodeSet.add(l.loanId);
         } else {
@@ -381,11 +382,13 @@ export class BFLDatabase extends Dexie {
       const orphanedScheduleIds: number[] = [];
       for (const s of allSchedules) {
         if (!s.id) continue;
+        const isDeletedCust = s.customerId && deletedCustIdSet.has(s.customerId.trim().toLowerCase());
         const isOrphan = 
           !s.loanId || 
           orphanedLoanCodeSet.has(s.loanId) || 
           !validLoanCodeSet.has(s.loanId) ||
-          (s.customerId && (!validCustIdSet.has(s.customerId) || localDeletedCustIds.includes(s.customerId)));
+          isDeletedCust ||
+          (s.customerId && !validCustIdSet.has(s.customerId));
 
         if (isOrphan) {
           orphanedScheduleIds.push(s.id);
@@ -402,11 +405,13 @@ export class BFLDatabase extends Dexie {
       const orphanedPaymentIds: number[] = [];
       for (const p of allPayments) {
         if (!p.id) continue;
+        const isDeletedCust = p.customerId && deletedCustIdSet.has(p.customerId.trim().toLowerCase());
         const isOrphan = 
           !p.loanId || 
           orphanedLoanCodeSet.has(p.loanId) || 
           !validLoanCodeSet.has(p.loanId) ||
-          (p.customerId && (!validCustIdSet.has(p.customerId) || localDeletedCustIds.includes(p.customerId)));
+          isDeletedCust ||
+          (p.customerId && !validCustIdSet.has(p.customerId));
 
         if (isOrphan) {
           orphanedPaymentIds.push(p.id);
@@ -427,6 +432,9 @@ export class BFLDatabase extends Dexie {
   // Delete customer and associated records
   async deleteCustomer(customerId: string): Promise<boolean> {
     try {
+      const cleanId = (customerId || '').trim();
+      if (!cleanId) return false;
+
       await this.transaction('rw', [
         this.customers,
         this.loans,
@@ -435,29 +443,68 @@ export class BFLDatabase extends Dexie {
         this.notifications,
         this.auditLogs
       ], async () => {
-        // 1. Delete customer
-        await this.customers.where('customerId').equals(customerId).delete();
+        // 1. Delete matching customer records
+        const allCusts = await this.customers.toArray();
+        const idsToDelete = allCusts
+          .filter(c => c.customerId && c.customerId.trim().toLowerCase() === cleanId.toLowerCase())
+          .map(c => c.id!)
+          .filter(Boolean);
+
+        if (idsToDelete.length > 0) {
+          await this.customers.bulkDelete(idsToDelete);
+        } else {
+          await this.customers.where('customerId').equals(cleanId).delete();
+        }
 
         // 2. Find and delete loans, schedules, payments, notifications for this customer
-        const customerLoans = await this.loans.where('customerId').equals(customerId).toArray();
-        for (const l of customerLoans) {
-          if (l.loanId) {
-            await this.repaymentSchedules.where('loanId').equals(l.loanId).delete();
-            await this.payments.where('loanId').equals(l.loanId).delete();
+        const allLoans = await this.loans.toArray();
+        const loanIdsToDelete: number[] = [];
+        const loanCodeSet = new Set<string>();
+
+        for (const l of allLoans) {
+          if (l.customerId && l.customerId.trim().toLowerCase() === cleanId.toLowerCase()) {
+            if (l.id) loanIdsToDelete.push(l.id);
+            if (l.loanId) loanCodeSet.add(l.loanId);
           }
         }
 
-        await this.loans.where('customerId').equals(customerId).delete();
-        await this.repaymentSchedules.where('customerId').equals(customerId).delete();
-        await this.payments.where('customerId').equals(customerId).delete();
-        await this.notifications.where('customerId').equals(customerId).delete();
+        if (loanIdsToDelete.length > 0) {
+          await this.loans.bulkDelete(loanIdsToDelete);
+        }
+
+        const allSchedules = await this.repaymentSchedules.toArray();
+        const schedIdsToDelete = allSchedules
+          .filter(s => (s.customerId && s.customerId.trim().toLowerCase() === cleanId.toLowerCase()) || (s.loanId && loanCodeSet.has(s.loanId)))
+          .map(s => s.id!)
+          .filter(Boolean);
+        if (schedIdsToDelete.length > 0) {
+          await this.repaymentSchedules.bulkDelete(schedIdsToDelete);
+        }
+
+        const allPayments = await this.payments.toArray();
+        const payIdsToDelete = allPayments
+          .filter(p => (p.customerId && p.customerId.trim().toLowerCase() === cleanId.toLowerCase()) || (p.loanId && loanCodeSet.has(p.loanId)))
+          .map(p => p.id!)
+          .filter(Boolean);
+        if (payIdsToDelete.length > 0) {
+          await this.payments.bulkDelete(payIdsToDelete);
+        }
+
+        const allNotifs = await this.notifications.toArray();
+        const notifIdsToDelete = allNotifs
+          .filter(n => n.customerId && n.customerId.trim().toLowerCase() === cleanId.toLowerCase())
+          .map(n => n.id!)
+          .filter(Boolean);
+        if (notifIdsToDelete.length > 0) {
+          await this.notifications.bulkDelete(notifIdsToDelete);
+        }
 
         // 3. Add audit log
         await this.auditLogs.add({
           action: 'CUSTOMER_DELETED',
           entityType: 'customer',
-          entityId: customerId,
-          details: `Deleted client ${customerId} and associated loan/payment records`,
+          entityId: cleanId,
+          details: `Deleted client ${cleanId} and associated loan/payment records`,
           timestamp: new Date().toISOString()
         });
       });
@@ -466,8 +513,8 @@ export class BFLDatabase extends Dexie {
       try {
         const stored = localStorage.getItem('bfl_deleted_customer_ids');
         const list: string[] = stored ? JSON.parse(stored) : [];
-        if (!list.includes(customerId)) {
-          list.push(customerId);
+        if (!list.includes(cleanId)) {
+          list.push(cleanId);
           localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(list));
         }
       } catch (e) {
