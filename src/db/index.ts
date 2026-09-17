@@ -32,41 +32,129 @@ export class BFLDatabase extends Dexie {
     });
   }
 
-  // ID Generators with prefix and zero-padding (collision-proof)
+  // ID Generators with prefix and zero-padding (collision-proof & tombstone-aware)
   async getNextCustomerId(): Promise<string> {
-    const all = await this.customers.toArray();
+    const [allCustomers, allLoans, allAudit] = await Promise.all([
+      this.customers.toArray(),
+      this.loans.toArray(),
+      this.auditLogs.toArray()
+    ]);
+
+    const deletedIds: string[] = (() => {
+      try {
+        const raw = localStorage.getItem('bfl_deleted_customer_ids');
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    })();
+
     let maxNum = 0;
-    for (const c of all) {
+
+    // 1. Check existing active customers
+    for (const c of allCustomers) {
       const match = c.customerId?.match(/BFL-(\d+)/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (num > maxNum) maxNum = num;
       }
     }
+
+    // 2. Check all loans (protects orphaned/historical loans)
+    for (const l of allLoans) {
+      const match = l.customerId?.match(/BFL-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+
+    // 3. Check deleted tombstones so deleted IDs are never recycled
+    for (const id of deletedIds) {
+      const match = id?.match(/BFL-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+
+    // 4. Check audit logs
+    for (const a of allAudit) {
+      if (a.entityType === 'customer' && a.entityId) {
+        const match = a.entityId.match(/BFL-(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+
     return `BFL-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
   async getNextLoanId(): Promise<string> {
-    const all = await this.loans.toArray();
+    const [allLoans, allSchedules, allPayments, allAudit] = await Promise.all([
+      this.loans.toArray(),
+      this.repaymentSchedules.toArray(),
+      this.payments.toArray(),
+      this.auditLogs.toArray()
+    ]);
+
     let maxNum = 0;
-    for (const l of all) {
+    for (const l of allLoans) {
       const match = l.loanId?.match(/LN-(\d+)/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (num > maxNum) maxNum = num;
       }
     }
+    for (const s of allSchedules) {
+      const match = s.loanId?.match(/LN-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    for (const p of allPayments) {
+      const match = p.loanId?.match(/LN-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    for (const a of allAudit) {
+      if (a.entityType === 'loan' && a.entityId) {
+        const match = a.entityId.match(/LN-(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
     return `LN-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
   async getNextPaymentId(): Promise<string> {
-    const all = await this.payments.toArray();
+    const [allPayments, allAudit] = await Promise.all([
+      this.payments.toArray(),
+      this.auditLogs.toArray()
+    ]);
+
     let maxNum = 0;
-    for (const p of all) {
+    for (const p of allPayments) {
       const match = p.paymentId?.match(/RCP-(\d+)/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (num > maxNum) maxNum = num;
+      }
+    }
+    for (const a of allAudit) {
+      if (a.entityType === 'payment' && a.entityId) {
+        const match = a.entityId.match(/RCP-(\d+)/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
       }
     }
     return `RCP-${String(maxNum + 1).padStart(5, '0')}`;
@@ -253,21 +341,19 @@ export class BFLDatabase extends Dexie {
         }
       })();
 
-      // 1. Purge any customers in tombstone list that might have re-appeared
-      if (localDeletedCustIds.length > 0) {
-        for (const deletedId of localDeletedCustIds) {
-          await this.customers.where('customerId').equals(deletedId).delete();
-        }
+      // 1. Fetch all valid customers currently in the database
+      const allCustomers = await this.customers.toArray();
+      const activeCustIdSet = new Set(allCustomers.map(c => c.customerId));
+
+      // 2. Clean up tombstone list: if an ID is actively in the customer table, protect it and remove from tombstones
+      const cleanedDeletedCustIds = localDeletedCustIds.filter(id => !activeCustIdSet.has(id));
+      if (cleanedDeletedCustIds.length !== localDeletedCustIds.length) {
+        try {
+          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(cleanedDeletedCustIds));
+        } catch {}
       }
 
-      // 2. Fetch all valid customers
-      const allCustomers = await this.customers.toArray();
-      const validCustIdSet = new Set<string>();
-      for (const c of allCustomers) {
-        if (c.customerId && !localDeletedCustIds.includes(c.customerId)) {
-          validCustIdSet.add(c.customerId);
-        }
-      }
+      const validCustIdSet = activeCustIdSet;
 
       // 3. Find and purge orphaned loans
       const allLoans = await this.loans.toArray();
@@ -277,7 +363,7 @@ export class BFLDatabase extends Dexie {
 
       for (const l of allLoans) {
         if (!l.id) continue;
-        if (!l.customerId || !validCustIdSet.has(l.customerId) || localDeletedCustIds.includes(l.customerId)) {
+        if (!l.customerId || !validCustIdSet.has(l.customerId) || cleanedDeletedCustIds.includes(l.customerId)) {
           orphanedLoanIds.push(l.id);
           if (l.loanId) orphanedLoanCodeSet.add(l.loanId);
         } else {

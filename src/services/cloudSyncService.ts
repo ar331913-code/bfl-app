@@ -124,6 +124,12 @@ export class CloudSyncService {
   public static async bootstrapFromCloudIfAvailable(): Promise<boolean> {
     try {
       if (!navigator.onLine) return false;
+      const localCustCount = await db.customers.count();
+      // If local database already contains records, do not wipe! Run standard 2-way differential merge instead.
+      if (localCustCount > 0) {
+        return false;
+      }
+
       const { endpoint } = await this.getCloudConfig();
       const res = await fetch(endpoint, {
         method: 'GET',
@@ -244,12 +250,15 @@ export class CloudSyncService {
       let pulledCount = 0;
       let pushedCount = 0;
 
-      // Local & Cloud Reset Generation Timestamps (Epoch Clock)
+      // Local & Cloud Reset Generation Timestamps
       const localResetAt = localStorage.getItem('bfl_data_reset_at') || '1970-01-01T00:00:00.000Z';
       const cloudResetAt = cloudData?.dataResetAt || '1970-01-01T00:00:00.000Z';
 
       const cloudResetTime = new Date(cloudResetAt).getTime();
       const localResetTime = new Date(localResetAt).getTime();
+
+      const localExistingCustomers = await db.customers.toArray();
+      const activeLocalCustIdSet = new Set(localExistingCustomers.map(c => c.customerId));
 
       const localDeletedCustIds: string[] = (() => {
         try {
@@ -264,9 +273,14 @@ export class CloudSyncService {
         ? cloudData.deletedCustomerIds
         : [];
       
-      const combinedDeletedCustIds = Array.from(new Set([...localDeletedCustIds, ...cloudDeletedCustIds]));
+      // Active local customers are protected and stripped from tombstones
+      const combinedDeletedCustIds = Array.from(
+        new Set([...localDeletedCustIds, ...cloudDeletedCustIds])
+      ).filter(id => !activeLocalCustIdSet.has(id));
+
       try {
         localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(combinedDeletedCustIds));
+        localStorage.setItem('bfl_data_reset_at', cloudResetAt);
       } catch {}
 
       // 2. Process Cloud Data -> Local Database
@@ -344,154 +358,119 @@ export class CloudSyncService {
           }
         }
 
-        if (cloudResetTime > localResetTime) {
-          // -------------------------------------------------------------
-          // CLOUD HAS BEEN CLEARED / RESET / RESTORED BY ANOTHER DEVICE
-          // -------------------------------------------------------------
-          // Wipe local tables completely and apply cloud data directly!
-          await db.transaction('rw', [
-            db.customers,
-            db.loans,
-            db.repaymentSchedules,
-            db.payments,
-            db.notifications,
-            db.auditLogs
-          ], async () => {
-            await db.customers.clear();
-            await db.loans.clear();
-            await db.repaymentSchedules.clear();
-            await db.payments.clear();
-            await db.notifications.clear();
-            await db.auditLogs.clear();
+        // -------------------------------------------------------------
+        // 2-WAY BIDIRECTIONAL DIFFERENTIAL MERGE (Preserves all local records)
+        // -------------------------------------------------------------
 
-            if (cloudCustomers.length) await db.customers.bulkAdd(cloudCustomers);
-            if (cloudLoans.length) await db.loans.bulkAdd(cloudLoans);
-            if (cloudSchedules.length) await db.repaymentSchedules.bulkAdd(cloudSchedules);
-            if (cloudPayments.length) await db.payments.bulkAdd(cloudPayments);
-          });
-
-          localStorage.setItem('bfl_data_reset_at', cloudResetAt);
-          pulledCount = cloudCustomers.length + cloudLoans.length + cloudPayments.length;
-        } else if (localResetTime > cloudResetTime) {
-          // -------------------------------------------------------------
-          // THIS DEVICE JUST RESET LOCALLY - PROCEED TO PUSH LOCAL STATE
-          // -------------------------------------------------------------
-        } else {
-          // -------------------------------------------------------------
-          // SAME GENERATION - 2-WAY BIDIRECTIONAL DIFFERENTIAL MERGE
-          // -------------------------------------------------------------
-
-          // A. Merge Customers with automatic duplicate purging & deletion tombstone check
-          for (const c of cloudCustomers) {
-            if (!c || !c.customerId || localDeletedCustIds.includes(c.customerId)) continue;
-            const existingMatches = await db.customers.where('customerId').equals(c.customerId).toArray();
-            if (existingMatches.length === 0) {
-              const { id, ...rest } = c;
-              await db.customers.add(rest as Customer);
-              pulledCount++;
-            } else {
-              if (existingMatches.length > 1) {
-                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
-                if (duplicatesToDelete.length > 0) {
-                  await db.customers.bulkDelete(duplicatesToDelete);
-                }
-              }
-              const existing = existingMatches[0];
-              const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
-              const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
-              if (cloudUpdated >= localUpdated) {
-                await db.customers.update(existing.id!, {
-                  ...c,
-                  id: existing.id
-                });
-                pulledCount++;
+        // A. Merge Customers with automatic duplicate purging & deletion tombstone check
+        for (const c of cloudCustomers) {
+          if (!c || !c.customerId || combinedDeletedCustIds.includes(c.customerId)) continue;
+          const existingMatches = await db.customers.where('customerId').equals(c.customerId).toArray();
+          if (existingMatches.length === 0) {
+            const { id, ...rest } = c;
+            await db.customers.add(rest as Customer);
+            pulledCount++;
+          } else {
+            if (existingMatches.length > 1) {
+              const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+              if (duplicatesToDelete.length > 0) {
+                await db.customers.bulkDelete(duplicatesToDelete);
               }
             }
-          }
-
-          // B. Merge Loans with automatic duplicate purging & orphan protection
-          for (const l of cloudLoans) {
-            if (!l || !l.loanId || !l.customerId || localDeletedCustIds.includes(l.customerId)) continue;
-            
-            // Do not pull loans if the customer is not in the cloud customer set and does not exist locally
-            const customerExistsLocally = (await db.customers.where('customerId').equals(l.customerId).count()) > 0;
-            if (!cloudCustMap.has(l.customerId) && !customerExistsLocally) {
-              continue;
-            }
-
-            const existingMatches = await db.loans.where('loanId').equals(l.loanId).toArray();
-            if (existingMatches.length === 0) {
-              const { id, ...rest } = l;
-              await db.loans.add(rest as Loan);
-              pulledCount++;
-            } else {
-              if (existingMatches.length > 1) {
-                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
-                if (duplicatesToDelete.length > 0) {
-                  await db.loans.bulkDelete(duplicatesToDelete);
-                }
-              }
-              const existing = existingMatches[0];
-              const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
-              const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
-              if (cloudUpdated >= localUpdated) {
-                await db.loans.update(existing.id!, {
-                  ...l,
-                  id: existing.id
-                });
-                pulledCount++;
-              }
-            }
-          }
-
-          // C. Merge Schedules with automatic duplicate purging
-          for (const s of cloudSchedules) {
-            if (!s || !s.loanId || (s.customerId && localDeletedCustIds.includes(s.customerId))) continue;
-            const existingMatches = await db.repaymentSchedules
-              .where('loanId')
-              .equals(s.loanId)
-              .filter(item => item.installmentNumber === s.installmentNumber)
-              .toArray();
-
-            if (existingMatches.length === 0) {
-              const { id, ...rest } = s;
-              await db.repaymentSchedules.add(rest as RepaymentSchedule);
-            } else {
-              if (existingMatches.length > 1) {
-                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
-                if (duplicatesToDelete.length > 0) {
-                  await db.repaymentSchedules.bulkDelete(duplicatesToDelete);
-                }
-              }
-              const existing = existingMatches[0];
-              await db.repaymentSchedules.update(existing.id!, {
-                ...s,
+            const existing = existingMatches[0];
+            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+            const cloudUpdated = new Date(c.updatedAt || c.createdAt || '1970-01-01').getTime();
+            if (cloudUpdated >= localUpdated) {
+              await db.customers.update(existing.id!, {
+                ...c,
                 id: existing.id
               });
+              pulledCount++;
             }
           }
+        }
 
-          // D. Merge Payments with automatic duplicate purging
-          for (const p of cloudPayments) {
-            if (!p || !p.paymentId || (p.customerId && localDeletedCustIds.includes(p.customerId))) continue;
-            const existingMatches = await db.payments.where('paymentId').equals(p.paymentId).toArray();
-            if (existingMatches.length === 0) {
-              const { id, ...rest } = p;
-              await db.payments.add(rest as Payment);
-              pulledCount++;
-            } else {
-              if (existingMatches.length > 1) {
-                const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
-                if (duplicatesToDelete.length > 0) {
-                  await db.payments.bulkDelete(duplicatesToDelete);
-                }
+        // B. Merge Loans with automatic duplicate purging & orphan protection
+        for (const l of cloudLoans) {
+          if (!l || !l.loanId || !l.customerId || combinedDeletedCustIds.includes(l.customerId)) continue;
+          
+          const customerExistsLocally = (await db.customers.where('customerId').equals(l.customerId).count()) > 0;
+          if (!cloudCustMap.has(l.customerId) && !customerExistsLocally) {
+            continue;
+          }
+
+          const existingMatches = await db.loans.where('loanId').equals(l.loanId).toArray();
+          if (existingMatches.length === 0) {
+            const { id, ...rest } = l;
+            await db.loans.add(rest as Loan);
+            pulledCount++;
+          } else {
+            if (existingMatches.length > 1) {
+              const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+              if (duplicatesToDelete.length > 0) {
+                await db.loans.bulkDelete(duplicatesToDelete);
               }
-              const existing = existingMatches[0];
-              await db.payments.update(existing.id!, {
-                ...p,
+            }
+            const existing = existingMatches[0];
+            const localUpdated = new Date(existing.updatedAt || existing.createdAt || '1970-01-01').getTime();
+            const cloudUpdated = new Date(l.updatedAt || l.createdAt || '1970-01-01').getTime();
+            if (cloudUpdated >= localUpdated) {
+              await db.loans.update(existing.id!, {
+                ...l,
                 id: existing.id
               });
+              pulledCount++;
             }
+          }
+        }
+
+        // C. Merge Schedules with automatic duplicate purging
+        for (const s of cloudSchedules) {
+          if (!s || !s.loanId || (s.customerId && combinedDeletedCustIds.includes(s.customerId))) continue;
+          const existingMatches = await db.repaymentSchedules
+            .where('loanId')
+            .equals(s.loanId)
+            .filter(item => item.installmentNumber === s.installmentNumber)
+            .toArray();
+
+          if (existingMatches.length === 0) {
+            const { id, ...rest } = s;
+            await db.repaymentSchedules.add(rest as RepaymentSchedule);
+          } else {
+            if (existingMatches.length > 1) {
+              const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+              if (duplicatesToDelete.length > 0) {
+                await db.repaymentSchedules.bulkDelete(duplicatesToDelete);
+              }
+            }
+            const existing = existingMatches[0];
+            await db.repaymentSchedules.update(existing.id!, {
+              ...s,
+              id: existing.id
+            });
+          }
+        }
+
+        // D. Merge Payments with automatic duplicate purging
+        for (const p of cloudPayments) {
+          if (!p || !p.paymentId || (p.customerId && combinedDeletedCustIds.includes(p.customerId))) continue;
+          const existingMatches = await db.payments.where('paymentId').equals(p.paymentId).toArray();
+          if (existingMatches.length === 0) {
+            const { id, ...rest } = p;
+            await db.payments.add(rest as Payment);
+            pulledCount++;
+          } else {
+            if (existingMatches.length > 1) {
+              const duplicatesToDelete = existingMatches.slice(1).map(item => item.id!).filter(Boolean);
+              if (duplicatesToDelete.length > 0) {
+                await db.payments.bulkDelete(duplicatesToDelete);
+              }
+            }
+            const existing = existingMatches[0];
+            await db.payments.update(existing.id!, {
+              ...p,
+              id: existing.id
+            });
           }
         }
       }
@@ -511,7 +490,7 @@ export class CloudSyncService {
 
       const uCustMap = new Map<string, Customer>();
       for (const c of rawUnifiedCustomers) {
-        if (c && c.customerId && !localDeletedCustIds.includes(c.customerId)) {
+        if (c && c.customerId && !combinedDeletedCustIds.includes(c.customerId)) {
           uCustMap.set(c.customerId, c);
         }
       }
@@ -519,7 +498,7 @@ export class CloudSyncService {
 
       const uLoanMap = new Map<string, Loan>();
       for (const l of rawUnifiedLoans) {
-        if (l && l.loanId && l.customerId && uCustMap.has(l.customerId) && !localDeletedCustIds.includes(l.customerId)) {
+        if (l && l.loanId && l.customerId && uCustMap.has(l.customerId) && !combinedDeletedCustIds.includes(l.customerId)) {
           uLoanMap.set(l.loanId, l);
         }
       }

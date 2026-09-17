@@ -34,15 +34,24 @@ export const Reports: React.FC<ReportsProps> = ({
   payments,
   schedules
 }) => {
-  const [reportPeriod, setReportPeriod] = useState<'today' | 'week' | 'month' | 'all'>('month');
+  const [reportPeriod, setReportPeriod] = useState<'today' | 'week' | 'month' | 'all'>('all');
 
   const today = new Date();
+
+  const parseDateSafe = (dateStr?: string) => {
+    if (!dateStr) return new Date();
+    const match = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10), 12, 0, 0);
+    }
+    return new Date(dateStr);
+  };
 
   // Period filtering
   const filteredLoans = (loans || []).filter(l => {
     if (!l) return false;
     if (reportPeriod === 'all') return true;
-    const loanDate = new Date(l.startDate);
+    const loanDate = parseDateSafe(l.startDate || l.createdAt);
     if (reportPeriod === 'today') {
       return format(loanDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
     }
@@ -58,7 +67,7 @@ export const Reports: React.FC<ReportsProps> = ({
   const filteredPayments = (payments || []).filter(p => {
     if (!p) return false;
     if (reportPeriod === 'all') return true;
-    const payDate = new Date(p.paymentDate);
+    const payDate = parseDateSafe(p.paymentDate || p.createdAt);
     if (reportPeriod === 'today') {
       return format(payDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
     }
@@ -228,7 +237,9 @@ export const Reports: React.FC<ReportsProps> = ({
             {formatCurrency(totalCollectedInPeriod)}
           </div>
           <div className="text-[11px] text-emerald-700 mt-1 font-semibold">
-            {filteredPayments.length} receipts issued
+            {reportPeriod === 'all' 
+              ? `${(payments || []).length} total receipts issued` 
+              : `${filteredPayments.length} of ${(payments || []).length} receipts`}
           </div>
         </div>
 
@@ -242,7 +253,9 @@ export const Reports: React.FC<ReportsProps> = ({
             {formatCurrency(totalLent)}
           </div>
           <div className="text-[11px] text-blue-700 mt-1 font-semibold">
-            {filteredLoans.length} loan(s) granted
+            {reportPeriod === 'all' 
+              ? `${(loans || []).length} total loans granted` 
+              : `${filteredLoans.length} of ${(loans || []).length} total loans`}
           </div>
         </div>
 
