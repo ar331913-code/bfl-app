@@ -120,13 +120,16 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
     }
   }, [selectedCustomerId, selectedCustomer]);
 
-  // Load existing loans and ensure valid selected customer
+  const prevIsOpenRef = React.useRef<boolean>(false);
+
+  // Load existing loans and ensure valid selected customer ONLY on initial modal open
   useEffect(() => {
     async function loadLoans() {
       const allLoans = await db.loans.toArray();
       setExistingLoans(allLoans || []);
     }
-    if (isOpen) {
+
+    if (isOpen && !prevIsOpenRef.current) {
       loadLoans();
       setCreatedLoanRecord(null);
       setIsConfirming(false);
@@ -139,8 +142,11 @@ export const CreateLoanModal: React.FC<CreateLoanModalProps> = ({
           setSelectedCustomerId(validCustomers[0].customerId);
         }
       }
+    } else if (isOpen) {
+      loadLoans();
     }
-  }, [isOpen, preselectedCustomerId, validCustomers]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, preselectedCustomerId]);
 
   // Check if selected customer has an existing active or overdue loan
   const customerActiveLoan = useMemo(() => {

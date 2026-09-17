@@ -476,6 +476,8 @@ const MainApp: React.FC = () => {
         customers={customers}
         preselectedCustomerId={loanTargetCustomerId}
         onLoanCreated={(newLoan) => {
+          setIsCreateLoanOpen(false);
+          setLoanTargetCustomerId(undefined);
           handleSelectLoan(newLoan);
         }}
       />

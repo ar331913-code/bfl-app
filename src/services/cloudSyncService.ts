@@ -1009,6 +1009,53 @@ export class CloudSyncService {
   }
 
   /**
+   * Direct Client Deletion & Central Cloud Synchronous Purge
+   * Removes client and all linked loans/payments from local DB and immediately syncs deletion to Firebase RTDB.
+   */
+  public static async deleteCustomerDirectFromCentralDatabase(customerId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    try {
+      // 1. Delete from local Dexie (with cascade to loans, schedules, payments, notifications)
+      const deletedLocally = await db.deleteCustomer(customerId);
+      if (!deletedLocally) {
+        return { success: false, message: 'Could not delete client locally.' };
+      }
+
+      // 2. Ensure tombstone in localStorage
+      try {
+        const stored = localStorage.getItem('bfl_deleted_customer_ids');
+        const list: string[] = stored ? JSON.parse(stored) : [];
+        if (!list.includes(customerId)) {
+          list.push(customerId);
+          localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(list));
+        }
+      } catch (e) {
+        console.warn('Tombstone update error:', e);
+      }
+
+      // 3. Immediately trigger cloud sync if online
+      if (navigator.onLine) {
+        await this.syncWithCloud(true);
+      } else {
+        this.triggerBackgroundSync();
+      }
+
+      return {
+        success: true,
+        message: 'Client deleted successfully across all devices.'
+      };
+    } catch (err: any) {
+      console.error('Direct customer deletion error:', err);
+      return {
+        success: false,
+        message: err?.message || 'Error deleting client.'
+      };
+    }
+  }
+
+  /**
    * Scans all database and backup sources for missing or soft-deleted clients
    */
   public static async scanRecoverableCustomers(): Promise<Array<{
