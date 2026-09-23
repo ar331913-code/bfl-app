@@ -163,6 +163,7 @@ const MainApp: React.FC = () => {
 
     window.addEventListener('online', handleOnlineOrFocus);
     window.addEventListener('focus', handleOnlineOrFocus);
+    window.addEventListener('pageshow', handleOnlineOrFocus);
     window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
@@ -175,6 +176,7 @@ const MainApp: React.FC = () => {
       CloudSyncService.disconnectRealtimeStream();
       window.removeEventListener('online', handleOnlineOrFocus);
       window.removeEventListener('focus', handleOnlineOrFocus);
+      window.removeEventListener('pageshow', handleOnlineOrFocus);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
