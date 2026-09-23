@@ -18,12 +18,14 @@ import {
   Wallet,
   CheckCircle2,
   Calendar,
-  CreditCard
+  CreditCard,
+  Edit3
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatGhanaPhone } from '../utils/formatters';
 import { generatePaymentReceiptPDF } from '../services/exportService';
 import { SMSService } from '../services/smsService';
 import { useAuth } from '../context/AuthContext';
+import { EditPaymentModal } from '../components/payments/EditPaymentModal';
 
 interface PaymentsProps {
   payments: Payment[];
@@ -41,6 +43,7 @@ export const Payments: React.FC<PaymentsProps> = ({
   const { settings } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [selectedPaymentToEdit, setSelectedPaymentToEdit] = useState<Payment | null>(null);
 
   const customerMap = new Map((customers || []).filter(c => c && c.customerId).map(c => [c.customerId, c]));
   const loanMap = new Map((loans || []).filter(l => l && l.loanId).map(l => [l.loanId, l]));
@@ -364,8 +367,18 @@ export const Payments: React.FC<PaymentsProps> = ({
                   )}
                 </div>
 
-                {/* Bottom Row: Actions (SMS Receipt, PDF Receipt, WhatsApp Share) */}
+                {/* Bottom Row: Actions (Edit Amount, SMS Receipt, PDF Receipt, WhatsApp Share) */}
                 <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-100 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentToEdit(payment)}
+                    className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl transition flex items-center gap-1 border border-amber-200 shadow-xs cursor-pointer active:scale-95"
+                    title="Edit Repayment Amount"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Edit Amount</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleOpenSMSReceiptModal(payment)}
@@ -494,6 +507,17 @@ export const Payments: React.FC<PaymentsProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Edit Payment Amount Modal */}
+      {selectedPaymentToEdit && (
+        <EditPaymentModal
+          isOpen={!!selectedPaymentToEdit}
+          onClose={() => setSelectedPaymentToEdit(null)}
+          payment={selectedPaymentToEdit}
+          loan={loanMap.get(selectedPaymentToEdit.loanId)}
+          customer={customerMap.get(selectedPaymentToEdit.customerId)}
+        />
       )}
 
     </div>

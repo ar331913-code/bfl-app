@@ -541,8 +541,40 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                   className="w-full text-2xl font-black pl-14 pr-4 py-3.5 rounded-2xl border-2 border-sky-100 focus:border-sky-500 focus:outline-none bg-white text-slate-950 shadow-xs placeholder:text-slate-300 font-outfit"
                 />
               </div>
+
+              {/* Quick Fill Amount Helpers */}
+              {currentLoan && currentOwing > 0 && (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {currentLoan.installmentAmount && currentLoan.installmentAmount > 0 && currentLoan.installmentAmount < currentOwing && (
+                    <button
+                      type="button"
+                      onClick={() => setAmountInput(currentLoan.installmentAmount.toFixed(2))}
+                      className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-blue-900 border border-sky-200 rounded-xl text-[11px] font-bold transition active:scale-95 cursor-pointer"
+                    >
+                      Inst. Due: {formatCurrency(currentLoan.installmentAmount)}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAmountInput(currentOwing.toFixed(2))}
+                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-xl text-[11px] font-bold transition active:scale-95 cursor-pointer"
+                  >
+                    Full Pay: {formatCurrency(currentOwing)}
+                  </button>
+                  {amountInput && (
+                    <button
+                      type="button"
+                      onClick={() => setAmountInput('')}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
               <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
-                Enter the exact repayment amount collected from the borrower.
+                Enter or adjust the exact repayment amount collected from the borrower.
               </p>
             </div>
 

@@ -29,6 +29,7 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../db';
 import { CloudSyncService } from '../../services/cloudSyncService';
 import { checkAndUpdateLoanStatusesAndAlerts, reconcileAllLoanBalances } from '../../services/notificationService';
+import { EditPaymentModal } from '../payments/EditPaymentModal';
 
 interface LoanDetailModalProps {
   isOpen: boolean;
@@ -52,8 +53,15 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
   const { settings } = useAuth();
   const [editingSchedId, setEditingSchedId] = useState<number | null>(null);
   const [editingDueDate, setEditingDueDate] = useState<string>('');
+  const [editingSchedAmountId, setEditingSchedAmountId] = useState<number | null>(null);
+  const [editingExpectedAmount, setEditingExpectedAmount] = useState<string>('');
+
   const [isEditingMaturityDate, setIsEditingMaturityDate] = useState<boolean>(false);
   const [customMaturityDate, setCustomMaturityDate] = useState<string>('');
+  const [isEditingTotalRepayment, setIsEditingTotalRepayment] = useState<boolean>(false);
+  const [newTotalRepaymentInput, setNewTotalRepaymentInput] = useState<string>('');
+
+  const [selectedPaymentToEdit, setSelectedPaymentToEdit] = useState<Payment | null>(null);
   const [dateUpdateFeedback, setDateUpdateFeedback] = useState<string>('');
 
   // Disbursed Principal Editing State
@@ -194,6 +202,112 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
       setIsEditingMaturityDate(false);
     } catch (err) {
       console.error('Failed to update overall maturity date:', err);
+    }
+  };
+
+  const handleSaveInstallmentAmount = async (schedId: number) => {
+    const parsedAmt = parseFloat(editingExpectedAmount);
+    if (!parsedAmt || parsedAmt <= 0) {
+      setEditingSchedAmountId(null);
+      setEditingExpectedAmount('');
+      return;
+    }
+    try {
+      const targetSched = schedules.find(s => s.id === schedId);
+      if (!targetSched) return;
+
+      const oldAmt = targetSched.expectedAmount;
+      const schedRemaining = Math.max(0, Math.round((parsedAmt - (targetSched.amountPaid || 0)) * 100) / 100);
+      const schedStatus = schedRemaining <= 0.01 ? 'paid' : (targetSched.amountPaid > 0 ? 'partially_paid' : 'upcoming');
+
+      await db.repaymentSchedules.update(schedId, {
+        expectedAmount: parsedAmt,
+        remainingBalance: schedRemaining,
+        status: schedStatus
+      });
+
+      // Sum all schedules for this loan to calculate updated total repayment
+      const allLoanScheds = await db.repaymentSchedules.where('loanId').equals(loan.loanId).toArray();
+      const newTotalRepayment = allLoanScheds.reduce((sum, s) => sum + (s.id === schedId ? parsedAmt : s.expectedAmount), 0);
+      const newTotalInterest = Math.max(0, Math.round((newTotalRepayment - loan.principalAmount) * 100) / 100);
+
+      await db.loans.update(loan.id!, {
+        totalRepayment: newTotalRepayment,
+        totalInterest: newTotalInterest,
+        updatedAt: new Date().toISOString()
+      });
+
+      await db.auditLogs.add({
+        action: 'REPAYMENT_AMOUNT_EDITED',
+        entityType: 'loan',
+        entityId: loan.loanId,
+        details: `Installment #${targetSched.installmentNumber} expected amount changed from GH₵${oldAmt.toFixed(2)} to GH₵${parsedAmt.toFixed(2)} for ${loan.customerName}`,
+        timestamp: new Date().toISOString()
+      });
+
+      await reconcileAllLoanBalances();
+      await checkAndUpdateLoanStatusesAndAlerts();
+      CloudSyncService.triggerBackgroundSync();
+
+      setDateUpdateFeedback(`Installment #${targetSched.installmentNumber} amount updated to ${formatCurrency(parsedAmt)}!`);
+      setTimeout(() => setDateUpdateFeedback(''), 3500);
+      setEditingSchedAmountId(null);
+      setEditingExpectedAmount('');
+    } catch (err) {
+      console.error('Failed to update installment amount:', err);
+    }
+  };
+
+  const handleSaveTotalRepayment = async () => {
+    const parsedTotal = parseFloat(newTotalRepaymentInput);
+    if (!parsedTotal || parsedTotal <= 0) {
+      setIsEditingTotalRepayment(false);
+      setNewTotalRepaymentInput('');
+      return;
+    }
+    try {
+      const oldTotal = loan.totalRepayment;
+      const numInst = Math.max(1, loan.totalInstallments || 1);
+      const perInst = Math.round((parsedTotal / numInst) * 100) / 100;
+      const newInterest = Math.max(0, Math.round((parsedTotal - loan.principalAmount) * 100) / 100);
+
+      await db.loans.update(loan.id!, {
+        totalRepayment: parsedTotal,
+        totalInterest: newInterest,
+        installmentAmount: perInst,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update all schedules evenly
+      for (const s of loanSchedules) {
+        if (!s.id) continue;
+        const remaining = Math.max(0, Math.round((perInst - (s.amountPaid || 0)) * 100) / 100);
+        const st = remaining <= 0.01 ? 'paid' : (s.amountPaid > 0 ? 'partially_paid' : 'upcoming');
+        await db.repaymentSchedules.update(s.id, {
+          expectedAmount: perInst,
+          remainingBalance: remaining,
+          status: st
+        });
+      }
+
+      await db.auditLogs.add({
+        action: 'TOTAL_REPAYMENT_EDITED',
+        entityType: 'loan',
+        entityId: loan.loanId,
+        details: `Total repayment amount changed from GH₵${oldTotal.toFixed(2)} to GH₵${parsedTotal.toFixed(2)} for ${loan.customerName}`,
+        timestamp: new Date().toISOString()
+      });
+
+      await reconcileAllLoanBalances();
+      await checkAndUpdateLoanStatusesAndAlerts();
+      CloudSyncService.triggerBackgroundSync();
+
+      setDateUpdateFeedback(`Total repayment updated to ${formatCurrency(parsedTotal)} successfully!`);
+      setTimeout(() => setDateUpdateFeedback(''), 4000);
+      setIsEditingTotalRepayment(false);
+      setNewTotalRepaymentInput('');
+    } catch (err) {
+      console.error('Failed to update total repayment:', err);
     }
   };
 
@@ -506,7 +620,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
             </div>
           )}
 
-          {/* Repayment Schedules Breakdown & Calendar Date Editor */}
+          {/* Repayment Schedules Breakdown & Calendar Date / Amount Editor */}
           <div className="space-y-2">
             <div className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center justify-between flex-wrap gap-1.5">
               <span className="flex items-center gap-1.5">
@@ -514,12 +628,27 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                 <span>Repayment Schedule</span>
               </span>
               
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingTotalRepayment(!isEditingTotalRepayment);
+                    setNewTotalRepaymentInput(loan.totalRepayment?.toString() || '');
+                    setIsEditingMaturityDate(false);
+                  }}
+                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-lg text-[10px] font-black transition flex items-center gap-1 shadow-xs"
+                  title="Change total repayment amount"
+                >
+                  <DollarSign className="w-3 h-3 text-indigo-600" />
+                  <span>{isEditingTotalRepayment ? 'Close Total' : 'Edit Total Repayment'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditingMaturityDate(!isEditingMaturityDate);
                     setCustomMaturityDate(loan.maturityDate || '');
+                    setIsEditingTotalRepayment(false);
                   }}
                   className="px-2 py-1 bg-sky-100 hover:bg-sky-200 text-sky-900 rounded-lg text-[10px] font-black transition flex items-center gap-1"
                   title="Change final loan due date"
@@ -530,6 +659,41 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                 <span className="text-[10px] text-slate-500 font-bold">Due {formatDate(loan.maturityDate)}</span>
               </div>
             </div>
+
+            {/* Total Repayment Amount Editor */}
+            {isEditingTotalRepayment && (
+              <div className="p-3 bg-indigo-50 border-2 border-indigo-300 rounded-2xl flex items-center justify-between gap-2 animate-fade-in text-xs">
+                <div className="flex items-center gap-2 flex-1">
+                  <label className="text-[11px] font-black text-indigo-950 whitespace-nowrap">New Total Repayment (GH₵):</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    value={newTotalRepaymentInput}
+                    onChange={(e) => setNewTotalRepaymentInput(e.target.value)}
+                    placeholder="e.g. 550"
+                    className="px-3 py-1.5 w-32 rounded-xl border-2 border-indigo-400 bg-white text-slate-950 font-black text-xs focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleSaveTotalRepayment}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl font-black text-[11px] flex items-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Repayment</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTotalRepayment(false)}
+                    className="p-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Overall Loan Due Date Editor */}
             {isEditingMaturityDate && (
@@ -572,7 +736,8 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
 
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {loanSchedules.map(sched => {
-                const isEditingThis = editingSchedId === sched.id;
+                const isEditingDate = editingSchedId === sched.id;
+                const isEditingAmt = editingSchedAmountId === sched.id;
 
                 return (
                   <div 
@@ -598,7 +763,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                       </div>
 
                       {/* Due Date & Inline Date Editor */}
-                      {isEditingThis ? (
+                      {isEditingDate ? (
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                           <label className="text-[10px] font-bold text-slate-600">New Due Date:</label>
                           <input
@@ -626,6 +791,37 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                             Cancel
                           </button>
                         </div>
+                      ) : isEditingAmt ? (
+                        /* Inline Amount Editor */
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          <label className="text-[10px] font-bold text-slate-600">New Expected Amount (GH₵):</label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.01"
+                            value={editingExpectedAmount}
+                            onChange={(e) => setEditingExpectedAmount(e.target.value)}
+                            className="px-2 py-1 w-24 rounded-lg border-2 border-emerald-500 text-xs font-black bg-white focus:outline-none text-slate-950"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveInstallmentAmount(sched.id!)}
+                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>Save</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSchedAmountId(null);
+                              setEditingExpectedAmount('');
+                            }}
+                            className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       ) : (
                         <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                           <span>
@@ -642,18 +838,34 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                             onClick={() => {
                               setEditingSchedId(sched.id!);
                               setEditingDueDate(sched.dueDate || '');
+                              setEditingSchedAmountId(null);
                             }}
-                            className="text-[10px] text-blue-700 hover:text-blue-900 font-black flex items-center gap-0.5 underline"
+                            className="text-[10px] text-blue-700 hover:text-blue-900 font-black flex items-center gap-0.5 underline cursor-pointer"
                             title="Edit installment date with calendar"
                           >
                             <Calendar className="w-3 h-3" />
                             <span>Change Date</span>
                           </button>
+
+                          {/* Inline Amount Edit Trigger */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSchedAmountId(sched.id!);
+                              setEditingExpectedAmount(sched.expectedAmount?.toString() || '');
+                              setEditingSchedId(null);
+                            }}
+                            className="text-[10px] text-emerald-700 hover:text-emerald-900 font-black flex items-center gap-0.5 underline cursor-pointer"
+                            title="Edit installment expected amount"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Change Amount</span>
+                          </button>
                         </div>
                       )}
                     </div>
 
-                    {sched.status !== 'paid' && !isEditingThis && (
+                    {sched.status !== 'paid' && !isEditingDate && !isEditingAmt && (
                       <button
                         onClick={() => onOpenRecordPayment?.(loan.loanId, sched.id)}
                         className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-95 text-white text-[11px] font-black rounded-xl shadow-sm transition shrink-0 self-end sm:self-auto"
@@ -691,6 +903,18 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                           Ref: {p.referenceNumber}
                         </span>
                       )}
+
+                      {/* Edit Recorded Payment Amount */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPaymentToEdit(p)}
+                        className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                        title="Edit Repayment Amount"
+                      >
+                        <Edit3 className="w-3 h-3 text-amber-600" />
+                        <span>Edit</span>
+                      </button>
+
                       {customer && (
                         <button
                           type="button"
@@ -699,7 +923,7 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
                           title="Send SMS Receipt"
                         >
                           <MessageSquare className="w-3 h-3 text-blue-600" />
-                          <span>SMS Receipt</span>
+                          <span>SMS</span>
                         </button>
                       )}
                     </div>
@@ -741,6 +965,17 @@ export const LoanDetailModal: React.FC<LoanDetailModalProps> = ({
         </div>
 
       </div>
+
+      {/* Edit Payment Amount Modal */}
+      {selectedPaymentToEdit && (
+        <EditPaymentModal
+          isOpen={!!selectedPaymentToEdit}
+          onClose={() => setSelectedPaymentToEdit(null)}
+          payment={selectedPaymentToEdit}
+          loan={loan}
+          customer={customer}
+        />
+      )}
     </div>
   );
 };

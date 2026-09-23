@@ -162,6 +162,7 @@ export interface Payment {
   notes?: string;
   recordedBy: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type NotificationType = 'due_today' | 'upcoming' | 'overdue' | 'loan_completed' | 'system';
