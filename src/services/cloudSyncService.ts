@@ -30,10 +30,7 @@ export interface CloudSnapshot {
 
 export class CloudSyncService {
   private static defaultOrgId = 'BFL-GHANA-MAIN';
-  private static MASTER_REGISTRY_ID = 'ff808181a09d98f701a0ce3a99957b44';
-  private static DEFAULT_PORTFOLIO_OBJECT_ID = 'ff808181a09d98f701a0ce3c2a307b47';
-  private static SNAPSHOT_VAULT_ID = 'ff808181a09d98f701a0ce3f82097b54';
-  private static REST_API_BASE = 'https://api.restful-api.dev/objects';
+  private static DEFAULT_FIREBASE_BASE = 'https://bfl-ghana-loans-default-rtdb.firebaseio.com';
 
   private static isSyncing = false;
   private static listeners: ((status: 'idle' | 'syncing' | 'synced' | 'error' | 'offline', lastSync?: string) => void)[] = [];
@@ -79,78 +76,6 @@ export class CloudSyncService {
   }
 
   /**
-   * Resolves the Portfolio Object ID for the given Organization Key
-   */
-  public static async getPortfolioObjectId(orgId: string): Promise<string> {
-    const cleanOrgId = (orgId || this.defaultOrgId).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-    
-    if (cleanOrgId === this.defaultOrgId) {
-      return this.DEFAULT_PORTFOLIO_OBJECT_ID;
-    }
-
-    const cached = localStorage.getItem(`bfl_portfolio_id_${cleanOrgId}`);
-    if (cached) return cached;
-
-    try {
-      const regRes = await fetch(`${this.REST_API_BASE}/${this.MASTER_REGISTRY_ID}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (regRes.ok) {
-        const regData = await regRes.json();
-        const mapping = regData?.data;
-        if (mapping && mapping[cleanOrgId]) {
-          localStorage.setItem(`bfl_portfolio_id_${cleanOrgId}`, mapping[cleanOrgId]);
-          return mapping[cleanOrgId];
-        }
-
-        // Create new object for custom orgId
-        const createRes = await fetch(this.REST_API_BASE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: `BFL_PORTFOLIO_${cleanOrgId}`,
-            data: {
-              orgId: cleanOrgId,
-              lastSyncedAt: new Date().toISOString(),
-              customers: [],
-              loans: [],
-              repaymentSchedules: [],
-              payments: []
-            }
-          })
-        });
-
-        if (createRes.ok) {
-          const created = await createRes.json();
-          const newObjId = created.id;
-          localStorage.setItem(`bfl_portfolio_id_${cleanOrgId}`, newObjId);
-
-          // Update Master Registry
-          await fetch(`${this.REST_API_BASE}/${this.MASTER_REGISTRY_ID}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: 'BFL_CENTRAL_REGISTRY_V1',
-              data: {
-                ...(mapping || {}),
-                [cleanOrgId]: newObjId,
-                lastRegistryUpdate: Date.now()
-              }
-            })
-          }).catch(() => {});
-
-          return newObjId;
-        }
-      }
-    } catch (e) {
-      console.warn('Could not resolve custom orgId, falling back to default:', e);
-    }
-
-    return this.DEFAULT_PORTFOLIO_OBJECT_ID;
-  }
-
-  /**
    * Retrieves active Org ID and cloud sync config
    */
   public static async getCloudConfig(): Promise<{ orgId: string; portfolioId: string; targetUrl: string; isCustomEndpoint: boolean }> {
@@ -159,21 +84,16 @@ export class CloudSyncService {
       const settings = settingsList[0];
       const orgId = (settings?.cloudSyncOrgId && settings.cloudSyncOrgId.trim()) || this.defaultOrgId;
       const cleanOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const customEndpoint = (settings?.cloudSyncEndpoint && settings.cloudSyncEndpoint.trim()) || '';
+      const customEndpoint = (settings?.cloudSyncEndpoint && settings.cloudSyncEndpoint.trim()) || this.DEFAULT_FIREBASE_BASE;
 
-      if (customEndpoint) {
-        const targetUrl = customEndpoint.endsWith('.json')
-          ? customEndpoint
-          : `${customEndpoint.replace(/\/$/, '')}/portfolios/${cleanOrgId}.json`;
-        return { orgId: cleanOrgId, portfolioId: cleanOrgId, targetUrl, isCustomEndpoint: true };
-      }
-
-      const portfolioId = await this.getPortfolioObjectId(cleanOrgId);
-      const targetUrl = `${this.REST_API_BASE}/${portfolioId}`;
-      return { orgId: cleanOrgId, portfolioId, targetUrl, isCustomEndpoint: false };
+      const base = customEndpoint.replace(/\/+$/, '');
+      const targetUrl = base.endsWith('.json')
+        ? base
+        : `${base}/portfolios/${cleanOrgId}.json`;
+      return { orgId: cleanOrgId, portfolioId: cleanOrgId, targetUrl, isCustomEndpoint: true };
     } catch {
-      const targetUrl = `${this.REST_API_BASE}/${this.DEFAULT_PORTFOLIO_OBJECT_ID}`;
-      return { orgId: this.defaultOrgId, portfolioId: this.DEFAULT_PORTFOLIO_OBJECT_ID, targetUrl, isCustomEndpoint: false };
+      const targetUrl = `${this.DEFAULT_FIREBASE_BASE}/portfolios/${this.defaultOrgId}.json`;
+      return { orgId: this.defaultOrgId, portfolioId: this.defaultOrgId, targetUrl, isCustomEndpoint: true };
     }
   }
 
@@ -190,15 +110,10 @@ export class CloudSyncService {
       const settings = settingsList[0];
       const org = (customOrgId !== undefined ? customOrgId : (settings?.cloudSyncOrgId || this.defaultOrgId)).trim();
       const cleanOrg = org.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const base = (customEndpoint !== undefined ? customEndpoint : (settings?.cloudSyncEndpoint || '')).trim();
+      const base = (customEndpoint !== undefined ? customEndpoint : (settings?.cloudSyncEndpoint || this.DEFAULT_FIREBASE_BASE)).trim() || this.DEFAULT_FIREBASE_BASE;
+      const cleanBase = base.replace(/\/+$/, '');
 
-      let targetUrl = '';
-      if (base) {
-        targetUrl = base.endsWith('.json') ? base : `${base.replace(/\/$/, '')}/portfolios/${cleanOrg}.json`;
-      } else {
-        const portfolioId = await this.getPortfolioObjectId(cleanOrg);
-        targetUrl = `${this.REST_API_BASE}/${portfolioId}`;
-      }
+      const targetUrl = cleanBase.endsWith('.json') ? cleanBase : `${cleanBase}/portfolios/${cleanOrg}.json`;
 
       const res = await fetch(targetUrl, {
         method: 'GET',
@@ -918,13 +833,11 @@ export class CloudSyncService {
         } : undefined
       };
 
-      const pushRes = await fetch(`${this.REST_API_BASE}/${portfolioId}`, {
+      const { targetUrl } = await this.getCloudConfig();
+      const pushRes = await fetch(targetUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `BFL_PORTFOLIO_${orgId}`,
-          data: cloudPayload
-        })
+        body: JSON.stringify(cloudPayload)
       });
 
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -958,7 +871,7 @@ export class CloudSyncService {
   }
 
   /**
-   * Creates a full Cloud Backup Snapshot in REST Cloud Hub
+   * Creates a full Cloud Backup Snapshot in Firebase Cloud
    */
   public static async createCloudSnapshot(customLabel?: string): Promise<{ success: boolean; snapshot?: CloudSnapshot; message: string }> {
     try {
@@ -995,38 +908,22 @@ export class CloudSyncService {
         }
       };
 
-      // Fetch existing snapshots vault
-      let existingSnapshots: Record<string, CloudSnapshot> = {};
-      try {
-        const vaultRes = await fetch(`${this.REST_API_BASE}/${this.SNAPSHOT_VAULT_ID}`, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' }
-        });
-        if (vaultRes.ok) {
-          const vaultJson = await vaultRes.json();
-          existingSnapshots = vaultJson?.data?.snapshots || {};
-        }
-      } catch (e) {
-        console.warn('Could not read existing vault snapshots:', e);
-      }
+      const settingsList = await db.settings.toArray();
+      const activeEndpoint = (settingsList[0]?.cloudSyncEndpoint || this.DEFAULT_FIREBASE_BASE).replace(/\/+$/, '');
+      const snapshotUrl = `${activeEndpoint}/snapshots/${snapshotId}.json`;
 
-      existingSnapshots[snapshotId] = snapshot;
-
-      const res = await fetch(`${this.REST_API_BASE}/${this.SNAPSHOT_VAULT_ID}`, {
+      const res = await fetch(snapshotUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'BFL_SNAPSHOT_VAULT_V1',
-          data: { snapshots: existingSnapshots }
-        })
+        body: JSON.stringify(snapshot)
       });
 
-      if (!res.ok) throw new Error(`Cloud Hub returned HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`Firebase returned HTTP ${res.status}`);
 
       return {
         success: true,
         snapshot,
-        message: `Cloud Snapshot "${label}" saved safely in Cloud Hub!`
+        message: `Cloud Snapshot "${label}" saved safely in Firebase!`
       };
     } catch (err: any) {
       console.error('Failed to create cloud snapshot:', err);
@@ -1038,18 +935,20 @@ export class CloudSyncService {
   }
 
   /**
-   * Fetches all Cloud Snapshots from REST Cloud Hub
+   * Fetches all Cloud Snapshots from Firebase Cloud
    */
   public static async fetchCloudSnapshots(): Promise<CloudSnapshot[]> {
     try {
-      const res = await fetch(`${this.REST_API_BASE}/${this.SNAPSHOT_VAULT_ID}`, {
+      const settingsList = await db.settings.toArray();
+      const activeEndpoint = (settingsList[0]?.cloudSyncEndpoint || this.DEFAULT_FIREBASE_BASE).replace(/\/+$/, '');
+      const res = await fetch(`${activeEndpoint}/snapshots.json`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
 
       if (!res.ok) return [];
-      const vaultJson = await res.json();
-      const snapshotMap = vaultJson?.data?.snapshots || {};
+      const snapshotMap = await res.json();
+      if (!snapshotMap || typeof snapshotMap !== 'object') return [];
       const snapshots: CloudSnapshot[] = Object.values(snapshotMap);
       return snapshots
         .filter(s => s && s.id && s.createdAt)
@@ -1118,29 +1017,17 @@ export class CloudSyncService {
   }
 
   /**
-   * Deletes a Cloud Snapshot from REST Cloud Hub
+   * Deletes a Cloud Snapshot from Firebase Cloud
    */
   public static async deleteCloudSnapshot(snapshotId: string): Promise<boolean> {
     try {
-      const vaultRes = await fetch(`${this.REST_API_BASE}/${this.SNAPSHOT_VAULT_ID}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      if (!vaultRes.ok) return false;
-      const vaultJson = await vaultRes.json();
-      const existingSnapshots = vaultJson?.data?.snapshots || {};
-      delete existingSnapshots[snapshotId];
-
-      const updateRes = await fetch(`${this.REST_API_BASE}/${this.SNAPSHOT_VAULT_ID}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'BFL_SNAPSHOT_VAULT_V1',
-          data: { snapshots: existingSnapshots }
-        })
+      const settingsList = await db.settings.toArray();
+      const activeEndpoint = (settingsList[0]?.cloudSyncEndpoint || this.DEFAULT_FIREBASE_BASE).replace(/\/+$/, '');
+      const deleteRes = await fetch(`${activeEndpoint}/snapshots/${snapshotId}.json`, {
+        method: 'DELETE'
       });
 
-      return updateRes.ok;
+      return deleteRes.ok;
     } catch (err) {
       console.error('Failed to delete snapshot:', err);
       return false;
@@ -1323,8 +1210,8 @@ export class CloudSyncService {
 
     // 2. Scan Central Cloud Portfolio for unlisted clients
     try {
-      const { portfolioId } = await this.getCloudConfig();
-      const res = await fetch(`${this.REST_API_BASE}/${portfolioId}`, {
+      const { targetUrl } = await this.getCloudConfig();
+      const res = await fetch(targetUrl, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });

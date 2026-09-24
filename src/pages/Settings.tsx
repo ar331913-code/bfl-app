@@ -117,7 +117,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [cloudSyncEndpoint, setCloudSyncEndpoint] = useState(
     (settings?.cloudSyncEndpoint && !settings.cloudSyncEndpoint.includes('bfl-app-cloud-sync-default-rtdb') && !settings.cloudSyncEndpoint.includes('bfl-microfinance-default-rtdb'))
       ? settings.cloudSyncEndpoint 
-      : ''
+      : 'https://bfl-ghana-loans-default-rtdb.firebaseio.com'
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
