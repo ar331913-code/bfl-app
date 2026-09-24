@@ -533,6 +533,32 @@ export class CloudSyncService {
             });
           }
         }
+
+        // E. Merge Settings & Password Credentials with timestamp-based conflict resolution
+        if (cloudData.settings && typeof cloudData.settings === 'object') {
+          const localSettingsList = await db.settings.toArray();
+          const localSettings = localSettingsList[0];
+          const localSettingsUpdated = new Date(localSettings?.updatedAt || '1970-01-01').getTime();
+          const cloudSettingsUpdated = new Date(cloudData.settings.updatedAt || '1970-01-01').getTime();
+
+          if (!localSettings || cloudSettingsUpdated >= localSettingsUpdated) {
+            const mergedSettings: SystemSettings = {
+              ...(localSettings || {}),
+              ...cloudData.settings,
+              id: localSettings?.id || 1
+            };
+            if (localSettings?.id) {
+              await db.settings.update(localSettings.id, mergedSettings);
+            } else {
+              await db.settings.clear();
+              await db.settings.add(mergedSettings);
+            }
+            try {
+              localStorage.setItem('bfl_cached_auth_settings', JSON.stringify(mergedSettings));
+              window.dispatchEvent(new CustomEvent('bfl_settings_updated', { detail: mergedSettings }));
+            } catch {}
+          }
+        }
       }
 
       // Reconcile loan balances against all payments after pull
@@ -583,7 +609,19 @@ export class CloudSyncService {
       const effectiveResetAt = localStorage.getItem('bfl_data_reset_at') || cloudResetAt || new Date().toISOString();
 
       const rawSettingsList = await db.settings.toArray();
-      const activeSettings = rawSettingsList[0];
+      let activeSettings = rawSettingsList[0];
+
+      // If cloud has newer settings, use cloud settings to prevent overwriting updated credentials
+      if (cloudData?.settings && typeof cloudData.settings === 'object') {
+        const localTime = new Date(activeSettings?.updatedAt || '1970-01-01').getTime();
+        const cloudTime = new Date(cloudData.settings.updatedAt || '1970-01-01').getTime();
+        if (cloudTime > localTime) {
+          activeSettings = {
+            ...(activeSettings || {}),
+            ...cloudData.settings
+          };
+        }
+      }
 
       const cloudPayload = {
         orgId,

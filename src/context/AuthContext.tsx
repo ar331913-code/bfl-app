@@ -275,15 +275,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (list.length > 0) currentSettings = list[0];
     } catch {}
 
-    const currentUsername = currentSettings?.username || 'admin';
-    const currentPassHash = currentSettings?.passwordHash || (await computeSha256('admin123'));
     const defaultHash = await computeSha256('admin123');
+    let currentUsername = currentSettings?.username || 'admin';
+    let currentPassHash = currentSettings?.passwordHash || defaultHash;
 
     const enteredPassHash = await computeSha256(trimmedPass);
 
     // Case-insensitive username check + secure password hash check
-    const isUserValid = trimmedUser.toLowerCase() === currentUsername.toLowerCase();
-    const isPassValid = (enteredPassHash === currentPassHash) || (trimmedPass === 'admin123' && currentPassHash === defaultHash);
+    let isUserValid = trimmedUser.toLowerCase() === currentUsername.toLowerCase();
+    let isPassValid = (enteredPassHash === currentPassHash) || (trimmedPass === 'admin123' && currentPassHash === defaultHash);
+
+    // If local verification fails and device is online, check central cloud settings
+    if ((!isUserValid || !isPassValid) && typeof window !== 'undefined' && navigator.onLine) {
+      try {
+        const cloudConfig = await CloudSyncService.getCloudConfig();
+        const res = await fetch(`https://api.restful-api.dev/objects/${cloudConfig.portfolioId}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const raw = await res.json();
+          const cloudSettings = raw?.data?.settings;
+          if (cloudSettings && typeof cloudSettings === 'object') {
+            const cloudUser = cloudSettings.username || 'admin';
+            const cloudHash = cloudSettings.passwordHash || defaultHash;
+            
+            const matchesCloudUser = trimmedUser.toLowerCase() === cloudUser.toLowerCase();
+            const matchesCloudPass = (enteredPassHash === cloudHash) || (trimmedPass === 'admin123' && cloudHash === defaultHash);
+
+            if (matchesCloudUser && matchesCloudPass) {
+              const merged: SystemSettings = {
+                ...(currentSettings || {}),
+                ...cloudSettings,
+                id: currentSettings?.id || 1
+              };
+              if (currentSettings?.id) {
+                await db.settings.update(currentSettings.id, merged);
+              } else {
+                await db.settings.clear();
+                await db.settings.add(merged);
+              }
+              setSettings(merged);
+              localStorage.setItem('bfl_cached_auth_settings', JSON.stringify(merged));
+              
+              isUserValid = true;
+              isPassValid = true;
+              
+              // Trigger background full synchronization
+              CloudSyncService.syncWithCloud().catch(() => {});
+            }
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Live cloud credential check fallback error:', cloudErr);
+      }
+    }
 
     if (isUserValid && isPassValid) {
       setIsAuthenticated(true);
@@ -306,11 +352,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (list.length > 0) currentSettings = list[0];
     } catch {}
 
-    const currentPassHash = currentSettings?.passwordHash || (await computeSha256('admin123'));
     const defaultHash = await computeSha256('admin123');
+    const currentPassHash = currentSettings?.passwordHash || defaultHash;
     const enteredPassHash = await computeSha256(cleanInput);
 
-    return (enteredPassHash === currentPassHash) || (cleanInput === 'admin123' && currentPassHash === defaultHash);
+    if ((enteredPassHash === currentPassHash) || (cleanInput === 'admin123' && currentPassHash === defaultHash)) {
+      return true;
+    }
+
+    // Check cloud credentials fallback
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      try {
+        const cloudConfig = await CloudSyncService.getCloudConfig();
+        const res = await fetch(`https://api.restful-api.dev/objects/${cloudConfig.portfolioId}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const raw = await res.json();
+          const cloudSettings = raw?.data?.settings;
+          if (cloudSettings && typeof cloudSettings === 'object') {
+            const cloudHash = cloudSettings.passwordHash || defaultHash;
+            if ((enteredPassHash === cloudHash) || (cleanInput === 'admin123' && cloudHash === defaultHash)) {
+              return true;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    return false;
   };
 
   const changeCredentials = async (
