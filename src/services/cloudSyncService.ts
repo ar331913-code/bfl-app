@@ -153,16 +153,88 @@ export class CloudSyncService {
   /**
    * Retrieves active Org ID and cloud sync config
    */
-  public static async getCloudConfig(): Promise<{ orgId: string; portfolioId: string }> {
+  public static async getCloudConfig(): Promise<{ orgId: string; portfolioId: string; targetUrl: string; isCustomEndpoint: boolean }> {
     try {
       const settingsList = await db.settings.toArray();
       const settings = settingsList[0];
       const orgId = (settings?.cloudSyncOrgId && settings.cloudSyncOrgId.trim()) || this.defaultOrgId;
       const cleanOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const customEndpoint = (settings?.cloudSyncEndpoint && settings.cloudSyncEndpoint.trim()) || '';
+
+      if (customEndpoint) {
+        const targetUrl = customEndpoint.endsWith('.json')
+          ? customEndpoint
+          : `${customEndpoint.replace(/\/$/, '')}/portfolios/${cleanOrgId}.json`;
+        return { orgId: cleanOrgId, portfolioId: cleanOrgId, targetUrl, isCustomEndpoint: true };
+      }
+
       const portfolioId = await this.getPortfolioObjectId(cleanOrgId);
-      return { orgId: cleanOrgId, portfolioId };
+      const targetUrl = `${this.REST_API_BASE}/${portfolioId}`;
+      return { orgId: cleanOrgId, portfolioId, targetUrl, isCustomEndpoint: false };
     } catch {
-      return { orgId: this.defaultOrgId, portfolioId: this.DEFAULT_PORTFOLIO_OBJECT_ID };
+      const targetUrl = `${this.REST_API_BASE}/${this.DEFAULT_PORTFOLIO_OBJECT_ID}`;
+      return { orgId: this.defaultOrgId, portfolioId: this.DEFAULT_PORTFOLIO_OBJECT_ID, targetUrl, isCustomEndpoint: false };
+    }
+  }
+
+  /**
+   * Performs a live connectivity and permission test against the configured Cloud Database Hub
+   */
+  public static async testConnection(customEndpoint?: string, customOrgId?: string): Promise<{ success: boolean; message: string; httpStatus?: number }> {
+    try {
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        return { success: false, message: 'Device is offline. Please connect to the internet to test.' };
+      }
+
+      const settingsList = await db.settings.toArray();
+      const settings = settingsList[0];
+      const org = (customOrgId !== undefined ? customOrgId : (settings?.cloudSyncOrgId || this.defaultOrgId)).trim();
+      const cleanOrg = org.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const base = (customEndpoint !== undefined ? customEndpoint : (settings?.cloudSyncEndpoint || '')).trim();
+
+      let targetUrl = '';
+      if (base) {
+        targetUrl = base.endsWith('.json') ? base : `${base.replace(/\/$/, '')}/portfolios/${cleanOrg}.json`;
+      } else {
+        const portfolioId = await this.getPortfolioObjectId(cleanOrg);
+        targetUrl = `${this.REST_API_BASE}/${portfolioId}`;
+      }
+
+      const res = await fetch(targetUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (res.ok) {
+        return {
+          success: true,
+          message: `Connected successfully to Cloud Database! (HTTP ${res.status} OK)`,
+          httpStatus: res.status
+        };
+      } else if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          message: `Permission Denied (HTTP ${res.status}). In your Firebase Realtime Database, go to the Rules tab and set ".read": true, ".write": true.`,
+          httpStatus: res.status
+        };
+      } else if (res.status === 404) {
+        return {
+          success: false,
+          message: `Database Not Found (HTTP 404). Please verify the Firebase Realtime Database URL.`,
+          httpStatus: res.status
+        };
+      } else {
+        return {
+          success: false,
+          message: `Cloud Hub returned HTTP ${res.status}: ${res.statusText}`,
+          httpStatus: res.status
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Network Connection Error: ${err?.message || 'Could not reach server'}`
+      };
     }
   }
 
@@ -179,8 +251,8 @@ export class CloudSyncService {
         return false;
       }
 
-      const { portfolioId } = await this.getCloudConfig();
-      const res = await fetch(`${this.REST_API_BASE}/${portfolioId}`, {
+      const { targetUrl } = await this.getCloudConfig();
+      const res = await fetch(targetUrl, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
@@ -281,18 +353,27 @@ export class CloudSyncService {
     this.notify('syncing');
 
     try {
-      const { orgId, portfolioId } = await this.getCloudConfig();
+      const { orgId, portfolioId, targetUrl, isCustomEndpoint } = await this.getCloudConfig();
 
       // 1. Fetch current cloud portfolio data
       let cloudData: any = null;
       try {
-        const response = await fetch(`${this.REST_API_BASE}/${portfolioId}`, {
+        const response = await fetch(targetUrl, {
           method: 'GET',
           headers: { 'Accept': 'application/json' }
         });
         if (response.ok) {
           const rawObj = await response.json();
           cloudData = rawObj?.data || rawObj;
+        } else if (response.status === 401 || response.status === 403) {
+          this.notify('error');
+          return {
+            success: false,
+            message: `Cloud Permission Denied (HTTP ${response.status}). In Firebase Database Rules, please set ".read": true, ".write": true.`,
+            pushedCount: 0,
+            pulledCount: 0,
+            lastSyncedAt: this.lastSyncTimestamp || new Date().toISOString()
+          };
         }
       } catch (err) {
         console.warn('Cloud pull error, will attempt local push to restore cloud state:', err);
@@ -666,17 +747,36 @@ export class CloudSyncService {
       };
 
       try {
-        const pushRes = await fetch(`${this.REST_API_BASE}/${portfolioId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: `BFL_PORTFOLIO_${orgId}`,
-            data: cloudPayload
-          })
-        });
+        let pushRes: Response;
+        if (isCustomEndpoint) {
+          // Direct JSON REST (e.g. Firebase Realtime Database)
+          pushRes = await fetch(targetUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cloudPayload)
+          });
+        } else {
+          pushRes = await fetch(targetUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: `BFL_PORTFOLIO_${orgId}`,
+              data: cloudPayload
+            })
+          });
+        }
 
         if (pushRes.ok) {
           pushedCount = unifiedCustomers.length + unifiedLoans.length + unifiedPayments.length;
+        } else if (pushRes.status === 401 || pushRes.status === 403) {
+          this.notify('error');
+          return {
+            success: false,
+            message: `Cloud Permission Denied (HTTP ${pushRes.status}). In Firebase Database Rules, please set ".read": true, ".write": true.`,
+            pushedCount: 0,
+            pulledCount: 0,
+            lastSyncedAt: this.lastSyncTimestamp || new Date().toISOString()
+          };
         }
       } catch (pushErr) {
         console.warn('Failed to push unified payload to cloud endpoint:', pushErr);
@@ -688,8 +788,7 @@ export class CloudSyncService {
       // Update settings with last sync
       if (activeSettings && activeSettings.id) {
         await db.settings.update(activeSettings.id, {
-          cloudLastSyncedAt: new Date().toISOString(),
-          cloudSyncEndpoint: `${this.REST_API_BASE}/${portfolioId}`
+          cloudLastSyncedAt: new Date().toISOString()
         });
       }
 

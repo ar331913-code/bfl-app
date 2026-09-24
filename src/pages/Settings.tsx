@@ -115,12 +115,14 @@ export const Settings: React.FC<SettingsProps> = ({
   // Cloud Synchronization state
   const [cloudSyncOrgId, setCloudSyncOrgId] = useState(settings?.cloudSyncOrgId || 'BFL-GHANA-MAIN');
   const [cloudSyncEndpoint, setCloudSyncEndpoint] = useState(
-    (settings?.cloudSyncEndpoint && !settings.cloudSyncEndpoint.includes('bfl-app-cloud-sync-default-rtdb'))
+    (settings?.cloudSyncEndpoint && !settings.cloudSyncEndpoint.includes('bfl-app-cloud-sync-default-rtdb') && !settings.cloudSyncEndpoint.includes('bfl-microfinance-default-rtdb'))
       ? settings.cloudSyncEndpoint 
-      : 'https://bfl-microfinance-default-rtdb.firebaseio.com'
+      : ''
   );
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
+  const [isTestingCloud, setIsTestingCloud] = useState(false);
+  const [cloudTestResult, setCloudTestResult] = useState<{ success: boolean; message: string; httpStatus?: number } | null>(null);
 
   // Automated SMS Gateway state
   const [smsProvider, setSmsProvider] = useState<'native' | 'mnotify' | 'arkesel' | 'hubtel' | 'custom_webhook'>(settings?.smsProvider || 'native');
@@ -293,6 +295,23 @@ export const Settings: React.FC<SettingsProps> = ({
     } finally {
       setIsCloudSyncing(false);
       setTimeout(() => setCloudSyncMessage(null), 4000);
+    }
+  };
+
+  const handleTestCloudConnection = async () => {
+    setIsTestingCloud(true);
+    setCloudTestResult(null);
+    try {
+      await updateSettings({ cloudSyncOrgId, cloudSyncEndpoint });
+      const res = await CloudSyncService.testConnection(cloudSyncEndpoint, cloudSyncOrgId);
+      setCloudTestResult(res);
+    } catch (err: any) {
+      setCloudTestResult({
+        success: false,
+        message: err?.message || 'Failed to connect to cloud database.'
+      });
+    } finally {
+      setIsTestingCloud(false);
     }
   };
 
@@ -593,17 +612,55 @@ export const Settings: React.FC<SettingsProps> = ({
 
             <div>
               <label className="text-[11px] font-bold text-sky-200 block mb-1">
-                Cloud Database Hub
+                Cloud Database Hub (Firebase / REST URL)
               </label>
-              <input
-                type="text"
-                placeholder="https://bfl-microfinance-default-rtdb.firebaseio.com"
-                value={cloudSyncEndpoint}
-                onChange={(e) => setCloudSyncEndpoint(e.target.value)}
-                className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
-              />
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  placeholder="e.g. https://your-db-default-rtdb.firebaseio.com"
+                  value={cloudSyncEndpoint}
+                  onChange={(e) => setCloudSyncEndpoint(e.target.value)}
+                  className="flex-1 text-xs font-mono px-3.5 py-2.5 rounded-xl border border-sky-500/40 bg-white/10 text-white focus:border-sky-400 focus:outline-none placeholder:text-slate-500 text-[11px]"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestCloudConnection}
+                  disabled={isTestingCloud}
+                  className="px-3 py-2 rounded-xl bg-sky-500/30 hover:bg-sky-500/50 text-[11px] font-bold text-sky-200 border border-sky-400/40 shrink-0 transition active:scale-95 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {isTestingCloud ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Testing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-3.5 h-3.5 text-sky-300" />
+                      <span>Test Connection</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Cloud Test Result Feedback */}
+          {cloudTestResult && (
+            <div className={`p-3.5 rounded-2xl border text-xs font-bold flex items-start gap-2.5 animate-fade-in shadow-xs ${
+              cloudTestResult.success 
+                ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200' 
+                : 'bg-rose-500/20 border-rose-400/50 text-rose-200'
+            }`}>
+              {cloudTestResult.success ? (
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 text-[11px] leading-relaxed">
+                <span>{cloudTestResult.message}</span>
+              </div>
+            </div>
+          )}
 
           {cloudSyncMessage && (
             <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center gap-2 animate-fade-in shadow-xs">
