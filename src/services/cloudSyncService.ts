@@ -56,19 +56,59 @@ export class CloudSyncService {
     });
   }
 
+  private static eventSource: EventSource | null = null;
+
   /**
-   * Connects Real-Time Sync Stream / Heartbeat for cross-device updates
+   * Connects Real-Time Server-Sent Events (SSE) stream from Firebase for sub-second cross-device updates
    */
   public static connectRealtimeStream() {
+    if (typeof window === 'undefined') return;
+
+    this.disconnectRealtimeStream();
+
+    this.getCloudConfig().then(({ targetUrl }) => {
+      try {
+        if (typeof EventSource !== 'undefined' && targetUrl.includes('firebaseio.com')) {
+          this.eventSource = new EventSource(targetUrl);
+          
+          this.eventSource.addEventListener('put', () => {
+            if (this.syncDebounceTimer) clearTimeout(this.syncDebounceTimer);
+            this.syncDebounceTimer = setTimeout(() => {
+              CloudSyncService.syncWithCloud().catch(() => {});
+            }, 300);
+          });
+
+          this.eventSource.addEventListener('patch', () => {
+            if (this.syncDebounceTimer) clearTimeout(this.syncDebounceTimer);
+            this.syncDebounceTimer = setTimeout(() => {
+              CloudSyncService.syncWithCloud().catch(() => {});
+            }, 300);
+          });
+
+          this.eventSource.onerror = () => {
+            // Silently fallback to periodic polling if stream reconnects
+          };
+        }
+      } catch (err) {
+        console.warn('Realtime stream setup:', err);
+      }
+    }).catch(() => {});
+
     // Initial sync trigger
-    if (typeof window !== 'undefined' && navigator.onLine) {
+    if (navigator.onLine) {
       setTimeout(() => {
-        CloudSyncService.syncWithCloud().catch(() => {});
-      }, 1000);
+        CloudSyncService.syncWithCloud(true).catch(() => {});
+      }, 500);
     }
   }
 
   public static disconnectRealtimeStream() {
+    if (this.eventSource) {
+      try {
+        this.eventSource.close();
+      } catch {}
+      this.eventSource = null;
+    }
     if (this.syncDebounceTimer) {
       clearTimeout(this.syncDebounceTimer);
       this.syncDebounceTimer = null;

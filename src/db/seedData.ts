@@ -3,8 +3,9 @@ import { Customer, Loan, RepaymentSchedule, Payment, SystemSettings } from '../t
 import { format, subDays, addDays } from 'date-fns';
 
 export async function initDefaultSettings(): Promise<void> {
-  const existingSettings = await db.settings.count();
-  if (existingSettings === 0) {
+  const DEFAULT_RTDB = 'https://bfl-ghana-loans-default-rtdb.firebaseio.com';
+  const existingList = await db.settings.toArray();
+  if (existingList.length === 0) {
     const defaultSettings: SystemSettings = {
       operatorName: 'Loan Administrator',
       businessName: 'B-F-L',
@@ -23,9 +24,22 @@ export async function initDefaultSettings(): Promise<void> {
       autoLockMinutes: 10,
       biometricEnabled: false,
       salt: 'bfl_salt_2026',
-      smsReminderTemplate: 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.'
+      smsReminderTemplate: 'Hello {name}, your B-F-L loan installment of GH₵{amount} is due on {date}. Kindly remit via MoMo or cash.',
+      cloudSyncOrgId: 'BFL-GHANA-MAIN',
+      cloudSyncEndpoint: DEFAULT_RTDB
     };
     await db.settings.add(defaultSettings);
+  } else {
+    const active = existingList[0];
+    if (active && active.id) {
+      const ep = active.cloudSyncEndpoint || '';
+      if (!ep || ep.includes('bfl-microfinance') || ep.includes('bfl-app-cloud-sync') || ep.includes('restful-api.dev')) {
+        await db.settings.update(active.id, {
+          cloudSyncEndpoint: DEFAULT_RTDB,
+          cloudSyncOrgId: active.cloudSyncOrgId || 'BFL-GHANA-MAIN'
+        });
+      }
+    }
   }
 }
 

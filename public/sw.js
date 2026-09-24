@@ -1,5 +1,5 @@
-// B-F-L Progressive Web App Service Worker v3 (Network-First for HTML, Cache for Assets)
-const CACHE_NAME = 'bfl-cache-v3';
+// B-F-L Progressive Web App Service Worker v4 (Network-First for HTML, Cache for Assets)
+const CACHE_NAME = 'bfl-cache-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
