@@ -341,9 +341,6 @@ export class CloudSyncService {
       const localResetAt = localStorage.getItem('bfl_data_reset_at') || '1970-01-01T00:00:00.000Z';
       const cloudResetAt = cloudData?.dataResetAt || '1970-01-01T00:00:00.000Z';
 
-      const cloudResetTime = new Date(cloudResetAt).getTime();
-      const localResetTime = new Date(localResetAt).getTime();
-
       const localDeletedCustIds: string[] = (() => {
         try {
           const raw = localStorage.getItem('bfl_deleted_customer_ids');
@@ -357,27 +354,53 @@ export class CloudSyncService {
         ? cloudData.deletedCustomerIds
         : [];
       
-      // Full union of local and cloud tombstones
+      // Load current local active customers
+      const allLocal = await db.customers.toArray();
+      const localActiveMap = new Map<string, Customer>();
+      for (const c of allLocal) {
+        if (c && c.customerId) {
+          localActiveMap.set(c.customerId.trim().toUpperCase(), c);
+        }
+      }
+
+      // Tombstones should only purge customers that were genuinely deleted across devices,
+      // and NEVER purge a customer that was newly added or restored locally.
+      const cloudSyncTime = cloudData?.lastSyncedAt ? new Date(cloudData.lastSyncedAt).getTime() : 0;
+
       const combinedDeletedCustIds = Array.from(
         new Set([...localDeletedCustIds, ...cloudDeletedCustIds].map(id => (id || '').trim()))
-      ).filter(Boolean);
+      ).filter(id => {
+        if (!id) return false;
+        const localCust = localActiveMap.get(id.trim().toUpperCase());
+        if (localCust) {
+          // If customer was created/updated locally after the last cloud sync, preserve it!
+          const localTime = new Date(localCust.updatedAt || localCust.createdAt || '1970-01-01').getTime();
+          if (localTime >= cloudSyncTime) {
+            // Local customer is active and newer -> NOT deleted!
+            return false;
+          }
+        }
+        return true;
+      });
+
+      // Purge only true stale tombstones from other devices
+      if (combinedDeletedCustIds.length > 0) {
+        const deletedSet = new Set(combinedDeletedCustIds.map(id => id.trim().toUpperCase()));
+        for (const [cId, cust] of localActiveMap.entries()) {
+          if (deletedSet.has(cId)) {
+            const custTime = new Date(cust.updatedAt || cust.createdAt || '1970-01-01').getTime();
+            // If customer is older than cloud sync, it was deleted on another device -> purge
+            if (custTime < cloudSyncTime) {
+              await db.deleteCustomer(cust.customerId);
+            }
+          }
+        }
+      }
 
       try {
         localStorage.setItem('bfl_deleted_customer_ids', JSON.stringify(combinedDeletedCustIds));
         localStorage.setItem('bfl_data_reset_at', cloudResetAt);
       } catch {}
-
-      // If any local customer exists in Dexie that matches a deletion tombstone, purge it immediately!
-      if (combinedDeletedCustIds.length > 0) {
-        const deletedSet = new Set(combinedDeletedCustIds.map(id => id.toLowerCase()));
-        const allLocal = await db.customers.toArray();
-        const staleLocal = allLocal.filter(c => c.customerId && deletedSet.has(c.customerId.trim().toLowerCase()));
-        if (staleLocal.length > 0) {
-          for (const c of staleLocal) {
-            await db.deleteCustomer(c.customerId);
-          }
-        }
-      }
 
       // 2. Process Cloud Data -> Local Database
       if (cloudData && typeof cloudData === 'object') {
@@ -662,7 +685,7 @@ export class CloudSyncService {
       const cloudPayload = {
         orgId,
         dataResetAt: effectiveResetAt,
-        deletedCustomerIds: combinedDeletedCustIds,
+        deletedCustomerIds: combinedDeletedCustIds.filter(id => !uCustMap.has(id.trim())),
         lastSyncedAt: new Date().toISOString(),
         customers: unifiedCustomers,
         loans: unifiedLoans,
